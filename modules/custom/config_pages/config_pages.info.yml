@@ -1,0 +1,9 @@
+name: 'Config pages'
+type: module
+description: 'Allows the creation of custom configuration entities.'
+package: Entity
+version: 0.01
+core: 8.x
+dependencies:
+  - text
+configure: entity.config_pages.collection
