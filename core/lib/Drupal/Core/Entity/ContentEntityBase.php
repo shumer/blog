@@ -395,7 +395,7 @@ abstract class ContentEntityBase extends Entity implements \IteratorAggregate, C
     // fields objects, possibly holding changes to field values.
     if (!isset($this->fields[$name][$langcode])) {
       $definition = $this->getFieldDefinition($name);
-      if (!$definition) {kpr($this);
+      if (!$definition) {
         throw new \InvalidArgumentException('Field ' . SafeMarkup::checkPlain($name) . ' is unknown.');
       }
       // Non-translatable fields are always stored with
