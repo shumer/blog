@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Tests\Core\Cache\NullBackendTest.
+ * Contains \Drupal\Tests\Core\Cache\NullBackendTest.
  */
 
 namespace Drupal\Tests\Core\Cache;
@@ -23,8 +23,8 @@ class NullBackendTest extends UnitTestCase {
   function testNullBackend() {
     $null_cache = new NullBackend('test');
 
-    $key = $this->randomName();
-    $value = $this->randomName();
+    $key = $this->randomMachineName();
+    $value = $this->randomMachineName();
 
     $null_cache->set($key, $value);
     $this->assertFalse($null_cache->get($key));

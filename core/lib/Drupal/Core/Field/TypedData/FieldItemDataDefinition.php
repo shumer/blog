@@ -7,7 +7,7 @@
 
 namespace Drupal\Core\Field\TypedData;
 
-use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\TypedData\ComplexDataDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
 
@@ -38,7 +38,7 @@ class FieldItemDataDefinition extends DataDefinition implements ComplexDataDefin
       throw new \InvalidArgumentException('Data type must be in the form of "field_item:FIELD_TYPE".');
     }
 
-    $field_definition = FieldDefinition::create($parts[1]);
+    $field_definition = BaseFieldDefinition::create($parts[1]);
     return $field_definition->getItemDefinition();
   }
 
@@ -76,6 +76,16 @@ class FieldItemDataDefinition extends DataDefinition implements ComplexDataDefin
    */
   public function getMainPropertyName() {
     return $this->fieldDefinition->getFieldStorageDefinition()->getMainPropertyName();
+  }
+
+  /**
+   * Gets the field item's field definition.
+   *
+   * @return \Drupal\Core\Field\FieldDefinitionInterface
+   *   The field definition for this field item.
+   */
+  public function getFieldDefinition() {
+    return $this->fieldDefinition;
   }
 
 }

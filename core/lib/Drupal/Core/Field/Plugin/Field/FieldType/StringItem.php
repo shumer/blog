@@ -7,41 +7,33 @@
 
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
+use Drupal\Component\Utility\Random;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
-use Drupal\Core\Field\FieldItemBase;
-use Drupal\Core\TypedData\DataDefinition;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Defines the 'string' entity field type.
  *
  * @FieldType(
  *   id = "string",
- *   label = @Translation("String"),
- *   description = @Translation("An entity field containing a string value."),
- *   no_ui = TRUE,
- *   default_widget = "string",
+ *   label = @Translation("Text (plain)"),
+ *   description = @Translation("A field containing a plain string value."),
+ *   category = @Translation("Text"),
+ *   default_widget = "string_textfield",
  *   default_formatter = "string"
  * )
  */
-class StringItem extends FieldItemBase {
+class StringItem extends StringItemBase {
 
   /**
    * {@inheritdoc}
    */
-  public static function defaultSettings() {
+  public static function defaultStorageSettings() {
     return array(
       'max_length' => 255,
-    ) + parent::defaultSettings();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
-    $properties['value'] = DataDefinition::create('string')
-      ->setLabel(t('Text value'));
-
-    return $properties;
+      'is_ascii' => FALSE,
+    ) + parent::defaultStorageSettings();
   }
 
   /**
@@ -51,9 +43,9 @@ class StringItem extends FieldItemBase {
     return array(
       'columns' => array(
         'value' => array(
-          'type' => 'varchar',
+          'type' => $field_definition->getSetting('is_ascii') === TRUE ? 'varchar_ascii' : 'varchar',
           'length' => (int) $field_definition->getSetting('max_length'),
-          'not null' => FALSE,
+          'binary' => $field_definition->getSetting('case_sensitive'),
         ),
       ),
     );
@@ -78,6 +70,34 @@ class StringItem extends FieldItemBase {
     }
 
     return $constraints;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+    $random = new Random();
+    $values['value'] = $random->word(mt_rand(1, $field_definition->getSetting('max_length')));
+    return $values;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function storageSettingsForm(array &$form, FormStateInterface $form_state, $has_data) {
+    $element = array();
+
+    $element['max_length'] = array(
+      '#type' => 'number',
+      '#title' => t('Maximum length'),
+      '#default_value' => $this->getSetting('max_length'),
+      '#required' => TRUE,
+      '#description' => t('The maximum length of the field in characters.'),
+      '#min' => 1,
+      '#disabled' => $has_data,
+    );
+
+    return $element;
   }
 
 }

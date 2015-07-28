@@ -7,7 +7,7 @@
 
 namespace Drupal\node\Tests;
 
-use Drupal\Core\Language\Language;
+use Drupal\language\Entity\ConfigurableLanguage;
 
 /**
  * Tests the node language extra field display.
@@ -28,8 +28,7 @@ class NodeViewLanguageTest extends NodeTestBase {
    */
   public function testViewLanguage() {
     // Add Spanish language.
-    $language = new Language(array('id' => 'es'));
-    language_save($language);
+    ConfigurableLanguage::createFromLangcode('es')->save();
 
     // Set language field visible.
     entity_get_display('node', 'page', 'full')
@@ -39,7 +38,7 @@ class NodeViewLanguageTest extends NodeTestBase {
     // Create a node in Spanish.
     $node = $this->drupalCreateNode(array('langcode' => 'es'));
 
-    $this->drupalGet($node->getSystemPath());
+    $this->drupalGet($node->urlInfo());
     $this->assertText('Spanish','The language field is displayed properly.');
   }
 

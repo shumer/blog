@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Component\Utility\NestedArray.
+ * Contains \Drupal\Component\Utility\NestedArray.
  */
 
 namespace Drupal\Component\Utility;
@@ -34,15 +34,15 @@ class NestedArray {
    * $value = NestedArray::getValue($form, $parents);
    * @endcode
    *
-   * The return value will be NULL, regardless of whether the actual value is
-   * NULL or whether the requested key does not exist. If it is required to know
-   * whether the nested array key actually exists, pass a third argument that is
-   * altered by reference:
+   * A return value of NULL is ambiguous, and can mean either that the requested
+   * key does not exist, or that the actual value is NULL. If it is required to
+   * know whether the nested array key actually exists, pass a third argument
+   * that is altered by reference:
    * @code
    * $key_exists = NULL;
    * $value = NestedArray::getValue($form, $parents, $key_exists);
    * if ($key_exists) {
-   *   // ... do something with $value ...
+   *   // Do something with $value.
    * }
    * @endcode
    *
@@ -291,10 +291,6 @@ class NestedArray {
    * @param array ...
    *   Arrays to merge.
    *
-   * @param bool $preserve_integer_keys
-   *   (optional) If given, integer keys will be preserved and merged instead of
-   *   appended.
-   *
    * @return array
    *   The merged array.
    *
@@ -318,6 +314,15 @@ class NestedArray {
    * The following are also equivalent:
    * - call_user_func_array('NestedArray::mergeDeep', $arrays_to_merge);
    * - NestedArray::mergeDeepArray($arrays_to_merge);
+   *
+   * @param array $arrays
+   *   An arrays of arrays to merge.
+   * @param bool $preserve_integer_keys
+   *   (optional) If given, integer keys will be preserved and merged instead of
+   *   appended. Defaults to FALSE.
+   *
+   * @return array
+   *   The merged array.
    *
    * @see NestedArray::mergeDeep()
    */

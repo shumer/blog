@@ -12,6 +12,15 @@ use Drupal\Component\Annotation\Plugin;
 /**
  * Defines an Editor annotation object.
  *
+ * Plugin Namespace: Plugin\Editor
+ *
+ * For a working example, see \Drupal\ckeditor\Plugin\Editor\CKEditor
+ *
+ * @see \Drupal\editor\Plugin\EditorPluginInterface
+ * @see \Drupal\editor\Plugin\EditorBase
+ * @see \Drupal\editor\Plugin\EditorManager
+ * @see plugin_api
+ *
  * @Annotation
  */
 class Editor extends Plugin {
@@ -35,7 +44,7 @@ class Editor extends Plugin {
   /**
    * Whether the editor supports "allowed content only" filtering.
    *
-   * @var boolean
+   * @var bool
    */
   public $supports_content_filtering;
 
@@ -52,5 +61,12 @@ class Editor extends Plugin {
    * @var bool
    */
   public $is_xss_safe;
+
+  /**
+   * A list of element types this text editor supports.
+   *
+   * @var string[]
+   */
+  public $supported_element_types;
 
 }

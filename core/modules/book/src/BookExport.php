@@ -8,6 +8,8 @@
 namespace Drupal\book;
 
 use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Render\RendererInterface;
+use Drupal\node\Entity\Node;
 use Drupal\node\NodeInterface;
 
 /**
@@ -84,6 +86,9 @@ class BookExport {
       '#title' => $node->label(),
       '#contents' => $contents,
       '#depth' => $node->book['depth'],
+      '#cache' => [
+        'tags' => $node->getEntityType()->getListCacheTags(),
+      ],
     );
   }
 
@@ -114,7 +119,7 @@ class BookExport {
       }
     }
 
-    return drupal_render($build);
+    return $build;
   }
 
   /**
@@ -135,10 +140,9 @@ class BookExport {
     $build = $this->viewBuilder->view($node, 'print', NULL);
     unset($build['#theme']);
 
-    // @todo Rendering should happen in the template using render().
-    $node->rendered = drupal_render($build);
     return array(
       '#theme' => 'book_node_export_html',
+      '#content' => $build,
       '#node' => $node,
       '#children' => $children,
     );

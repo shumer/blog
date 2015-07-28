@@ -7,16 +7,17 @@
 
 namespace Drupal\quickedit\Form;
 
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
-use Drupal\entity\Entity\EntityFormDisplay;
-use Drupal\user\TempStoreFactory;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\user\PrivateTempStoreFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Builds and process a form for editing a single entity field.
@@ -26,7 +27,7 @@ class QuickEditFieldForm extends FormBase {
   /**
    * Stores the tempstore factory.
    *
-   * @var \Drupal\user\TempStoreFactory
+   * @var \Drupal\user\PrivateTempStoreFactory
    */
   protected $tempStoreFactory;
 
@@ -45,19 +46,29 @@ class QuickEditFieldForm extends FormBase {
   protected $nodeTypeStorage;
 
   /**
+   * The typed data validator.
+   *
+   * @var \Symfony\Component\Validator\Validator\ValidatorInterface
+   */
+  protected $validator;
+
+  /**
    * Constructs a new EditFieldForm.
    *
-   * @param \Drupal\user\TempStoreFactory $temp_store_factory
+   * @param \Drupal\user\PrivateTempStoreFactory $temp_store_factory
    *   The tempstore factory.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
    * @param \Drupal\Core\Entity\EntityStorageInterface $node_type_storage
    *   The node type storage.
+   * @param \Symfony\Component\Validator\Validator\ValidatorInterface $validator
+   *   The typed data validator service.
    */
-  public function __construct(TempStoreFactory $temp_store_factory, ModuleHandlerInterface $module_handler, EntityStorageInterface $node_type_storage) {
+  public function __construct(PrivateTempStoreFactory $temp_store_factory, ModuleHandlerInterface $module_handler, EntityStorageInterface $node_type_storage, ValidatorInterface $validator) {
     $this->moduleHandler = $module_handler;
     $this->nodeTypeStorage = $node_type_storage;
     $this->tempStoreFactory = $temp_store_factory;
+    $this->validator = $validator;
   }
 
   /**
@@ -65,9 +76,10 @@ class QuickEditFieldForm extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('user.tempstore'),
+      $container->get('user.private_tempstore'),
       $container->get('module_handler'),
-      $container->get('entity.manager')->getStorage('node_type')
+      $container->get('entity.manager')->getStorage('node_type'),
+      $container->get('typed_data_manager')->getValidator()
     );
   }
 
@@ -83,13 +95,13 @@ class QuickEditFieldForm extends FormBase {
    *
    * Builds a form for a single entity field.
    */
-  public function buildForm(array $form, array &$form_state, EntityInterface $entity = NULL, $field_name = NULL) {
-    if (!isset($form_state['entity'])) {
+  public function buildForm(array $form, FormStateInterface $form_state, EntityInterface $entity = NULL, $field_name = NULL) {
+    if (!$form_state->has('entity')) {
       $this->init($form_state, $entity, $field_name);
     }
 
     // Add the field form.
-    $form_state['form_display']->buildForm($entity, $form, $form_state);
+    $form_state->get('form_display')->buildForm($entity, $form, $form_state);
 
     // Add a dummy changed timestamp field to attach form errors to.
     if ($entity instanceof EntityChangedInterface) {
@@ -116,47 +128,35 @@ class QuickEditFieldForm extends FormBase {
   /**
    * Initialize the form state and the entity before the first form build.
    */
-  protected function init(array &$form_state, EntityInterface $entity, $field_name) {
+  protected function init(FormStateInterface $form_state, EntityInterface $entity, $field_name) {
     // @todo Rather than special-casing $node->revision, invoke prepareEdit()
-    //   once http://drupal.org/node/1863258 lands.
+    //   once https://www.drupal.org/node/1863258 lands.
     if ($entity->getEntityTypeId() == 'node') {
-      $node_type_settings = $this->nodeTypeStorage->load($entity->bundle())->getModuleSettings('node');
-      $options = (isset($node_type_settings['options'])) ? $node_type_settings['options'] : array();
-      $entity->setNewRevision(!empty($options['revision']));
+      $node_type = $this->nodeTypeStorage->load($entity->bundle());
+      $entity->setNewRevision($node_type->isNewRevision());
       $entity->revision_log = NULL;
     }
 
-    $form_state['entity'] = $entity;
-    $form_state['field_name'] = $field_name;
+    $form_state->set('entity', $entity);
+    $form_state->set('field_name', $field_name);
 
     // Fetch the display used by the form. It is the display for the 'default'
     // form mode, with only the current field visible.
     $display = EntityFormDisplay::collectRenderDisplay($entity, 'default');
-    foreach ($display->getComponents() as $name => $optipns) {
+    foreach ($display->getComponents() as $name => $options) {
       if ($name != $field_name) {
         $display->removeComponent($name);
       }
     }
-    $form_state['form_display'] = $display;
+    $form_state->set('form_display', $display);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     $entity = $this->buildEntity($form, $form_state);
-
-    $form_state['form_display']->validateFormValues($entity, $form, $form_state);
-
-    // Do validation on the changed field as well and assign the error to the
-    // dummy form element we added for this. We don't know the name of this
-    // field on the entity, so we need to find it and validate it ourselves.
-    if ($changed_field_name = $this->getChangedFieldName($entity)) {
-      $changed_field_errors = $entity->$changed_field_name->validate();
-      if (count($changed_field_errors)) {
-        $this->setFormError('changed_field', $form_state, $changed_field_errors[0]->getMessage());
-      }
-    }
+    $form_state->get('form_display')->validateFormValues($entity, $form, $form_state);
   }
 
   /**
@@ -164,11 +164,12 @@ class QuickEditFieldForm extends FormBase {
    *
    * Saves the entity with updated values for the edited field.
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $form_state['entity'] = $this->buildEntity($form, $form_state);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $entity = $this->buildEntity($form, $form_state);
+    $form_state->set('entity', $entity);
 
     // Store entity in tempstore with its UUID as tempstore key.
-    $this->tempStoreFactory->get('quickedit')->set($form_state['entity']->uuid(), $form_state['entity']);
+    $this->tempStoreFactory->get('quickedit')->set($entity->uuid(), $entity);
   }
 
   /**
@@ -177,16 +178,16 @@ class QuickEditFieldForm extends FormBase {
    * Calling code may then validate the returned entity, and if valid, transfer
    * it back to the form state and save it.
    */
-  protected function buildEntity(array $form, array &$form_state) {
+  protected function buildEntity(array $form, FormStateInterface $form_state) {
     /** @var $entity \Drupal\Core\Entity\EntityInterface */
-    $entity = clone $form_state['entity'];
-    $field_name = $form_state['field_name'];
+    $entity = clone $form_state->get('entity');
+    $field_name = $form_state->get('field_name');
 
-    $form_state['form_display']->extractFormValues($entity, $form, $form_state);
+    $form_state->get('form_display')->extractFormValues($entity, $form, $form_state);
 
     // @todo Refine automated log messages and abstract them to all entity
-    //   types: http://drupal.org/node/1678002.
-    if ($entity->getEntityTypeId() == 'node' && $entity->isNewRevision() && !isset($entity->revision_log)) {
+    //   types: https://www.drupal.org/node/1678002.
+    if ($entity->getEntityTypeId() == 'node' && $entity->isNewRevision() && $entity->revision_log->isEmpty()) {
       $entity->revision_log = t('Updated the %field-name field through in-place editing.', array('%field-name' => $entity->get($field_name)->getFieldDefinition()->getLabel()));
     }
 
@@ -203,11 +204,11 @@ class QuickEditFieldForm extends FormBase {
    *
    * @param array &$form
    *   A reference to an associative array containing the structure of the form.
-   * @param array &$form_state
-   *   A reference to a keyed array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    */
-  protected function simplify(array &$form, array &$form_state) {
-    $field_name = $form_state['field_name'];
+  protected function simplify(array &$form, FormStateInterface $form_state) {
+    $field_name = $form_state->get('field_name');
     $widget_element =& $form[$field_name]['widget'];
 
     // Hide the field label from displaying within the form, because JavaScript
@@ -231,23 +232,6 @@ class QuickEditFieldForm extends FormBase {
     if (isset($widget_element[0]['value']['#type']) && $widget_element[0]['value']['#type'] == 'textarea') {
       $lines = count(explode("\n", $widget_element[0]['value']['#default_value']));
       $widget_element[0]['value']['#rows'] = $lines + 1;
-    }
-  }
-
-  /**
-   * Finds the field name for the field carrying the changed timestamp, if any.
-   *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
-   *   The entity.
-   *
-   * @return string|null
-   *   The name of the field found or NULL if not found.
-   */
-  protected function getChangedFieldName(ContentEntityInterface $entity) {
-    foreach ($entity->getFieldDefinitions() as $field) {
-      if ($field->getType() == 'changed') {
-        return $field->getName();
-      }
     }
   }
 

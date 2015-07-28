@@ -15,7 +15,11 @@ use Drupal\Core\Config\DatabaseStorage;
  * @group config
  */
 class DatabaseStorageTest extends ConfigStorageTestBase {
-  function setUp() {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
     parent::setUp();
 
     $this->storage = new DatabaseStorage($this->container->get('database'), 'config');

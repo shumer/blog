@@ -17,16 +17,17 @@ class ContentEntityType extends EntityType implements ContentEntityTypeInterface
    */
   public function __construct($definition) {
     parent::__construct($definition);
-    $this->controllers += array(
-      'storage' => 'Drupal\Core\Entity\ContentEntityDatabaseStorage',
+    $this->handlers += array(
+      'storage' => 'Drupal\Core\Entity\Sql\SqlContentEntityStorage',
+      'view_builder' => 'Drupal\Core\Entity\EntityViewBuilder',
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getConfigPrefix() {
-    return FALSE;
+  public function getConfigDependencyKey() {
+    return 'content';
   }
 
 }

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Core\Path\AliasManagerInterface.
+ * Contains \Drupal\Core\Path\AliasManagerInterface.
  */
 
 namespace Drupal\Core\Path;
@@ -19,6 +19,9 @@ interface AliasManagerInterface {
    *
    * @return string
    *   The path represented by alias, or the alias if no path was found.
+   *
+   * @throws \InvalidArgumentException
+   *   Thrown when the path does not start with a slash.
    */
   public function getPathByAlias($alias, $langcode = NULL);
 
@@ -32,6 +35,9 @@ interface AliasManagerInterface {
    *
    * @return string
    *   An alias that represents the path, or path if no alias was found.
+   *
+   * @throws \InvalidArgumentException
+   *   Thrown when the path does not start with a slash.
    */
   public function getAliasByPath($path, $langcode = NULL);
 
@@ -39,7 +45,7 @@ interface AliasManagerInterface {
    * Clear internal caches in alias manager.
    *
    * @param $source
-   *   Source path of the alias that is being inserted/updated. Can be ommitted
+   *   Source path of the alias that is being inserted/updated. Can be omitted
    *   if entire cache needs to be flushed.
    */
   public function cacheClear($source = NULL);

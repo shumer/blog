@@ -4,14 +4,7 @@
  * Default theme implementation for main view template.
  *
  * Available variables:
- * - attributes: Remaining HTML attributes for the element including:
- *   - class: HTML classes that can be used to style contextually
- *     through CSS, including:
- *     - view
- *     - view-[css_name]
- *     - view-id-[view_name]
- *     - view-display-id-[display_name]
- *     - view-dom-id-[dom_id]
+ * - attributes: Remaining HTML attributes for the element.
  * - css_name: A css-safe version of the view name.
  * - css_class: The user-specified classes names, if any.
  * - header: The optional header.
@@ -20,7 +13,7 @@
  * - empty: The content to display if there are no rows.
  * - pager: The optional pager next/prev links to display.
  * - exposed: Exposed widget form/info to display.
- * - feed_icon: An optional feed icon to display.
+ * - feed_icons: Optional feed icons to display.
  * - more: An optional link to the next page of results.
  * - title: Title of the view, only used when displaying in the admin preview.
  * - title_prefix: Additional output populated by modules, intended to be
@@ -31,40 +24,47 @@
  *   view content.
  * - attachment_after: An optional attachment view to be displayed after the
  *   view content.
+ * - dom_id: Unique id for every view being printed to give unique class for
+ *   Javascript.
  *
  * @see template_preprocess_views_view()
  *
  * @ingroup themeable
  */
 #}
-<div{{ attributes }}>
+{%
+  set classes = [
+    dom_id ? 'js-view-dom-id-' ~ dom_id,
+  ]
+%}
+<div{{ attributes.addClass(classes) }}>
   {{ title_prefix }}
   {% if title %}
     {{ title }}
   {% endif %}
   {{ title_suffix }}
   {% if header %}
-    <div class="view-header">
+    <div>
       {{ header }}
     </div>
   {% endif %}
   {% if exposed %}
-    <div class="view-filters">
+    <div>
       {{ exposed }}
     </div>
   {% endif %}
   {% if attachment_before %}
-    <div class="attachment attachment-before">
+    <div>
       {{ attachment_before }}
     </div>
   {% endif %}
 
   {% if rows %}
-    <div class="view-content">
+    <div>
       {{ rows }}
     </div>
   {% elseif empty %}
-    <div class="view-empty">
+    <div>
       {{ empty }}
     </div>
   {% endif %}
@@ -73,7 +73,7 @@
     {{ pager }}
   {% endif %}
   {% if attachment_after %}
-    <div class="attachment attachment-after">
+    <div>
       {{ attachment_after }}
     </div>
   {% endif %}
@@ -81,13 +81,13 @@
     {{ more }}
   {% endif %}
   {% if footer %}
-    <div class="view-footer">
+    <div>
       {{ footer }}
     </div>
   {% endif %}
-  {% if feed_icon %}
-    <div class="feed-icon">
-      {{ feed_icon }}
+  {% if feed_icons %}
+    <div>
+      {{ feed_icons }}
     </div>
   {% endif %}
 </div>

@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\node\Tests\NodeSaveTest.
+ * Contains \Drupal\node\Tests\NodeSaveTest.
  */
 
 namespace Drupal\node\Tests;
+
+use Drupal\node\Entity\Node;
 
 /**
  * Tests $node->save() for saving content.
@@ -15,19 +17,26 @@ namespace Drupal\node\Tests;
 class NodeSaveTest extends NodeTestBase {
 
   /**
+   * A normal logged in user.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $webUser;
+
+  /**
    * Modules to enable.
    *
    * @var array
    */
   public static $modules = array('node_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create a user that is allowed to post; we'll use this to test the submission.
     $web_user = $this->drupalCreateUser(array('create article content'));
     $this->drupalLogin($web_user);
-    $this->web_user = $web_user;
+    $this->webUser = $web_user;
   }
 
   /**
@@ -40,13 +49,17 @@ class NodeSaveTest extends NodeTestBase {
    */
   function testImport() {
     // Node ID must be a number that is not in the database.
-    $max_nid = db_query('SELECT MAX(nid) FROM {node}')->fetchField();
+    $nids = \Drupal::entityManager()->getStorage('node')->getQuery()
+      ->sort('nid', 'DESC')
+      ->range(0, 1)
+      ->execute();
+    $max_nid = reset($nids);
     $test_nid = $max_nid + mt_rand(1000, 1000000);
-    $title = $this->randomName(8);
+    $title = $this->randomMachineName(8);
     $node = array(
       'title' => $title,
-      'body' => array(array('value' => $this->randomName(32))),
-      'uid' => $this->web_user->id(),
+      'body' => array(array('value' => $this->randomMachineName(32))),
+      'uid' => $this->webUser->id(),
       'type' => 'article',
       'nid' => $test_nid,
     );
@@ -54,12 +67,11 @@ class NodeSaveTest extends NodeTestBase {
     $node = entity_create('node', $node);
     $node->enforceIsNew();
 
-    // Verify that node_submit did not overwrite the user ID.
-    $this->assertEqual($node->getOwnerId(), $this->web_user->id(), 'Function node_submit() preserves user ID');
+    $this->assertEqual($node->getOwnerId(), $this->webUser->id());
 
     $node->save();
     // Test the import.
-    $node_by_nid = node_load($test_nid);
+    $node_by_nid = Node::load($test_nid);
     $this->assertTrue($node_by_nid, 'Node load by node ID.');
 
     $node_by_title = $this->drupalGetNodeByTitle($title);
@@ -72,9 +84,9 @@ class NodeSaveTest extends NodeTestBase {
   function testTimestamps() {
     // Use the default timestamps.
     $edit = array(
-      'uid' => $this->web_user->id(),
+      'uid' => $this->webUser->id(),
       'type' => 'article',
-      'title' => $this->randomName(8),
+      'title' => $this->randomMachineName(8),
     );
 
     entity_create('node', $edit)->save();
@@ -99,17 +111,17 @@ class NodeSaveTest extends NodeTestBase {
 
     // Programmatically set the timestamps on the node.
     $edit = array(
-      'uid' => $this->web_user->id(),
+      'uid' => $this->webUser->id(),
       'type' => 'article',
-      'title' => $this->randomName(8),
+      'title' => $this->randomMachineName(8),
       'created' => 280299600, // Sun, 19 Nov 1978 05:00:00 GMT
       'changed' => 979534800, // Drupal 1.0 release.
     );
 
     entity_create('node', $edit)->save();
     $node = $this->drupalGetNodeByTitle($edit['title']);
-    $this->assertEqual($node->getCreatedTime(), 280299600, 'Creating a node uses user-set "created" timestamp.');
-    $this->assertNotEqual($node->getChangedTime(), 979534800, 'Creating a node does not use user-set "changed" timestamp.');
+    $this->assertEqual($node->getCreatedTime(), 280299600, 'Creating a node programmatically uses programmatically set "created" timestamp.');
+    $this->assertEqual($node->getChangedTime(), 979534800, 'Creating a node programmatically uses programmatically set "changed" timestamp.');
 
     // Update the timestamps.
     $node->setCreatedTime(979534800);
@@ -118,7 +130,10 @@ class NodeSaveTest extends NodeTestBase {
     $node->save();
     $node = $this->drupalGetNodeByTitle($edit['title'], TRUE);
     $this->assertEqual($node->getCreatedTime(), 979534800, 'Updating a node uses user-set "created" timestamp.');
-    $this->assertNotEqual($node->getChangedTime(), 280299600, 'Updating a node does not use user-set "changed" timestamp.');
+    // Allowing setting changed timestamps is required, see
+    // Drupal\content_translation\ContentTranslationMetadataWrapper::setChangedTime($timestamp)
+    // for example.
+    $this->assertEqual($node->getChangedTime(), 280299600, 'Updating a node uses user-set "changed" timestamp.');
   }
 
   /**
@@ -130,7 +145,7 @@ class NodeSaveTest extends NodeTestBase {
   function testDeterminingChanges() {
     // Initial creation.
     $node = entity_create('node', array(
-      'uid' => $this->web_user->id(),
+      'uid' => $this->webUser->id(),
       'type' => 'article',
       'title' => 'test_changes',
     ));
@@ -149,7 +164,7 @@ class NodeSaveTest extends NodeTestBase {
     $this->assertEqual($node->label(), 'updated_presave_update', 'Changes have been determined.');
 
     // Test the static node load cache to be cleared.
-    $node = node_load($node->id());
+    $node = Node::load($node->id());
     $this->assertEqual($node->label(), 'updated_presave', 'Static cache has been cleared.');
   }
 

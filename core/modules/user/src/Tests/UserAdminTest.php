@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\user\Tests\UserAdminTest.
+ * Contains \Drupal\user\Tests\UserAdminTest.
  */
 
 namespace Drupal\user\Tests;
 
 use Drupal\simpletest\WebTestBase;
+use Drupal\user\RoleInterface;
 
 /**
  * Tests user administration page functionality.
@@ -29,7 +30,7 @@ class UserAdminTest extends WebTestBase {
   function testUserAdmin() {
     $user_a = $this->drupalCreateUser();
     $user_a->name = 'User A';
-    $user_a->mail = $this->randomName() . '@example.com';
+    $user_a->mail = $this->randomMachineName() . '@example.com';
     $user_a->save();
     $user_b = $this->drupalCreateUser(array('administer taxonomy'));
     $user_b->name = 'User B';
@@ -37,6 +38,8 @@ class UserAdminTest extends WebTestBase {
     $user_c = $this->drupalCreateUser(array('administer taxonomy'));
     $user_c->name = 'User C';
     $user_c->save();
+
+    $user_storage = $this->container->get('entity.manager')->getStorage('user');
 
     // Create admin user to delete registered user.
     $admin_user = $this->drupalCreateUser(array('administer users'));
@@ -52,8 +55,16 @@ class UserAdminTest extends WebTestBase {
     $this->assertText($admin_user->getUsername(), 'Found Admin user on admin users page');
 
     // Test for existence of edit link in table.
-    $link = l(t('Edit'), "user/" . $user_a->id() . "/edit", array('query' => array('destination' => 'admin/people')));
+    $link = $user_a->link(t('Edit'), 'edit-form', array('query' => array('destination' => $user_a->url('collection'))));
     $this->assertRaw($link, 'Found user A edit link on admin users page');
+
+    // Test exposed filter elements.
+    foreach (array('user', 'role', 'permission', 'status') as $field) {
+      $this->assertField("edit-$field", "$field exposed filter found.");
+    }
+    // Make sure the reduce duplicates element from the ManyToOneHelper is not
+    // displayed.
+    $this->assertNoField('edit-reduce-duplicates', 'Reduce duplicates form element not found in exposed filters.');
 
     // Filter the users by name/email.
     $this->drupalGet('admin/people', array('query' => array('user' => $user_a->getUsername())));
@@ -76,7 +87,7 @@ class UserAdminTest extends WebTestBase {
 
     // Filter the users by role. Grab the system-generated role name for User C.
     $roles = $user_c->getRoles();
-    unset($roles[array_search(DRUPAL_AUTHENTICATED_RID, $roles)]);
+    unset($roles[array_search(RoleInterface::AUTHENTICATED_ID, $roles)]);
     $this->drupalGet('admin/people', array('query' => array('role' => reset($roles))));
 
     // Check if the correct users show up when filtered by role.
@@ -85,7 +96,7 @@ class UserAdminTest extends WebTestBase {
     $this->assertText($user_c->getUsername(), 'User C on filtered by role on admin users page');
 
     // Test blocking of a user.
-    $account = user_load($user_c->id());
+    $account = $user_storage->load($user_c->id());
     $this->assertTrue($account->isActive(), 'User C not blocked');
     $edit = array();
     $edit['action'] = 'user_block_user_action';
@@ -95,7 +106,8 @@ class UserAdminTest extends WebTestBase {
       // targeted with the blocking action.
       'query' => array('order' => 'name', 'sort' => 'asc')
     ));
-    $account = user_load($user_c->id(), TRUE);
+    $user_storage->resetCache(array($user_c->id()));
+    $account = $user_storage->load($user_c->id());
     $this->assertTrue($account->isBlocked(), 'User C blocked');
 
     // Test filtering on admin page for blocked users
@@ -113,18 +125,22 @@ class UserAdminTest extends WebTestBase {
       // targeted with the blocking action.
       'query' => array('order' => 'name', 'sort' => 'asc')
     ));
-    $account = user_load($user_c->id(), TRUE);
+    $user_storage->resetCache(array($user_c->id()));
+    $account = $user_storage->load($user_c->id());
     $this->assertTrue($account->isActive(), 'User C unblocked');
     $this->assertMail("to", $account->getEmail(), "Activation mail sent to user C");
 
     // Test blocking and unblocking another user from /user/[uid]/edit form and sending of activation mail
     $user_d = $this->drupalCreateUser(array());
-    $account1 = user_load($user_d->id(), TRUE);
+    $user_storage->resetCache(array($user_d->id()));
+    $account1 = $user_storage->load($user_d->id());
     $this->drupalPostForm('user/' . $account1->id() . '/edit', array('status' => 0), t('Save'));
-    $account1 = user_load($user_d->id(), TRUE);
+    $user_storage->resetCache(array($user_d->id()));
+    $account1 = $user_storage->load($user_d->id());
     $this->assertTrue($account1->isBlocked(), 'User D blocked');
     $this->drupalPostForm('user/' . $account1->id() . '/edit', array('status' => TRUE), t('Save'));
-    $account1 = user_load($user_d->id(), TRUE);
+    $user_storage->resetCache(array($user_d->id()));
+    $account1 = $user_storage->load($user_d->id());
     $this->assertTrue($account1->isActive(), 'User D unblocked');
     $this->assertMail("to", $account1->getEmail(), "Activation mail sent to user D");
   }
@@ -141,23 +157,23 @@ class UserAdminTest extends WebTestBase {
     $this->drupalLogout();
 
     // Test custom user registration approval email address(es).
-    $config = \Drupal::config('user.settings');
+    $config = $this->config('user.settings');
     // Allow users to register with admin approval.
     $config
       ->set('verify_mail', TRUE)
       ->set('register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL)
       ->save();
     // Set the site and notification email addresses.
-    $system = \Drupal::config('system.site');
-    $server_address = $this->randomName() . '@example.com';
-    $notify_address = $this->randomName() . '@example.com';
+    $system = $this->config('system.site');
+    $server_address = $this->randomMachineName() . '@example.com';
+    $notify_address = $this->randomMachineName() . '@example.com';
     $system
       ->set('mail', $server_address)
       ->set('mail_notification', $notify_address)
       ->save();
     // Register a new user account.
     $edit = array();
-    $edit['name'] = $name = $this->randomName();
+    $edit['name'] = $name = $this->randomMachineName();
     $edit['mail'] = $mail = $edit['name'] . '@example.com';
     $this->drupalPostForm('user/register', $edit, t('Create new account'));
     $subject = 'Account details for ' . $edit['name'] . ' at ' . $system->get('name') . ' (pending admin approval)';

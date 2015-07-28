@@ -9,14 +9,14 @@ namespace Drupal\Core\Entity;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Defines a generic implementation to build a listing of entities.
  *
  * @ingroup entity_api
  */
-class EntityListBuilder extends EntityControllerBase implements EntityListBuilderInterface, EntityControllerInterface {
+class EntityListBuilder extends EntityHandlerBase implements EntityListBuilderInterface, EntityHandlerInterface {
 
   /**
    * The entity storage class.
@@ -38,6 +38,13 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
    * @var \Drupal\Core\Entity\EntityTypeInterface
    */
   protected $entityType;
+
+  /**
+   * The number of entities to list per page.
+   *
+   * @var int
+   */
+  protected $limit = 50;
 
   /**
    * {@inheritdoc}
@@ -74,11 +81,27 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
    * {@inheritdoc}
    */
   public function load() {
-    return $this->storage->loadMultiple();
+    $entity_ids = $this->getEntityIds();
+    return $this->storage->loadMultiple($entity_ids);
   }
 
   /**
-   * Returns the escaped label of an entity.
+   * Loads entity IDs using a pager sorted by the entity id.
+   *
+   * @return array
+   *   An array of entity IDs.
+   */
+  protected function getEntityIds() {
+    $query = $this->getStorage()->getQuery();
+    $keys = $this->entityType->getKeys();
+    return $query
+      ->sort($keys['id'])
+      ->pager($this->limit)
+      ->execute();
+  }
+
+  /**
+   * Gets the escaped label of an entity.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity being listed.
@@ -87,7 +110,7 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
    *   The escaped entity label.
    */
   protected function getLabel(EntityInterface $entity) {
-    return String::checkPlain($entity->label());
+    return SafeMarkup::checkPlain($entity->label());
   }
 
   /**
@@ -118,13 +141,15 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
       $operations['edit'] = array(
         'title' => $this->t('Edit'),
         'weight' => 10,
-      ) + $entity->urlInfo('edit-form')->toArray();
+        'url' => $entity->urlInfo('edit-form'),
+      );
     }
     if ($entity->access('delete') && $entity->hasLinkTemplate('delete-form')) {
       $operations['delete'] = array(
         'title' => $this->t('Delete'),
         'weight' => 100,
-      ) + $entity->urlInfo('delete-form')->toArray();
+        'url' => $entity->urlInfo('delete-form'),
+      );
     }
 
     return $operations;
@@ -182,28 +207,34 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
   /**
    * {@inheritdoc}
    *
-   * Builds the entity listing as renderable array for theme_table().
+   * Builds the entity listing as renderable array for table.html.twig.
    *
    * @todo Add a link to add a new item to the #empty text.
    */
   public function render() {
-    $build = array(
+    $build['table'] = array(
       '#type' => 'table',
       '#header' => $this->buildHeader(),
       '#title' => $this->getTitle(),
       '#rows' => array(),
       '#empty' => $this->t('There is no @label yet.', array('@label' => $this->entityType->getLabel())),
+      '#cache' => [
+        'contexts' => $this->entityType->getListCacheContexts(),
+      ],
     );
     foreach ($this->load() as $entity) {
       if ($row = $this->buildRow($entity)) {
-        $build['#rows'][$entity->id()] = $row;
+        $build['table']['#rows'][$entity->id()] = $row;
       }
     }
+    $build['pager'] = array(
+      '#type' => 'pager',
+    );
     return $build;
   }
 
   /**
-   * Returns the title of the page.
+   * Gets the title of the page.
    *
    * @return string
    *   A string title of the page.

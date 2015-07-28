@@ -7,6 +7,7 @@
 
 namespace Drupal\taxonomy\Plugin\views\argument_validator;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\Core\Entity\EntityManagerInterface;
@@ -45,7 +46,7 @@ class TermName extends Entity {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['transform'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['transform'] = array('default' => FALSE);
 
     return $options;
   }
@@ -53,12 +54,12 @@ class TermName extends Entity {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['transform'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Transform dashes in URL to spaces in term name filter values'),
+      '#title' => $this->t('Transform dashes in URL to spaces in term name filter values'),
       '#default_value' => $this->options['transform'],
     );
   }

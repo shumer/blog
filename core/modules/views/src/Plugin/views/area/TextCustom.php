@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\area\TextCustom.
+ * Contains \Drupal\views\Plugin\views\area\TextCustom.
  */
 
 namespace Drupal\views\Plugin\views\area;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Views area text handler.
@@ -21,18 +23,18 @@ class TextCustom extends TokenizeAreaPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['content'] = array('default' => '', 'translatable' => TRUE);
+    $options['content'] = array('default' => '');
     return $options;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['content'] = array(
-      '#title' => t('Content'),
+      '#title' => $this->t('Content'),
       '#type' => 'textarea',
       '#default_value' => $this->options['content'],
       '#rows' => 6,

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views\Tests\TokenReplaceTest.
+ * Contains \Drupal\views\Tests\TokenReplaceTest.
  */
 
 namespace Drupal\views\Tests;
@@ -25,9 +25,10 @@ class TokenReplaceTest extends ViewUnitTestBase {
    */
   public static $testViews = array('test_tokens');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->installSchema('system', 'url_alias');
+    $this->container->get('router.builder')->rebuild();
   }
 
   /**
@@ -44,7 +45,7 @@ class TokenReplaceTest extends ViewUnitTestBase {
       '[view:description]' => 'Test view to token replacement tests.',
       '[view:id]' => 'test_tokens',
       '[view:title]' => 'Test token page',
-      '[view:url]' => url('test_tokens', array('absolute' => TRUE)),
+      '[view:url]' => $view->getUrl(NULL, 'page_1')->setAbsolute(TRUE)->toString(),
       '[view:total-rows]' => (string) $view->total_rows,
       '[view:base-table]' => 'views_test_data',
       '[view:base-field]' => 'id',

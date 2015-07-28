@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\pager\Full.
+ * Contains \Drupal\views\Plugin\views\pager\Full.
  */
 
 namespace Drupal\views\Plugin\views\pager;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * The plugin to handle full pager.
@@ -32,8 +34,8 @@ class Full extends SqlBase {
     // Use the same default quantity that core uses by default.
     $options['quantity'] = array('default' => 9);
 
-    $options['tags']['contains']['first'] = array('default' => '« first', 'translatable' => TRUE);
-    $options['tags']['contains']['last'] = array('default' => 'last »', 'translatable' => TRUE);
+    $options['tags']['contains']['first'] = array('default' => $this->t('« first'));
+    $options['tags']['contains']['last'] = array('default' => $this->t('last »'));
 
     return $options;
   }
@@ -41,26 +43,26 @@ class Full extends SqlBase {
   /**
    * Overrides \Drupal\views\Plugin\views\SqlBase::buildOptionsForm().
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['quantity'] = array(
       '#type' => 'number',
-      '#title' => t('Number of pager links visible'),
-      '#description' => t('Specify the number of links to pages to display in the pager.'),
+      '#title' => $this->t('Number of pager links visible'),
+      '#description' => $this->t('Specify the number of links to pages to display in the pager.'),
       '#default_value' => $this->options['quantity'],
     );
 
     $form['tags']['first'] = array(
       '#type' => 'textfield',
-      '#title' => t('First page link text'),
+      '#title' => $this->t('First page link text'),
       '#default_value' => $this->options['tags']['first'],
       '#weight' => -10,
     );
 
     $form['tags']['last'] = array(
       '#type' => 'textfield',
-      '#title' => t('Last page link text'),
+      '#title' => $this->t('Last page link text'),
       '#default_value' => $this->options['tags']['last'],
       '#weight' => 10,
     );
@@ -71,9 +73,9 @@ class Full extends SqlBase {
    */
   public function summaryTitle() {
     if (!empty($this->options['offset'])) {
-      return format_plural($this->options['items_per_page'], '@count item, skip @skip', 'Paged, @count items, skip @skip', array('@count' => $this->options['items_per_page'], '@skip' => $this->options['offset']));
+      return $this->formatPlural($this->options['items_per_page'], '@count item, skip @skip', 'Paged, @count items, skip @skip', array('@count' => $this->options['items_per_page'], '@skip' => $this->options['offset']));
     }
-    return format_plural($this->options['items_per_page'], '@count item', 'Paged, @count items', array('@count' => $this->options['items_per_page']));
+    return $this->formatPlural($this->options['items_per_page'], '@count item', 'Paged, @count items', array('@count' => $this->options['items_per_page']));
   }
 
   /**

@@ -7,6 +7,7 @@
 
 namespace Drupal\views\Plugin\views\argument_validator;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\argument\ArgumentPluginBase;
 use Drupal\views\Plugin\views\PluginBase;
@@ -16,7 +17,7 @@ use Drupal\views\Plugin\views\PluginBase;
  * @{
  * Plugins for validating views contextual filters.
  *
- * Views argument validator plugins validate contextual filters (arguments) on
+ * Views argument validator plugins validate arguments (contextual filters) on
  * views. They can ensure arguments are valid, and even do transformations on
  * the arguments. They can also provide replacement patterns for the view title.
  * For example, the 'content' validator verifies verifies that the argument
@@ -64,17 +65,17 @@ abstract class ArgumentValidatorPluginBase extends PluginBase {
   /**
    * Provide the default form for setting options.
    */
-  public function buildOptionsForm(&$form, &$form_state) { }
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
    * Provide the default form form for validating options
    */
-  public function validateOptionsForm(&$form, &$form_state) { }
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
    * Provide the default form form for submitting options
    */
-  public function submitOptionsForm(&$form, &$form_state, &$options = array()) { }
+  public function submitOptionsForm(&$form, FormStateInterface $form_state, &$options = array()) { }
 
   /**
    * Determine if the administrator has the privileges to use this plugin
@@ -92,7 +93,7 @@ abstract class ArgumentValidatorPluginBase extends PluginBase {
     if (!$this->access()) {
       $form[$option_name]['#disabled'] = TRUE;
       $form[$option_name]['#value'] = $form[$this->option_name]['#default_value'];
-      $form[$option_name]['#description'] .= ' <strong>' . t('Note: you do not have permission to modify this. If you change the default filter type, this setting will be lost and you will NOT be able to get it back.') . '</strong>';
+      $form[$option_name]['#description'] .= ' <strong>' . $this->t('Note: you do not have permission to modify this. If you change the default filter type, this setting will be lost and you will NOT be able to get it back.') . '</strong>';
     }
   }
 
@@ -101,7 +102,7 @@ abstract class ArgumentValidatorPluginBase extends PluginBase {
   /**
    * Process the summary arguments for displaying.
    *
-   * Some plugins alter the argument so it uses something else interal.
+   * Some plugins alter the argument so it uses something else internally.
    * For example the user validation set's the argument to the uid,
    * for a faster query. But there are use cases where you want to use
    * the old value again, for example the summary.

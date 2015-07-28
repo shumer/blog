@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\ban\Tests\IpAddressBlockingTest.
+ * Contains \Drupal\ban\Tests\IpAddressBlockingTest.
  */
 
 namespace Drupal\ban\Tests;
@@ -17,7 +17,7 @@ use Drupal\simpletest\WebTestBase;
 class IpAddressBlockingTest extends WebTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */

@@ -21,9 +21,16 @@ class TaxonomyAttributesTest extends TaxonomyTestBase {
    *
    * @var array
    */
-  public static $modules = array('rdf');
+  public static $modules = array('rdf', 'views');
 
-  function setUp() {
+  /**
+   * Vocabulary created for testing purposes.
+   *
+   * @var \Drupal\taxonomy\VocabularyInterface
+   */
+  protected $vocabulary;
+
+  protected function setUp() {
     parent::setUp();
 
     $this->vocabulary = $this->createVocabulary();
@@ -42,12 +49,12 @@ class TaxonomyAttributesTest extends TaxonomyTestBase {
    */
   function testTaxonomyTermRdfaAttributes() {
     $term = $this->createTerm($this->vocabulary);
-    $term_uri = url('taxonomy/term/' . $term->id(), array('absolute' => TRUE));
+    $term_uri = $term->url('canonical', ['absolute' => TRUE]);
 
     // Parses the term's page and checks that the RDF output is correct.
     $parser = new \EasyRdf_Parser_Rdfa();
     $graph = new \EasyRdf_Graph();
-    $base_uri = url('<front>', array('absolute' => TRUE));
+    $base_uri = \Drupal::url('<front>', [], ['absolute' => TRUE]);
     $parser->parse($graph, $this->drupalGet('taxonomy/term/' . $term->id()), 'rdfa', $base_uri);
 
     // Inspects RDF graph output.
@@ -73,6 +80,6 @@ class TaxonomyAttributesTest extends TaxonomyTestBase {
     $this->assertTrue($graph->hasProperty($term_uri, 'http://www.w3.org/2004/02/skos/core#prefLabel', $expected_value), 'Term label found in RDF output (skos:prefLabel).');
 
     // @todo Add test for term description once it is a field:
-    // https://drupal.org/node/569434
+    //   https://www.drupal.org/node/569434.
   }
 }

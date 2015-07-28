@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\views\Plugin\views\argument\LanguageArgument.
+ * Contains \Drupal\views\Plugin\views\argument\LanguageArgument.
  */
 
 namespace Drupal\views\Plugin\views\argument;
@@ -46,8 +46,8 @@ class LanguageArgument extends ArgumentPluginBase {
    *   language was not found.
    */
   function language($langcode) {
-    $languages = views_language_list();
-    return isset($languages[$langcode]) ? $languages[$langcode] : t('Unknown language');
+    $languages = $this->listLanguages();
+    return isset($languages[$langcode]) ? $languages[$langcode] : $this->t('Unknown language');
   }
 
 }

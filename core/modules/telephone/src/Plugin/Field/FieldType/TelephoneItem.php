@@ -7,6 +7,7 @@
 
 namespace Drupal\telephone\Plugin\Field\FieldType;
 
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
@@ -18,8 +19,9 @@ use Drupal\Core\TypedData\DataDefinition;
  *   id = "telephone",
  *   label = @Translation("Telephone number"),
  *   description = @Translation("This field stores a telephone number in the database."),
+ *   category = @Translation("Number"),
  *   default_widget = "telephone_default",
- *   default_formatter = "string"
+ *   default_formatter = "basic_string"
  * )
  */
 class TelephoneItem extends FieldItemBase {
@@ -33,7 +35,6 @@ class TelephoneItem extends FieldItemBase {
         'value' => array(
           'type' => 'varchar',
           'length' => 256,
-          'not null' => FALSE,
         ),
       ),
     );
@@ -44,7 +45,8 @@ class TelephoneItem extends FieldItemBase {
    */
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('string')
-      ->setLabel(t('Telephone number'));
+      ->setLabel(t('Telephone number'))
+      ->setRequired(TRUE);
 
     return $properties;
   }
@@ -75,6 +77,14 @@ class TelephoneItem extends FieldItemBase {
     ));
 
     return $constraints;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+    $values['value'] = rand(pow(10, 8), pow(10, 9)-1);
+    return $values;
   }
 
 }

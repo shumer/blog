@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\filter\Combine.
+ * Contains \Drupal\views\Plugin\views\filter\Combine.
  */
 
 namespace Drupal\views\Plugin\views\filter;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Filter handler which allows to search on multiple fields.
@@ -14,7 +16,7 @@ namespace Drupal\views\Plugin\views\filter;
  *
  * @ViewsFilter("combine")
  */
-class Combine extends String {
+class Combine extends StringFilter {
 
   /**
    * @var views_plugin_query_default
@@ -28,7 +30,7 @@ class Combine extends String {
     return $options;
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
     $this->view->initStyle();
 
@@ -41,15 +43,15 @@ class Combine extends String {
       if ($options) {
         $form['fields'] = array(
           '#type' => 'select',
-          '#title' => t('Choose fields to combine for filtering'),
-          '#description' => t("This filter doesn't work for very special field handlers."),
+          '#title' => $this->t('Choose fields to combine for filtering'),
+          '#description' => $this->t("This filter doesn't work for very special field handlers."),
           '#multiple' => TRUE,
           '#options' => $options,
           '#default_value' => $this->options['fields'],
         );
       }
       else {
-        form_set_error('', $form_state, t('You have to add some fields to be able to use this filter.'));
+        $form_state->setErrorByName('', $this->t('You have to add some fields to be able to use this filter.'));
       }
     }
   }
@@ -59,6 +61,14 @@ class Combine extends String {
     $fields = array();
     // Only add the fields if they have a proper field and table alias.
     foreach ($this->options['fields'] as $id) {
+      // Overridden fields can lead to fields missing from a display that are
+      // still set in the non-overridden combined filter.
+      if (!isset($this->view->field[$id])) {
+        // If fields are no longer available that are needed to filter by, make
+        // sure no results are shown to prevent displaying more then intended.
+        $this->view->build_info['fail'] = TRUE;
+        continue;
+      }
       $field = $this->view->field[$id];
       // Always add the table of the selected fields to be sure a table alias exists.
       $field->ensureMyTable();
@@ -83,6 +93,23 @@ class Combine extends String {
         $this->{$info[$this->operator]['method']}($expression);
       }
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validate() {
+    $errors = parent::validate();
+    $fields = $this->view->display_handler->getHandlers('field');
+    foreach ($this->options['fields'] as $id) {
+      if (!isset($fields[$id])) {
+        // Combined field filter only works with fields that are in the field
+        // settings.
+        $errors[] = $this->t('Field %field set in %filter is not set in this display.', array('%field' => $id, '%filter' => $this->adminLabel()));
+        break;
+      }
+    }
+    return $errors;
   }
 
   // By default things like opEqual uses add_where, that doesn't support

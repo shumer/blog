@@ -7,9 +7,9 @@
 
 namespace Drupal\language\Tests\Condition;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\language\Entity\ConfigurableLanguage;
+use Drupal\simpletest\KernelTestBase;
 use Drupal\Core\Condition\ConditionManager;
-use Drupal\Core\Language\Language;
 
 /**
  * Tests that the language condition, provided by the language module, is
@@ -17,7 +17,7 @@ use Drupal\Core\Language\Language;
  *
  * @group language
  */
-class LanguageConditionTest extends DrupalUnitTestBase {
+class LanguageConditionTest extends KernelTestBase {
 
   /**
    * The condition plugin manager.
@@ -44,17 +44,8 @@ class LanguageConditionTest extends DrupalUnitTestBase {
     parent::setUp();
 
     $this->installConfig(array('language'));
-
-    // Setup English.
-    language_save(\Drupal::languageManager()->getDefaultLanguage());
-
     // Setup Italian.
-    $language = new Language(array(
-      'id' => 'it',
-      'name' => 'Italian',
-      'direction' => Language::DIRECTION_LTR,
-    ));
-    language_save($language);
+    ConfigurableLanguage::createFromLangcode('it')->save();
 
     $this->manager = $this->container->get('plugin.manager.condition');
   }

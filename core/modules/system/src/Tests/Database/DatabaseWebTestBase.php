@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Database\DatabaseWebTestBase.
+ * Contains \Drupal\system\Tests\Database\DatabaseWebTestBase.
  */
 
 namespace Drupal\system\Tests\Database;
@@ -21,7 +21,7 @@ abstract class DatabaseWebTestBase extends WebTestBase {
    */
   public static $modules = array('database_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     DatabaseTestBase::addSampleData();

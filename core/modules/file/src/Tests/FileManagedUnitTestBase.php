@@ -2,19 +2,19 @@
 
 /**
  * @file
- * Contains Drupal\file\Tests\FileManagedUnitTestBase.
+ * Contains \Drupal\file\Tests\FileManagedUnitTestBase.
  */
 
 namespace Drupal\file\Tests;
 
 use Drupal\file\FileInterface;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Base class for file unit tests that use the file_test module to test uploads and
  * hooks.
  */
-abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
+abstract class FileManagedUnitTestBase extends KernelTestBase {
 
   /**
    * Modules to enable.
@@ -23,7 +23,7 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
    */
   public static $modules = array('file_test', 'file', 'system', 'field', 'user');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
     // Clear out any hook calls.
     file_test_reset();
@@ -35,7 +35,7 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
 
     // Make sure that a user with uid 1 exists, self::createFile() relies on
     // it.
-    $user = entity_create('user', array('uid' => 1, 'name' => $this->randomName()));
+    $user = entity_create('user', array('uid' => 1, 'name' => $this->randomMachineName()));
     $user->enforceIsNew();
     $user->save();
     \Drupal::currentUser()->setAccount($user);
@@ -45,7 +45,7 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
    * Assert that all of the specified hook_file_* hooks were called once, other
    * values result in failure.
    *
-   * @param $expected
+   * @param array $expected
    *   Array with string containing with the hook name, e.g. 'load', 'save',
    *   'insert', etc.
    */
@@ -77,11 +77,11 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
   /**
    * Assert that a hook_file_* hook was called a certain number of times.
    *
-   * @param $hook
+   * @param string $hook
    *   String with the hook name, e.g. 'load', 'save', 'insert', etc.
-   * @param $expected_count
+   * @param int $expected_count
    *   Optional integer count.
-   * @param $message
+   * @param string $message
    *   Optional translated string message.
    */
   function assertFileHookCalled($hook, $expected_count = 1, $message = NULL) {
@@ -92,7 +92,7 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
         $message = format_string('hook_file_@name was called correctly.', array('@name' => $hook));
       }
       elseif ($expected_count == 0) {
-        $message = format_plural($actual_count, 'hook_file_@name was not expected to be called but was actually called once.', 'hook_file_@name was not expected to be called but was actually called @count times.', array('@name' => $hook, '@count' => $actual_count));
+        $message = \Drupal::translation()->formatPlural($actual_count, 'hook_file_@name was not expected to be called but was actually called once.', 'hook_file_@name was not expected to be called but was actually called @count times.', array('@name' => $hook, '@count' => $actual_count));
       }
       else {
         $message = format_string('hook_file_@name was expected to be called %expected times but was called %actual times.', array('@name' => $hook, '%expected' => $expected_count, '%actual' => $actual_count));
@@ -149,13 +149,13 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
    * Create a file and save it to the files table and assert that it occurs
    * correctly.
    *
-   * @param $filepath
+   * @param string $filepath
    *   Optional string specifying the file path. If none is provided then a
    *   randomly named file will be created in the site's files directory.
-   * @param $contents
+   * @param string $contents
    *   Optional contents to save into the file. If a NULL value is provided an
    *   arbitrary string will be used.
-   * @param $scheme
+   * @param string $scheme
    *   Optional string indicating the stream scheme to use. Drupal core includes
    *   public, private, and temporary. The public wrapper is the default.
    * @return \Drupal\file\FileInterface
@@ -197,7 +197,7 @@ abstract class FileManagedUnitTestBase extends DrupalUnitTestBase {
     if (!isset($filepath)) {
       // Prefix with non-latin characters to ensure that all file-related
       // tests work with international filenames.
-      $filepath = 'Файл для тестирования ' . $this->randomName();
+      $filepath = 'Файл для тестирования ' . $this->randomMachineName();
     }
     if (!isset($scheme)) {
       $scheme = file_default_scheme();

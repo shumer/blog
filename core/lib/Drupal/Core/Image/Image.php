@@ -41,13 +41,6 @@ class Image implements ImageInterface {
   protected $fileSize;
 
   /**
-   * If this image object is valid.
-   *
-   * @var bool
-   */
-  protected $valid = FALSE;
-
-  /**
    * Constructs a new Image object.
    *
    * @param \Drupal\Core\ImageToolkit\ImageToolkitInterface $toolkit
@@ -61,7 +54,10 @@ class Image implements ImageInterface {
     $this->getToolkit()->setImage($this);
     if ($source) {
       $this->source = $source;
-      $this->parseFile();
+      // Defer image file validity check to the toolkit.
+      if ($this->getToolkit()->parseFile()) {
+        $this->fileSize = filesize($this->source);
+      }
     }
   }
 
@@ -69,7 +65,7 @@ class Image implements ImageInterface {
    * {@inheritdoc}
    */
   public function isValid() {
-    return $this->valid;
+    return $this->getToolkit()->isValid();
   }
 
   /**
@@ -137,7 +133,7 @@ class Image implements ImageInterface {
       $this->fileSize = filesize($destination);
       $this->source = $destination;
 
-      // @todo Use File utility when https://drupal.org/node/2050759 is in.
+      // @todo Use File utility when https://www.drupal.org/node/2050759 is in.
       if ($this->chmod($destination)) {
         return $return;
       }
@@ -146,28 +142,24 @@ class Image implements ImageInterface {
   }
 
   /**
-   * Determines if a file contains a valid image.
-   *
-   * Drupal supports GIF, JPG and PNG file formats when used with the GD
-   * toolkit, and may support others, depending on which toolkits are
-   * installed.
-   *
-   * @return bool
-   *   FALSE, if the file could not be found or is not an image. Otherwise, the
-   *   image information is populated.
+   * {@inheritdoc}
    */
-  protected function parseFile() {
-    if ($this->valid = $this->getToolkit()->parseFile()) {
-      $this->fileSize = filesize($this->source);
-    }
-    return $this->valid;
+  public function apply($operation, array $arguments = array()) {
+    return $this->getToolkit()->apply($operation, $arguments);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function apply($operation, array $arguments = array()) {
-    return $this->getToolkit()->apply($operation, $arguments);
+  public function createNew($width, $height, $extension = 'png', $transparent_color = '#ffffff') {
+    return $this->apply('create_new', array('width' => $width, 'height' => $height, 'extension' => $extension, 'transparent_color' => $transparent_color));
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function convert($extension) {
+    return $this->apply('convert', array('extension' => $extension));
   }
 
   /**
@@ -223,7 +215,7 @@ class Image implements ImageInterface {
    *
    * @see drupal_chmod()
    *
-   * @todo Remove when https://drupal.org/node/2050759 is in.
+   * @todo Remove when https://www.drupal.org/node/2050759 is in.
    *
    * @return bool
    *   TRUE for success, FALSE in the event of an error.

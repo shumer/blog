@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Updater\Module.
+ * Contains \Drupal\Core\Updater\Module.
  */
 
 namespace Drupal\Core\Updater;
+
+use Drupal\Core\Url;
 
 /**
  * Defines a class for updating modules using
@@ -49,10 +51,9 @@ class Module extends Updater implements UpdaterInterface {
    * Implements Drupal\Core\Updater\UpdaterInterface::canUpdateDirectory().
    */
   public static function canUpdateDirectory($directory) {
-    if (file_scan_directory($directory, '/.*\.module$/')) {
-      return TRUE;
-    }
-    return FALSE;
+    $info = static::getExtensionInfo($directory);
+
+    return (isset($info['type']) && $info['type'] == 'module');
   }
 
   /**
@@ -98,9 +99,9 @@ class Module extends Updater implements UpdaterInterface {
    */
   public function postInstallTasks() {
     return array(
-      l(t('Install another module'), 'admin/modules/install'),
-      l(t('Enable newly added modules'), 'admin/modules'),
-      l(t('Administration pages'), 'admin'),
+      \Drupal::l(t('Install another module'), new Url('update.module_install')),
+      \Drupal::l(t('Enable newly added modules'), new Url('system.modules_list')),
+      \Drupal::l(t('Administration pages'), new Url('system.admin')),
     );
   }
 

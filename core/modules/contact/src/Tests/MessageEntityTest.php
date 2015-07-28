@@ -7,7 +7,7 @@
 namespace Drupal\contact\Tests;
 
 use Drupal\contact\Entity\Message;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\system\Tests\Entity\EntityUnitTestBase;
 
 /**
  * Tests the message entity class.
@@ -15,18 +15,24 @@ use Drupal\simpletest\DrupalUnitTestBase;
  * @group contact
  * @see \Drupal\contact\Entity\Message
  */
-class MessageEntityTest extends DrupalUnitTestBase {
+class MessageEntityTest extends EntityUnitTestBase {
 
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('system', 'contact', 'field', 'user');
+  public static $modules = array(
+    'system',
+    'contact',
+    'field',
+    'user',
+    'contact_test',
+  );
 
   protected function setUp() {
     parent::setUp();
-    $this->installConfig(array('contact'));
+    $this->installConfig(array('contact', 'contact_test'));
   }
 
   /**
@@ -34,7 +40,7 @@ class MessageEntityTest extends DrupalUnitTestBase {
    */
   public function testMessageMethods() {
     $message_storage = $this->container->get('entity.manager')->getStorage('contact_message');
-    $message = $message_storage->create(array('category' => 'feedback'));
+    $message = $message_storage->create(array('contact_form' => 'feedback'));
 
     // Check for empty values first.
     $this->assertEqual($message->getMessage(), '');
@@ -43,7 +49,7 @@ class MessageEntityTest extends DrupalUnitTestBase {
     $this->assertFalse($message->copySender());
 
     // Check for default values.
-    $this->assertEqual('feedback', $message->getCategory()->id());
+    $this->assertEqual('feedback', $message->getContactForm()->id());
     $this->assertFalse($message->isPersonal());
 
     // Set some values and check for them afterwards.
@@ -56,6 +62,15 @@ class MessageEntityTest extends DrupalUnitTestBase {
     $this->assertEqual($message->getSenderName(), 'sender_name');
     $this->assertEqual($message->getSenderMail(), 'sender_mail');
     $this->assertTrue($message->copySender());
+
+    $no_access_user = $this->createUser(['uid' => 2]);
+    $access_user = $this->createUser(['uid' => 3], ['access site-wide contact form']);
+    $admin = $this->createUser(['uid' => 4], ['administer contact forms']);
+
+    $this->assertFalse(\Drupal::entityManager()->getAccessControlHandler('contact_message')->createAccess(NULL, $no_access_user));
+    $this->assertTrue(\Drupal::entityManager()->getAccessControlHandler('contact_message')->createAccess(NULL, $access_user));
+    $this->assertTrue($message->access('edit', $admin));
+    $this->assertFalse($message->access('edit', $access_user));
   }
 
 }

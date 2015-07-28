@@ -8,6 +8,7 @@
 namespace Drupal\ckeditor;
 
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
@@ -38,7 +39,7 @@ class CKEditorPluginManager extends DefaultPluginManager {
    *   The module handler to invoke the alter hook with.
    */
   public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler) {
-    parent::__construct('Plugin/CKEditorPlugin', $namespaces, $module_handler, 'Drupal\ckeditor\Annotation\CKEditorPlugin');
+    parent::__construct('Plugin/CKEditorPlugin', $namespaces, $module_handler, 'Drupal\ckeditor\CKEditorPluginInterface', 'Drupal\ckeditor\Annotation\CKEditorPlugin');
     $this->alterInfo('ckeditor_plugin_info');
     $this->setCacheBackend($cache_backend, 'ckeditor_plugins');
   }
@@ -147,12 +148,12 @@ class CKEditorPluginManager extends DefaultPluginManager {
    *
    * @param array &$form
    *   A reference to an associative array containing the structure of the form.
-   * @param array &$form_state
-   *   A reference to a keyed array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    * @param \Drupal\editor\Entity\Editor $editor
    *   A configured text editor object.
    */
-  public function injectPluginSettingsForm(array &$form, array &$form_state, Editor $editor) {
+  public function injectPluginSettingsForm(array &$form, FormStateInterface $form_state, Editor $editor) {
     $definitions = $this->getDefinitions();
 
     foreach (array_keys($definitions) as $plugin_id) {
@@ -174,7 +175,7 @@ class CKEditorPluginManager extends DefaultPluginManager {
         // just provides buttons, don't do this if it's a contextually enabled
         // CKEditor plugin. After all, in the latter case, we can't know when
         // its settings should be shown!
-        if ($plugin instanceof CKEditorPluginButtonsInterface and !$plugin instanceof CKEditorPluginContextualInterface) {
+        if ($plugin instanceof CKEditorPluginButtonsInterface && !$plugin instanceof CKEditorPluginContextualInterface) {
           $form['plugins'][$plugin_id]['#attributes']['data-ckeditor-buttons'] = implode(' ', array_keys($plugin->getButtons()));
         }
         $form['plugins'][$plugin_id] += $plugin->settingsForm($plugin_settings_form, $form_state, $editor);

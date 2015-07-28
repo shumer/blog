@@ -71,7 +71,7 @@ class ViewsDisplay extends ViewsPluginAnnotationBase {
    *
    * @var bool
    */
-  public $uses_hook_menu;
+  public $uses_menu_links;
 
   /**
    * Does the display plugin registers routes to the route.
@@ -130,5 +130,12 @@ class ViewsDisplay extends ViewsPluginAnnotationBase {
    * @var bool
    */
   public $no_ui;
+
+  /**
+   * Whether the display returns a response object.
+   *
+   * @var bool
+   */
+  public $returns_response;
 
 }

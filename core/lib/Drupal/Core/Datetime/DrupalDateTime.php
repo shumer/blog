@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Datetime\DrupalDateTime.
+ * Contains \Drupal\Core\Datetime\DrupalDateTime.
  */
 namespace Drupal\Core\Datetime;
 
 use Drupal\Component\Datetime\DateTimePlus;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 
 /**
  * Extends DateTimePlus().
@@ -14,16 +15,28 @@ use Drupal\Component\Datetime\DateTimePlus;
  * This class extends the basic component and adds in Drupal-specific
  * handling, like translation of the format() method.
  *
+ * Static methods in base class can also be used to create DrupalDateTime objects.
+ * For example:
+ *
+ * DrupalDateTime::createFromArray( array('year' => 2010, 'month' => 9, 'day' => 28) )
+ *
  * @see \Drupal/Component/Datetime/DateTimePlus.php
  */
 class DrupalDateTime extends DateTimePlus {
 
+  use StringTranslationTrait;
+
+  /**
+   * Format string translation cache.
+   *
+   */
+  protected $formatTranslationCache;
+
   /**
    * Constructs a date object.
    *
-   * @param mixed $time
-   *   A DateTime object, a date/input_time_adjusted string, a unix timestamp,
-   *   or an array of date parts, like ('year' => 2014, 'month => 4).
+   * @param string $time
+   *   A DateTime object, a date/input_time_adjusted string, a unix timestamp.
    *   Defaults to 'now'.
    * @param mixed $timezone
    *   PHP DateTimeZone object, string or NULL allowed.
@@ -43,7 +56,7 @@ class DrupalDateTime extends DateTimePlus {
    */
   public function __construct($time = 'now', $timezone = NULL, $settings = array()) {
     if (!isset($settings['langcode'])) {
-      $settings['langcode'] = \Drupal::languageManager()->getCurrentLanguage()->id;
+      $settings['langcode'] = \Drupal::languageManager()->getCurrentLanguage()->getId();
     }
 
     // Instantiate the parent class.
@@ -58,9 +71,9 @@ class DrupalDateTime extends DateTimePlus {
    * knowledge of the preferred user timezone.
    */
   protected function prepareTimezone($timezone) {
-    $user_timezone = drupal_get_user_timezone();
-    if (empty($timezone) && !empty($user_timezone)) {
-      $timezone = $user_timezone;
+    if (empty($timezone)) {
+      // Fallback to user or system default timezone.
+      $timezone = drupal_get_user_timezone();
     }
     return parent::prepareTimezone($timezone);
   }
@@ -80,7 +93,8 @@ class DrupalDateTime extends DateTimePlus {
    *   The formatted value of the date.
    */
   public function format($format, $settings = array()) {
-    $settings['langcode'] = !empty($settings['langcode']) ? $settings['langcode'] : $this->langcode;
+    $langcode = !empty($settings['langcode']) ? $settings['langcode'] : $this->langcode;
+    $value = '';
     // Format the date and catch errors.
     try {
       // Encode markers that should be translated. 'A' becomes
@@ -92,17 +106,35 @@ class DrupalDateTime extends DateTimePlus {
       $format = preg_replace(array('/\\\\\\\\/', '/(?<!\\\\)([AaeDlMTF])/'), array("\xEF\\\\\\\\\xFF", "\xEF\\\\\$1\$1\xFF"), $format);
 
       // Call date_format().
-      $format = parent::format($format);
+      $format = parent::format($format, $settings);
 
-      // Pass the langcode to _format_date_callback().
-      _format_date_callback(NULL, $settings['langcode']);
+      // Translates a formatted date string.
+      $translation_callback = function($matches) use ($langcode) {
+        $code = $matches[1];
+        $string = $matches[2];
+        if (!isset($this->formatTranslationCache[$langcode][$code][$string])) {
+          $options = array('langcode' => $langcode);
+          if ($code == 'F') {
+            $options['context'] = 'Long month name';
+          }
+
+          if ($code == '') {
+            $this->formatTranslationCache[$langcode][$code][$string] = $string;
+          }
+          else {
+            $this->formatTranslationCache[$langcode][$code][$string] = $this->t($string, array(), $options);
+          }
+        }
+        return $this->formatTranslationCache[$langcode][$code][$string];
+      };
 
       // Translate the marked sequences.
-      $value = preg_replace_callback('/\xEF([AaeDlMTF]?)(.*?)\xFF/', '_format_date_callback', $format);
+      $value = preg_replace_callback('/\xEF([AaeDlMTF]?)(.*?)\xFF/', $translation_callback, $format);
     }
     catch (\Exception $e) {
       $this->errors[] = $e->getMessage();
     }
     return $value;
   }
+
 }

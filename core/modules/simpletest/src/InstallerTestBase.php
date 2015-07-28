@@ -78,11 +78,11 @@ abstract class InstallerTestBase extends WebTestBase {
     $this->isInstalled = FALSE;
 
     // Define information about the user 1 account.
-    $this->root_user = new UserSession(array(
+    $this->rootUser = new UserSession(array(
       'uid' => 1,
       'name' => 'admin',
       'mail' => 'admin@example.com',
-      'pass_raw' => $this->randomName(),
+      'pass_raw' => $this->randomMachineName(),
     ));
 
     // If any $settings are defined for this test, copy and prepare an actual
@@ -94,7 +94,7 @@ abstract class InstallerTestBase extends WebTestBase {
     }
 
     // Note that WebTestBase::installParameters() returns form input values
-    // suitable for a programmed drupal_form_submit().
+    // suitable for a programmed \Drupal::formBuilder()->submitForm().
     // @see WebTestBase::translatePostValues()
     $this->parameters = $this->installParameters();
 
@@ -117,6 +117,8 @@ abstract class InstallerTestBase extends WebTestBase {
     $this->container
       ->register('string_translation', 'Drupal\Core\StringTranslation\TranslationManager')
       ->addArgument(new Reference('language_manager'));
+    $this->container
+      ->set('app.root', DRUPAL_ROOT);
     \Drupal::setContainer($this->container);
 
     $this->drupalGet($GLOBALS['base_url'] . '/core/install.php');
@@ -138,7 +140,8 @@ abstract class InstallerTestBase extends WebTestBase {
 
     // Import new settings.php written by the installer.
     $request = Request::createFromGlobals();
-    Settings::initialize(DrupalKernel::findSitePath($request));
+    $class_loader = require $this->container->get('app.root') . '/autoload.php';
+    Settings::initialize($this->container->get('app.root'), DrupalKernel::findSitePath($request), $class_loader);
     foreach ($GLOBALS['config_directories'] as $type => $path) {
       $this->configDirectories[$type] = $path;
     }
@@ -149,24 +152,17 @@ abstract class InstallerTestBase extends WebTestBase {
     // directory has to be writable.
     // WebTestBase::tearDown() will delete the entire test site directory.
     // Not using File API; a potential error must trigger a PHP warning.
-    chmod(DRUPAL_ROOT . '/' . $this->siteDirectory, 0777);
-    $this->kernel = DrupalKernel::createFromRequest($request, drupal_classloader(), 'prod', FALSE);
+    chmod($this->container->get('app.root') . '/' . $this->siteDirectory, 0777);
+    $this->kernel = DrupalKernel::createFromRequest($request, $class_loader, 'prod', FALSE);
     $this->kernel->prepareLegacyRequest($request);
     $this->container = $this->kernel->getContainer();
     $config = $this->container->get('config.factory');
 
     // Manually configure the test mail collector implementation to prevent
     // tests from sending out e-mails and collect them in state instead.
-    $config->get('system.mail')
+    $config->getEditable('system.mail')
       ->set('interface.default', 'test_mail_collector')
       ->save();
-
-    // When running from run-tests.sh we don't get an empty current path which
-    // would indicate we're on the home page.
-    $path = current_path();
-    if (empty($path)) {
-      _current_path('run-tests');
-    }
 
     $this->isInstalled = TRUE;
   }

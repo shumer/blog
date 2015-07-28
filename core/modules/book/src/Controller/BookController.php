@@ -9,7 +9,10 @@ namespace Drupal\book\Controller;
 
 use Drupal\book\BookExport;
 use Drupal\book\BookManagerInterface;
-use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
+use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\RendererInterface;
+use Drupal\Core\Url;
+use Drupal\node\Entity\Node;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -19,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /**
  * Controller routines for book routes.
  */
-class BookController implements ContainerInjectionInterface {
+class BookController extends ControllerBase {
 
   /**
    * The book manager.
@@ -36,16 +39,26 @@ class BookController implements ContainerInjectionInterface {
   protected $bookExport;
 
   /**
+   * The renderer.
+   *
+   * @var \Drupal\Core\Render\RendererInterface
+   */
+  protected $renderer;
+
+  /**
    * Constructs a BookController object.
    *
    * @param \Drupal\book\BookManagerInterface $bookManager
    *   The book manager.
    * @param \Drupal\book\BookExport $bookExport
    *   The book export service.
+   * @param \Drupal\Core\Render\RendererInterface $renderer
+   *   The renderer.
    */
-  public function __construct(BookManagerInterface $bookManager, BookExport $bookExport) {
+  public function __construct(BookManagerInterface $bookManager, BookExport $bookExport, RendererInterface $renderer) {
     $this->bookManager = $bookManager;
     $this->bookExport = $bookExport;
+    $this->renderer = $renderer;
   }
 
   /**
@@ -54,7 +67,8 @@ class BookController implements ContainerInjectionInterface {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('book.manager'),
-      $container->get('book.export')
+      $container->get('book.export'),
+      $container->get('renderer')
     );
   }
 
@@ -71,14 +85,18 @@ class BookController implements ContainerInjectionInterface {
     $headers = array(t('Book'), t('Operations'));
     // Add any recognized books to the table list.
     foreach ($this->bookManager->getAllBooks() as $book) {
+      /** @var \Drupal\Core\Url $url */
+      $url = $book['url'];
+      if (isset($book['options'])) {
+        $url->setOptions($book['options']);
+      }
       $row = array(
-        l($book['title'], $book['link_path'], isset($book['options']) ? $book['options'] : array()),
+        $this->l($book['title'], $url),
       );
       $links = array();
       $links['edit'] = array(
         'title' => t('Edit order and titles'),
-        'route_name' => 'book.admin_edit',
-        'route_parameters' => array('node' => $book['nid']),
+        'url' => Url::fromRoute('book.admin_edit', ['node' => $book['nid']]),
       );
       $row[] = array(
         'data' => array(
@@ -105,11 +123,14 @@ class BookController implements ContainerInjectionInterface {
   public function bookRender() {
     $book_list = array();
     foreach ($this->bookManager->getAllBooks() as $book) {
-      $book_list[] = l($book['title'], $book['link_path']);
+      $book_list[] = $this->l($book['title'], $book['url']);
     }
     return array(
       '#theme' => 'item_list',
       '#items' => $book_list,
+      '#cache' => [
+        'tags' => \Drupal::entityManager()->getDefinition('node')->getListCacheTags(),
+      ],
     );
   }
 
@@ -145,7 +166,7 @@ class BookController implements ContainerInjectionInterface {
     }
 
     $exported_book = $this->bookExport->{$method}($node);
-    return new Response(drupal_render($exported_book));
+    return new Response($this->renderer->renderRoot($exported_book));
   }
 
 }

@@ -9,7 +9,9 @@ namespace Drupal\Core\Entity;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
  * Base class for entity forms.
@@ -36,6 +38,13 @@ class EntityForm extends FormBase implements EntityFormInterface {
   protected $moduleHandler;
 
   /**
+   * The entity manager.
+   *
+   * @var \Drupal\Core\Entity\EntityManagerInterface
+   */
+  protected $entityManager;
+
+  /**
    * The entity being used by this form.
    *
    * @var \Drupal\Core\Entity\EntityInterface
@@ -56,7 +65,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * {@inheritdoc}
    */
-  public function getBaseFormID() {
+  public function getBaseFormId() {
     // Assign ENTITYTYPE_form as base form ID to invoke corresponding
     // hook_form_alter(), #validate, #submit, and #theme callbacks, but only if
     // it is different from the actual form ID, since callbacks would be invoked
@@ -72,11 +81,9 @@ class EntityForm extends FormBase implements EntityFormInterface {
    * {@inheritdoc}
    */
   public function getFormId() {
-    $entity_type = $this->entity->getEntityTypeId();
-    $bundle = $this->entity->bundle();
-    $form_id = $entity_type;
-    if ($bundle != $entity_type) {
-      $form_id = $bundle . '_' . $form_id;
+    $form_id = $this->entity->getEntityTypeId();
+    if ($this->entity->getEntityType()->hasKey('bundle')) {
+      $form_id .= '_' . $this->entity->bundle();
     }
     if ($this->operation != 'default') {
       $form_id = $form_id . '_' . $this->operation;
@@ -87,10 +94,10 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
-    // During the initial form build, add this controller to the form state and
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    // During the initial form build, add this form object to the form state and
     // allow for initial preparation before form building and processing.
-    if (!isset($form_state['controller'])) {
+    if (!$form_state->has('entity_form_initialized')) {
       $this->init($form_state);
     }
 
@@ -107,18 +114,11 @@ class EntityForm extends FormBase implements EntityFormInterface {
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function submitForm(array &$form, array &$form_state) {
-  }
-
-  /**
    * Initialize the form state and the entity before the first form build.
    */
-  protected function init(array &$form_state) {
-    // Add the controller to the form state so it can be easily accessed by
-    // module-provided form handlers there.
-    $form_state['controller'] = $this;
+  protected function init(FormStateInterface $form_state) {
+    // Flag that this form has been initialized.
+    $form_state->set('entity_form_initialized', TRUE);
 
     // Prepare the entity to be presented in the entity form.
     $this->prepareEntity();
@@ -129,25 +129,16 @@ class EntityForm extends FormBase implements EntityFormInterface {
   }
 
   /**
-   * Returns the actual form array to be built.
+   * Gets the actual form array to be built.
    *
-   * @see \Drupal\Core\Entity\EntityForm::build()
+   * @see \Drupal\Core\Entity\EntityForm::processForm()
+   * @see \Drupal\Core\Entity\EntityForm::afterBuild()
    */
-  public function form(array $form, array &$form_state) {
-    $entity = $this->entity;
+  public function form(array $form, FormStateInterface $form_state) {
+    // Add #process and #after_build callbacks.
+    $form['#process'][] = '::processForm';
+    $form['#after_build'][] = '::afterBuild';
 
-    // Add a process callback.
-    $form['#process'][] = array($this, 'processForm');
-
-    if (!isset($form['langcode'])) {
-      // If the form did not specify otherwise, default to keeping the existing
-      // language of the entity or defaulting to the site default language for
-      // new entities.
-      $form['langcode'] = array(
-        '#type' => 'value',
-        '#value' => !$entity->isNew() ? $entity->language()->id : language_default()->id,
-      );
-    }
     return $form;
   }
 
@@ -156,10 +147,27 @@ class EntityForm extends FormBase implements EntityFormInterface {
    *
    * @see \Drupal\Core\Entity\EntityForm::form()
    */
-  public function processForm($element, $form_state, $form) {
+  public function processForm($element, FormStateInterface $form_state, $form) {
     // If the form is cached, process callbacks may not have a valid reference
     // to the entity object, hence we must restore it.
-    $this->entity = $form_state['controller']->getEntity();
+    $this->entity = $form_state->getFormObject()->getEntity();
+
+    return $element;
+  }
+
+  /**
+   * Form element #after_build callback: Updates the entity with submitted data.
+   *
+   * Updates the internal $this->entity object with submitted values when the
+   * form is being rebuilt (e.g. submitted via AJAX), so that subsequent
+   * processing (e.g. AJAX callbacks) can rely on it.
+   */
+  public function afterBuild(array $element, FormStateInterface $form_state) {
+    // Rebuild the entity if #after_build is being called as part of a form
+    // rebuild, i.e. if we are processing input.
+    if ($form_state->isProcessingInput()) {
+      $this->entity = $this->buildEntity($element, $form_state);
+    }
 
     return $element;
   }
@@ -167,7 +175,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * Returns the action form element for the current entity form.
    */
-  protected function actionsElement(array $form, array &$form_state) {
+  protected function actionsElement(array $form, FormStateInterface $form_state) {
     $element = $this->actions($form, $form_state);
 
     if (isset($element['delete'])) {
@@ -204,18 +212,15 @@ class EntityForm extends FormBase implements EntityFormInterface {
    * @todo Consider introducing a 'preview' action here, since it is used by
    *   many entity types.
    */
-  protected function actions(array $form, array &$form_state) {
-    // @todo Rename the action key from submit to save.
+  protected function actions(array $form, FormStateInterface $form_state) {
+    // @todo Consider renaming the action key from submit to save. The impacts
+    //   are hard to predict. For example, see
+    //   \Drupal\language\Element\LanguageConfiguration::processLanguageConfiguration().
     $actions['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save'),
-      '#validate' => array(
-        array($this, 'validate'),
-      ),
-      '#submit' => array(
-        array($this, 'submit'),
-        array($this, 'save'),
-      ),
+      '#validate' => array('::validate'),
+      '#submit' => array('::submitForm', '::save'),
     );
 
     if (!$this->entity->isNew() && $this->entity->hasLinkTemplate('delete-form')) {
@@ -233,7 +238,7 @@ class EntityForm extends FormBase implements EntityFormInterface {
           'class' => array('button', 'button--danger'),
         ),
       );
-      $actions['delete'] += $route_info->toRenderArray();
+      $actions['delete']['#url'] = $route_info;
     }
 
     return $actions;
@@ -242,85 +247,48 @@ class EntityForm extends FormBase implements EntityFormInterface {
   /**
    * {@inheritdoc}
    */
-  public function validate(array $form, array &$form_state) {
-    $this->updateFormLangcode($form_state);
+  public function validate(array $form, FormStateInterface $form_state) {
     // @todo Remove this.
     // Execute legacy global validation handlers.
-    unset($form_state['validate_handlers']);
-    form_execute_handlers('validate', $form, $form_state);
+    $form_state->setValidateHandlers([]);
+    \Drupal::service('form_validator')->executeValidateHandlers($form, $form_state);
   }
 
   /**
    * {@inheritdoc}
    *
    * This is the default entity object builder function. It is called before any
-   * other submit handler to build the new entity object to be passed to the
+   * other submit handler to build the new entity object to be used by the
    * following submit handlers. At this point of the form workflow the entity is
    * validated and the form state can be updated, this way the subsequently
-   * invoked handlers can retrieve a regular entity object to act on.
+   * invoked handlers can retrieve a regular entity object to act on. Generally
+   * this method should not be overridden unless the entity requires the same
+   * preparation for two actions, see \Drupal\comment\CommentForm for an example
+   * with the save and preview actions.
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   A reference to a keyed array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    */
-  public function submit(array $form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     // Remove button and internal Form API values from submitted values.
-    form_state_values_clean($form_state);
+    $form_state->cleanValues();
     $this->entity = $this->buildEntity($form, $form_state);
-    return $this->entity;
-  }
-
-  /**
-   * Form submission handler for the 'save' action.
-   *
-   * @param array $form
-   *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   A reference to a keyed array containing the current state of the form.
-   */
-  public function save(array $form, array &$form_state) {
-    // @todo Perform common save operations.
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getFormLangcode(array &$form_state) {
-    return $this->entity->language()->id;
+  public function save(array $form, FormStateInterface $form_state) {
+    return $this->entity->save();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function isDefaultFormLangcode(array $form_state) {
-    // The entity is not translatable, this is always the default language.
-    return TRUE;
-  }
-
-  /**
-   * Updates the form language to reflect any change to the entity language.
-   *
-   * @param array $form_state
-   *   A reference to a keyed array containing the current state of the form.
-   */
-  protected function updateFormLangcode(array &$form_state) {
-    // Update the form language as it might have changed.
-    if (isset($form_state['values']['langcode']) && $this->isDefaultFormLangcode($form_state)) {
-      $form_state['langcode'] = $form_state['values']['langcode'];
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function buildEntity(array $form, array &$form_state) {
+  public function buildEntity(array $form, FormStateInterface $form_state) {
     $entity = clone $this->entity;
-    // If you submit a form, the form state comes from caching, which forces
-    // the controller to be the one before caching. Ensure to have the
-    // controller of the current request.
-    $form_state['controller'] = $this;
-
     $this->copyFormValuesToEntity($entity, $form, $form_state);
 
     // Invoke all specified builders for copying form values to entity
@@ -344,14 +312,21 @@ class EntityForm extends FormBase implements EntityFormInterface {
    *   The entity the current form should operate upon.
    * @param array $form
    *   A nested array of form elements comprising the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    */
-  protected function copyFormValuesToEntity(EntityInterface $entity, array $form, array &$form_state) {
+  protected function copyFormValuesToEntity(EntityInterface $entity, array $form, FormStateInterface $form_state) {
+    $values = $form_state->getValues();
+
+    if ($this->entity instanceof EntityWithPluginCollectionInterface) {
+      // Do not manually update values represented by plugin collections.
+      $values = array_diff_key($values, $this->entity->getPluginCollections());
+    }
+
     // @todo: This relies on a method that only exists for config and content
     //   entities, in a different way. Consider moving this logic to a config
     //   entity specific implementation.
-    foreach ($form_state['values'] as $key => $value) {
+    foreach ($values as $key => $value) {
       $entity->set($key, $value);
     }
   }
@@ -372,6 +347,20 @@ class EntityForm extends FormBase implements EntityFormInterface {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function getEntityFromRouteMatch(RouteMatchInterface $route_match, $entity_type_id) {
+    if ($route_match->getRawParameter($entity_type_id) !== NULL) {
+      $entity = $route_match->getParameter($entity_type_id);
+    }
+    else {
+      $entity = $this->entityManager->getStorage($entity_type_id)->create([]);
+    }
+
+    return $entity;
+  }
+
+  /**
    * Prepares the entity object before the form is built first.
    */
   protected function prepareEntity() {}
@@ -381,10 +370,10 @@ class EntityForm extends FormBase implements EntityFormInterface {
    *
    * @param string $hook
    *   The hook variant name.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    */
-  protected function prepareInvokeAll($hook, array &$form_state) {
+  protected function prepareInvokeAll($hook, FormStateInterface $form_state) {
     $implementations = $this->moduleHandler->getImplementations($hook);
     foreach ($implementations as $module) {
       $function = $module . '_' . $hook;
@@ -409,6 +398,14 @@ class EntityForm extends FormBase implements EntityFormInterface {
    */
   public function setModuleHandler(ModuleHandlerInterface $module_handler) {
     $this->moduleHandler = $module_handler;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setEntityManager(EntityManagerInterface $entity_manager) {
+    $this->entityManager = $entity_manager;
     return $this;
   }
 

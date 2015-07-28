@@ -2,19 +2,17 @@
 
 /**
  * @file
- * Contains Drupal\system\Tests\KeyValueStore\StorageTestBase.
+ * Contains \Drupal\system\Tests\KeyValueStore\StorageTestBase.
  */
 
 namespace Drupal\system\Tests\KeyValueStore;
 
-use Drupal\simpletest\UnitTestBase;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Reference;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Base class for testing key-value storages.
  */
-abstract class StorageTestBase extends UnitTestBase {
+abstract class StorageTestBase extends KernelTestBase {
 
   /**
    * An array of random stdClass objects.
@@ -33,36 +31,13 @@ abstract class StorageTestBase extends UnitTestBase {
   /**
    * Whether we are using an expirable key/value store.
    *
-   * @var boolean
+   * @var bool
    */
   protected $factory = 'keyvalue';
-
-  /**
-   * A container for the services needed in these tests.
-   *
-   * @var ContainerBuilder
-   */
-  protected $container;
 
   protected function setUp() {
     parent::setUp();
 
-    $this->container = new ContainerBuilder();
-    $this->container
-      ->register('service_container', 'Symfony\Component\DependencyInjection\ContainerBuilder')
-      ->setSynthetic(TRUE);
-    $this->container->set('service_container', $this->container);
-    $this->container->register('settings', 'Drupal\Core\Site\Settings')
-      ->setFactoryClass('Drupal\Core\Site\Settings')
-      ->setFactoryMethod('getInstance');
-    $this->container
-      ->register('keyvalue', 'Drupal\Core\KeyValueStore\KeyValueFactory')
-      ->addArgument(new Reference('service_container'))
-      ->addArgument(new Reference('settings'));
-    $this->container
-      ->register('keyvalue.expirable', 'Drupal\Core\KeyValueStore\KeyValueExpirableFactory')
-      ->addArgument(new Reference('service_container'))
-      ->addArgument(new Reference('settings'));
     // Define two data collections,
     $this->collections = array(0 => 'zero', 1 => 'one');
 
@@ -146,6 +121,8 @@ abstract class StorageTestBase extends UnitTestBase {
     $this->assertFalse($stores[0]->get('foo'));
     $this->assertFalse($stores[0]->get('bar'));
     $this->assertFalse($stores[0]->getMultiple(array('foo', 'bar')));
+    // Verify that deleting no items does not cause an error.
+    $stores[0]->deleteMultiple(array());
     // Verify that the item in the other collection still exists.
     $this->assertIdenticalObject($this->objects[5], $stores[1]->get('foo'));
 
@@ -185,7 +162,7 @@ abstract class StorageTestBase extends UnitTestBase {
   public function testSetIfNotExists() {
     $stores = $this->createStorage();
 
-    $key = $this->randomName();
+    $key = $this->randomMachineName();
     // Test that setIfNotExists() succeeds only the first time.
     for ($i = 0; $i <= 1; $i++) {
       // setIfNotExists() should be TRUE the first time (when $i is 0) and

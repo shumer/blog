@@ -16,8 +16,7 @@ use Drupal\Core\Field\FieldTypePluginManagerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Config\StorageInterface;
-use Drupal\Core\Extension\ModuleHandler;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\State\StateInterface;
 
 /**
@@ -28,7 +27,7 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
   /**
    * The module handler.
    *
-   * @var \Drupal\Core\Extension\ModuleHandler
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
    */
   protected $moduleHandler;
 
@@ -60,23 +59,21 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
    *   The entity type definition.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The config factory service.
-   * @param \Drupal\Core\Config\StorageInterface $config_storage
-   *   The config storage service.
    * @param \Drupal\Component\Uuid\UuidInterface $uuid_service
    *   The UUID service.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
    *   The entity manager.
-   * @param \Drupal\Core\Extension\ModuleHandler $module_handler
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    * @param \Drupal\Component\Plugin\PluginManagerInterface\FieldTypePluginManagerInterface
    *   The field type plugin manager.
    */
-  public function __construct(EntityTypeInterface $entity_type, ConfigFactoryInterface $config_factory, StorageInterface $config_storage, UuidInterface $uuid_service, LanguageManagerInterface $language_manager, EntityManagerInterface $entity_manager, ModuleHandler $module_handler, StateInterface $state, FieldTypePluginManagerInterface $field_type_manager) {
-    parent::__construct($entity_type, $config_factory, $config_storage, $uuid_service, $language_manager);
+  public function __construct(EntityTypeInterface $entity_type, ConfigFactoryInterface $config_factory, UuidInterface $uuid_service, LanguageManagerInterface $language_manager, EntityManagerInterface $entity_manager, ModuleHandlerInterface $module_handler, StateInterface $state, FieldTypePluginManagerInterface $field_type_manager) {
+    parent::__construct($entity_type, $config_factory, $uuid_service, $language_manager);
     $this->entityManager = $entity_manager;
     $this->moduleHandler = $module_handler;
     $this->state = $state;
@@ -90,7 +87,6 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
     return new static(
       $entity_type,
       $container->get('config.factory'),
-      $container->get('config.storage'),
       $container->get('uuid'),
       $container->get('language_manager'),
       $container->get('entity.manager'),
@@ -104,10 +100,11 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
    * {@inheritdoc}
    */
   public function loadByProperties(array $conditions = array()) {
-    // Include deleted instances if specified in the $conditions parameters.
+    // Include deleted fields if specified in the $conditions parameters.
     $include_deleted = isset($conditions['include_deleted']) ? $conditions['include_deleted'] : FALSE;
     unset($conditions['include_deleted']);
 
+    /** @var \Drupal\field\FieldStorageConfigInterface[] $storages */
     $storages = array();
 
     // Get field storages living in configuration. If we are explicitly looking
@@ -138,20 +135,7 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
     foreach ($storages as $field) {
       foreach ($conditions as $key => $value) {
         // Extract the actual value against which the condition is checked.
-        switch ($key) {
-          case 'field_name';
-            $checked_value = $field->name;
-            break;
-
-          case 'uuid';
-            $checked_value = $field->uuid();
-            break;
-
-          default:
-            $checked_value = $field->$key;
-            break;
-        }
-
+        $checked_value = $field->get($key);
         // Skip to the next field as soon as one condition does not match.
         if ($checked_value != $value) {
           continue 2;
@@ -165,7 +149,6 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
     }
 
     return $matches;
-
   }
 
   /**
@@ -174,7 +157,7 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
   protected function mapFromStorageRecords(array $records) {
     foreach ($records as &$record) {
       $class = $this->fieldTypeManager->getPluginClass($record['type']);
-      $record['settings'] = $class::settingsFromConfigData($record['settings']);
+      $record['settings'] = $class::storageSettingsFromConfigData($record['settings']);
     }
     return parent::mapFromStorageRecords($records);
   }
@@ -185,7 +168,7 @@ class FieldStorageConfigStorage extends ConfigEntityStorage {
   protected function mapToStorageRecord(EntityInterface $entity) {
     $record = parent::mapToStorageRecord($entity);
     $class = $this->fieldTypeManager->getPluginClass($record['type']);
-    $record['settings'] = $class::settingsToConfigData($record['settings']);
+    $record['settings'] = $class::storageSettingsToConfigData($record['settings']);
     return $record;
   }
 

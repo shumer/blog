@@ -7,6 +7,7 @@
 
 namespace Drupal\Tests\Core\Entity;
 
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityListBuilder;
@@ -85,13 +86,13 @@ class EntityListBuilderTest extends UnitTestCase {
   }
 
   /**
-   * @covers \Drupal\Core\Entity\EntityListBuilder::getOperations
+   * @covers ::getOperations
    */
   public function testGetOperations() {
-    $operation_name = $this->randomName();
+    $operation_name = $this->randomMachineName();
     $operations = array(
       $operation_name => array(
-        'title' => $this->randomName(),
+        'title' => $this->randomMachineName(),
       ),
     );
     $this->moduleHandler->expects($this->once())
@@ -106,7 +107,7 @@ class EntityListBuilderTest extends UnitTestCase {
 
     $this->role->expects($this->any())
       ->method('access')
-      ->will($this->returnValue(TRUE));
+      ->will($this->returnValue(AccessResult::allowed()));
     $this->role->expects($this->any())
       ->method('hasLinkTemplate')
       ->will($this->returnValue(TRUE));
@@ -138,7 +139,7 @@ class EntityListBuilderTest extends UnitTestCase {
 
   /**
    * Tests that buildRow() returns a string which has been run through
-   * String::checkPlain().
+   * SafeMarkup::checkPlain().
    *
    * @dataProvider providerTestBuildRow
    *
@@ -172,11 +173,11 @@ class EntityListBuilderTest extends UnitTestCase {
    * Data provider for testBuildRow().
    *
    * @see self::testBuildRow()
-   * @see \Drupal\Tests\Component\Utility\StringTest::providerCheckPlain()
+   * @see \Drupal\Tests\Component\Utility\SafeMarkupTest::providerCheckPlain()
    *
    * @return array
    *   An array containing a string, the expected return from
-   *   String::checkPlain, a message to be output for failures, and whether the
+   *   SafeMarkup::checkPlain, a message to be output for failures, and whether the
    *   test should be processed as multibyte.
    */
   public function providerTestBuildRow() {

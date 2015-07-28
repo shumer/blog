@@ -25,10 +25,14 @@ class ViewsTemplateTest extends ViewTestBase {
    */
   public static $testViews = array('test_view_display_template');
 
+  /**
+   * {@inheritdoc}
+   */
   protected function setUp() {
-    parent::setUp();
+    parent::setUp(FALSE);
 
     $this->enableViewsTestModule();
+    ViewTestData::createTestViews(get_class($this), array('views_test_config'));
   }
 
   /**
@@ -41,7 +45,7 @@ class ViewsTemplateTest extends ViewTestBase {
     $output = $view->preview();
 
     // Check if we got the rendered output of our template file.
-    $this->assertTrue(strpos(drupal_render($output), 'This module defines its own display template.') !== FALSE, 'Display plugin DisplayTemplateTest defines its own template.');
+    $this->assertTrue(strpos(\Drupal::service('renderer')->renderRoot($output), 'This module defines its own display template.') !== FALSE, 'Display plugin DisplayTemplateTest defines its own template.');
 
   }
 

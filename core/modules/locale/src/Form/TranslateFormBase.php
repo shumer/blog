@@ -8,7 +8,7 @@
 namespace Drupal\locale\Form;
 
 use Drupal\Core\Form\FormBase;
-use Drupal\Core\Language\LanguageManager;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\locale\StringStorageInterface;
 use Drupal\Core\State\StateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -37,7 +37,7 @@ abstract class TranslateFormBase extends FormBase {
   /**
    * The language manager.
    *
-   * @var \Drupal\Core\Language\LanguageManager
+   * @var \Drupal\Core\Language\LanguageManagerInterface
    */
   protected $languageManager;
 
@@ -55,10 +55,10 @@ abstract class TranslateFormBase extends FormBase {
    *   The locale storage.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state service.
-   * @param \Drupal\Core\Language\LanguageManager $language_manager
+   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    */
-  public function __construct(StringStorageInterface $locale_storage, StateInterface $state, LanguageManager $language_manager) {
+  public function __construct(StringStorageInterface $locale_storage, StateInterface $state, LanguageManagerInterface $language_manager) {
     $this->localeStorage = $locale_storage;
     $this->state = $state;
     $this->languageManager = $language_manager;
@@ -161,16 +161,16 @@ abstract class TranslateFormBase extends FormBase {
 
     // Get all languages, except English.
     $this->languageManager->reset();
-    $languages = language_list();
+    $languages = $this->languageManager->getLanguages();
     $language_options = array();
     foreach ($languages as $langcode => $language) {
-      if ($langcode != 'en' || locale_translate_english()) {
-        $language_options[$langcode] = $language->name;
+      if (locale_is_translatable($langcode)) {
+        $language_options[$langcode] = $language->getName();
       }
     }
 
     // Pick the current interface language code for the filter.
-    $default_langcode = $this->languageManager->getCurrentLanguage()->id;
+    $default_langcode = $this->languageManager->getCurrentLanguage()->getId();
     if (!isset($language_options[$default_langcode])) {
       $available_langcodes = array_keys($language_options);
       $default_langcode = array_shift($available_langcodes);

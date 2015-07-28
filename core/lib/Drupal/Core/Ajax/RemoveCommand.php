@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\RemoveCommand.
+ * Contains \Drupal\Core\Ajax\RemoveCommand.
  */
 
 namespace Drupal\Core\Ajax;
@@ -20,6 +20,8 @@ use Drupal\Core\Ajax\CommandInterface;
  * defined in misc/ajax.js.
  *
  * @see http://docs.jquery.com/Manipulation/remove#expr
+ *
+ * @ingroup ajax
  */
 class RemoveCommand Implements CommandInterface {
 

@@ -2,13 +2,13 @@
 
 /**
  * @file
- * Contains Drupal\Core\KeyValueStore\KeyValueMemoryFactory.
+ * Contains \Drupal\Core\KeyValueStore\KeyValueMemoryFactory.
  */
 
 namespace Drupal\Core\KeyValueStore;
 
 /**
- * Defines the key/value store factory for the database backend.
+ * Defines the key/value store factory for the memory backend.
  */
 class KeyValueMemoryFactory implements KeyValueFactoryInterface {
 

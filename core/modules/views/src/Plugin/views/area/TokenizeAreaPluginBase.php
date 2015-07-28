@@ -7,11 +7,13 @@
 
 namespace Drupal\views\Plugin\views\area;
 
+use Drupal\Core\Form\FormStateInterface;
+
 /**
  * Tokenized base class for area handlers.
  *
  * This class provides a method tokenizeValue() to tokenize a given value with
- * the tokens of the first view result and additionally apllies global token
+ * the tokens of the first view result and additionally applies global token
  * replacement to the passed value. The form elements to enable the replacement
  * functionality is automatically added to the buildOptionsForm().
  *
@@ -24,14 +26,14 @@ abstract class TokenizeAreaPluginBase extends AreaPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['tokenize'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['tokenize'] = array('default' => FALSE);
     return $options;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     // Add tokenization form elements.
@@ -41,10 +43,10 @@ abstract class TokenizeAreaPluginBase extends AreaPluginBase {
   /**
    * Adds tokenization form elements.
    */
-  public function tokenForm(&$form, &$form_state) {
+  public function tokenForm(&$form, FormStateInterface $form_state) {
     $form['tokenize'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Use replacement tokens from the first row'),
+      '#title' => $this->t('Use replacement tokens from the first row'),
       '#default_value' => $this->options['tokenize'],
     );
 
@@ -56,14 +58,14 @@ abstract class TokenizeAreaPluginBase extends AreaPluginBase {
 
     $count = 0; // This lets us prepare the key as we want it printed.
     foreach ($this->view->display_handler->getHandlers('argument') as $handler) {
-      $options[t('Arguments')]['%' . ++$count] = t('@argument title', array('@argument' => $handler->adminLabel()));
-      $options[t('Arguments')]['!' . $count] = t('@argument input', array('@argument' => $handler->adminLabel()));
+      $options[t('Arguments')]['%' . ++$count] = $this->t('@argument title', array('@argument' => $handler->adminLabel()));
+      $options[t('Arguments')]['!' . $count] = $this->t('@argument input', array('@argument' => $handler->adminLabel()));
     }
 
     if (!empty($options)) {
       $form['tokens'] = array(
         '#type' => 'details',
-        '#title' => t('Replacement patterns'),
+        '#title' => $this->t('Replacement patterns'),
         '#open' => TRUE,
         '#id' => 'edit-options-token-help',
         '#states' => array(
@@ -73,7 +75,7 @@ abstract class TokenizeAreaPluginBase extends AreaPluginBase {
         ),
       );
       $form['tokens']['help'] = array(
-        '#markup' => '<p>' . t('The following tokens are available. If you would like to have the characters \'[\' and \']\' use the html entity codes \'%5B\' or  \'%5D\' or they will get replaced with empty space.') . '</p>',
+        '#markup' => '<p>' . $this->t('The following tokens are available. If you would like to have the characters \'[\' and \']\' use the HTML entity codes \'%5B\' or  \'%5D\' or they will get replaced with empty space.') . '</p>',
       );
       foreach (array_keys($options) as $type) {
         if (!empty($options[$type])) {
@@ -104,7 +106,7 @@ abstract class TokenizeAreaPluginBase extends AreaPluginBase {
    */
   public function tokenizeValue($value) {
     if ($this->options['tokenize']) {
-      $value = $this->view->style_plugin->tokenizeValue($value, 0);
+      $value = $this->view->getStyle()->tokenizeValue($value, 0);
     }
     // As we add the globalTokenForm() we also should replace the token here.
     return $this->globalTokenReplace($value);

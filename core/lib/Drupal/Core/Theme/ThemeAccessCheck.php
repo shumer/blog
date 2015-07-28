@@ -7,6 +7,8 @@
 
 namespace Drupal\Core\Theme;
 
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
 
 /**
@@ -15,29 +17,46 @@ use Drupal\Core\Routing\Access\AccessInterface;
 class ThemeAccessCheck implements AccessInterface {
 
   /**
+   * The theme handler.
+   *
+   * @var \Drupal\Core\Extension\ThemeHandlerInterface
+   */
+  protected $themeHandler;
+
+  /**
+   * Constructs a \Drupal\Core\Theme\Registry object.
+   *
+   * @param \Drupal\Core\Extension\ThemeHandlerInterface $theme_handler
+   *   The theme handler.
+   */
+  public function __construct(ThemeHandlerInterface $theme_handler) {
+    $this->themeHandler = $theme_handler;
+  }
+  /**
    * Checks access to the theme for routing.
    *
    * @param string $theme
    *   The name of a theme.
    *
-   * @return string
-   *   A \Drupal\Core\Access\AccessInterface constant value.
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result.
    */
   public function access($theme) {
-    return $this->checkAccess($theme) ? static::ALLOW : static::DENY;
+    // Cacheable until the theme settings are modified.
+    return AccessResult::allowedIf($this->checkAccess($theme))->addCacheTags(['config:' . $theme . '.settings']);
   }
 
   /**
-   * Indicates whether the theme is accessible based on whether it is enabled.
+   * Indicates whether the theme is accessible based on whether it is installed.
    *
    * @param string $theme
    *   The name of a theme.
    *
    * @return bool
-   *   TRUE if the theme is enabled, FALSE otherwise.
+   *   TRUE if the theme is installed, FALSE otherwise.
    */
   public function checkAccess($theme) {
-    $themes = list_themes();
+    $themes = $this->themeHandler->listInfo();
     return !empty($themes[$theme]->status);
   }
 

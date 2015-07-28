@@ -7,6 +7,7 @@
 
 namespace Drupal\views\Tests\Plugin;
 
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\views\Views;
 use Drupal\views_test_data\Plugin\views\display\DisplayTest as DisplayTestPlugin;
 
@@ -31,7 +32,7 @@ class DisplayTest extends PluginTestBase {
    */
   public static $modules = array('views_ui', 'node', 'block');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->enableViewsTestModule();
@@ -51,6 +52,8 @@ class DisplayTest extends PluginTestBase {
    * @see \Drupal\views_test_data\Plugin\views\display\DisplayTest
    */
   public function testDisplayPlugin() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
     $view = Views::getView('test_view');
 
     // Add a new 'display_test' display and test it's there.
@@ -59,14 +62,13 @@ class DisplayTest extends PluginTestBase {
 
     $this->assertTrue(isset($displays['display_test_1']), 'Added display has been assigned to "display_test_1"');
 
-    // Check the the display options are like expected.
+    // Check the display options are like expected.
     $options = array(
       'display_options' => array(),
       'display_plugin' => 'display_test',
       'id' => 'display_test_1',
       'display_title' => 'Display test',
       'position' => 1,
-      'provider' => 'views_test_data',
     );
     $this->assertEqual($displays['display_test_1'], $options);
 
@@ -79,7 +81,6 @@ class DisplayTest extends PluginTestBase {
       'id' => 'display_test_2',
       'display_title' => 'Display test 2',
       'position' => 2,
-      'provider' => 'views_test_data',
     );
     $this->assertEqual($displays['display_test_2'], $options);
 
@@ -98,7 +99,7 @@ class DisplayTest extends PluginTestBase {
     $this->assertIdentical($view->display_handler->getOption('test_option'), '');
 
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
 
     $this->assertTrue(strpos($output, '<h1></h1>') !== FALSE, 'An empty value for test_option found in output.');
 
@@ -107,7 +108,7 @@ class DisplayTest extends PluginTestBase {
     $view->save();
 
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
 
     // Test we have our custom <h1> tag in the output of the view.
     $this->assertTrue(strpos($output, '<h1>Test option title</h1>') !== FALSE, 'The test_option value found in display output title.');
@@ -122,12 +123,12 @@ class DisplayTest extends PluginTestBase {
 
     $this->clickLink('Test option title');
 
-    $this->randomString = $this->randomString();
-    $this->drupalPostForm(NULL, array('test_option' => $this->randomString), t('Apply'));
+    $test_option = $this->randomString();
+    $this->drupalPostForm(NULL, array('test_option' => $test_option), t('Apply'));
 
     // Check the new value has been saved by checking the UI summary text.
     $this->drupalGet('admin/structure/views/view/test_view/edit/display_test_1');
-    $this->assertRaw($this->randomString);
+    $this->assertLink($test_option);
 
     // Test the enable/disable status of a display.
     $view->display_handler->setOption('enabled', FALSE);
@@ -167,26 +168,32 @@ class DisplayTest extends PluginTestBase {
    * Tests the readmore functionality.
    */
   public function testReadMore() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
+
+    if (!isset($this->options['validate']['type'])) {
+      return;
+    }
     $expected_more_text = 'custom more text';
 
     $view = Views::getView('test_display_more');
     $this->executeView($view);
 
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
 
-    $this->drupalSetContent($output);
+    $this->setRawContent($output);
     $result = $this->xpath('//a[@class=:class]', array(':class' => 'more-link'));
-    $this->assertEqual($result[0]->attributes()->href, url('test_display_more'), 'The right more link is shown.');
+    $this->assertEqual($result[0]->attributes()->href, \Drupal::url('view.test_display_more.page_1'), 'The right more link is shown.');
     $this->assertEqual(trim($result[0][0]), $expected_more_text, 'The right link text is shown.');
 
     // Test the renderMoreLink method directly. This could be directly unit
     // tested.
     $more_link = $view->display_handler->renderMoreLink();
-    $more_link = drupal_render($more_link);
-    $this->drupalSetContent($more_link);
+    $more_link = $renderer->renderRoot($more_link);
+    $this->setRawContent($more_link);
     $result = $this->xpath('//a[@class=:class]', array(':class' => 'more-link'));
-    $this->assertEqual($result[0]->attributes()->href, url('test_display_more'), 'The right more link is shown.');
+    $this->assertEqual($result[0]->attributes()->href, \Drupal::url('view.test_display_more.page_1'), 'The right more link is shown.');
     $this->assertEqual(trim($result[0][0]), $expected_more_text, 'The right link text is shown.');
 
     // Test the useMoreText method directly. This could be directly unit
@@ -199,8 +206,8 @@ class DisplayTest extends PluginTestBase {
     $view->display_handler->setOption('use_more', 0);
     $this->executeView($view);
     $output = $view->preview();
-    $output = drupal_render($output);
-    $this->drupalSetContent($output);
+    $output = $renderer->renderRoot($output);
+    $this->setRawContent($output);
     $result = $this->xpath('//a[@class=:class]', array(':class' => 'more-link'));
     $this->assertTrue(empty($result), 'The more link is not shown.');
 
@@ -217,14 +224,40 @@ class DisplayTest extends PluginTestBase {
     ));
     $this->executeView($view);
     $output = $view->preview();
-    $output = drupal_render($output);
-    $this->drupalSetContent($output);
+    $output = $renderer->renderRoot($output);
+    $this->setRawContent($output);
     $result = $this->xpath('//a[@class=:class]', array(':class' => 'more-link'));
     $this->assertTrue(empty($result), 'The more link is not shown when view has more records.');
 
     // Test the default value of use_more_always.
     $view = entity_create('view')->getExecutable();
     $this->assertTrue($view->getDisplay()->getOption('use_more_always'), 'Always display the more link by default.');
+  }
+
+  /**
+   * Tests the readmore validation.
+   */
+  public function testReadMoreNoDisplay() {
+    $view = Views::getView('test_display_more');
+    // Confirm that the view validates when there is a page display.
+    $errors = $view->validate();
+    $this->assertTrue(empty($errors), 'More link validation has no errors.');
+
+    // Confirm that the view does not validate when the page display is disabled.
+    $view->setDisplay('page_1');
+    $view->display_handler->setOption('enabled', FALSE);
+    $view->setDisplay('default');
+    $errors = $view->validate();
+    $this->assertTrue(!empty($errors), 'More link validation has some errors.');
+    $this->assertEqual($errors['default'][0], 'Display "Master" uses a "more" link but there are no displays it can link to. You need to specify a custom URL.', 'More link validation has the right error.');
+
+    // Confirm that the view does not validate when the page display does not exist.
+    $view = Views::getView('test_view');
+    $view->setDisplay('default');
+    $view->display_handler->setOption('use_more', 1);
+    $errors = $view->validate();
+    $this->assertTrue(!empty($errors), 'More link validation has some errors.');
+    $this->assertEqual($errors['default'][0], 'Display "Master" uses a "more" link but there are no displays it can link to. You need to specify a custom URL.', 'More link validation has the right error.');
   }
 
   /**
@@ -236,13 +269,13 @@ class DisplayTest extends PluginTestBase {
 
     // Change the page plugin id to an invalid one. Bypass the entity system
     // so no menu rebuild was executed (so the path is still available).
-    $config = \Drupal::config('views.view.test_display_invalid');
+    $config = $this->config('views.view.test_display_invalid');
     $config->set('display.page_1.display_plugin', 'invalid');
     $config->save();
 
     $this->drupalGet('test_display_invalid');
     $this->assertResponse(200);
-    $this->assertText('The "invalid" plugin does not exist.');
+    $this->assertText('The &quot;invalid&quot; plugin does not exist.');
 
     // Rebuild the router, and ensure that the path is not accessible anymore.
     views_invalidate_cache();
@@ -252,7 +285,7 @@ class DisplayTest extends PluginTestBase {
     $this->assertResponse(404);
 
     // Change the display plugin ID back to the correct ID.
-    $config = \Drupal::config('views.view.test_display_invalid');
+    $config = $this->config('views.view.test_display_invalid');
     $config->set('display.page_1.display_plugin', 'page');
     $config->save();
 
@@ -264,7 +297,7 @@ class DisplayTest extends PluginTestBase {
     $this->assertBlockAppears($block);
 
     // Change the block plugin ID to an invalid one.
-    $config = \Drupal::config('views.view.test_display_invalid');
+    $config = $this->config('views.view.test_display_invalid');
     $config->set('display.block_1.display_plugin', 'invalid');
     $config->save();
 
@@ -272,7 +305,7 @@ class DisplayTest extends PluginTestBase {
     // plugin warning message.
     $this->drupalGet('<front>');
     $this->assertResponse(200);
-    $this->assertText('The "invalid" plugin does not exist.');
+    $this->assertText('The &quot;invalid&quot; plugin does not exist.');
     $this->assertNoBlockAppears($block);
   }
 
@@ -317,6 +350,55 @@ class DisplayTest extends PluginTestBase {
     $this->executeView($view);
     $this->assertFalse(count($view->result), 'Ensure the result of the view is empty.');
     $this->assertTrue($view->display_handler->outputIsEmpty(), 'Ensure the view output is marked as empty.');
+  }
+
+  /**
+   * Test translation rendering settings based on entity translatability.
+   */
+  public function testTranslationSetting() {
+    \Drupal::service('module_installer')->install(['file']);
+    \Drupal::service('router.builder')->rebuild();
+
+    // By default there should be no language settings.
+    $this->checkTranslationSetting();
+    \Drupal::service('module_installer')->install(['language']);
+
+    // Enabling the language module should not make a difference.
+    $this->checkTranslationSetting();
+
+    // Making the site multilingual should let translatable entity types support
+    // translation rendering.
+    ConfigurableLanguage::createFromLangcode('it')->save();
+    $this->checkTranslationSetting(TRUE);
+  }
+
+  /**
+   * Asserts a node and a file based view for the translation setting.
+   *
+   * The file based view should never expose that setting. The node based view
+   * should if the site is multilingual.
+   *
+   * @param bool $expected_node_translatability
+   *   Whether the node based view should be expected to support translation
+   *   settings.
+   */
+  protected function checkTranslationSetting($expected_node_translatability = FALSE) {
+    $not_supported_text = 'The view is not based on a translatable entity type or the site is not multilingual.';
+    $supported_text = 'All content that supports translations will be displayed in the selected language.';
+
+    $this->drupalGet('admin/structure/views/nojs/display/content/page_1/rendering_language');
+    if ($expected_node_translatability) {
+      $this->assertNoText($not_supported_text);
+      $this->assertText($supported_text);
+    }
+    else {
+      $this->assertText($not_supported_text);
+      $this->assertNoText($supported_text);
+    }
+
+    $this->drupalGet('admin/structure/views/nojs/display/files/page_1/rendering_language');
+    $this->assertText($not_supported_text);
+    $this->assertNoText($supported_text);
   }
 
 }

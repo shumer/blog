@@ -8,10 +8,12 @@
 namespace Drupal\image\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormState;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\image\ConfigurableImageEffectInterface;
 use Drupal\image\ImageStyleInterface;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -53,13 +55,13 @@ abstract class ImageEffectFormBase extends FormBase {
    *
    * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
    */
-  public function buildForm(array $form, array &$form_state, ImageStyleInterface $image_style = NULL, $image_effect = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ImageStyleInterface $image_style = NULL, $image_effect = NULL) {
     $this->imageStyle = $image_style;
     try {
       $this->imageEffect = $this->prepareImageEffect($image_effect);
     }
     catch (PluginNotFoundException $e) {
-      throw new NotFoundHttpException(String::format("Invalid effect id: '@id'.", array('@id' => $image_effect)));
+      throw new NotFoundHttpException(SafeMarkup::format("Invalid effect id: '@id'.", array('@id' => $image_effect)));
     }
     $request = $this->getRequest();
 
@@ -67,7 +69,7 @@ abstract class ImageEffectFormBase extends FormBase {
       throw new NotFoundHttpException();
     }
 
-    $form['#attached']['css'][drupal_get_path('module', 'image') . '/css/image.admin.css'] = array();
+    $form['#attached']['library'][] = 'image/admin';
     $form['uuid'] = array(
       '#type' => 'value',
       '#value' => $this->imageEffect->getUuid(),
@@ -94,42 +96,45 @@ abstract class ImageEffectFormBase extends FormBase {
     $form['actions']['cancel'] = array(
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-    ) + $this->imageStyle->urlInfo('edit-form')->toRenderArray();
+      '#url' => $this->imageStyle->urlInfo('edit-form'),
+      '#attributes' => ['class' => ['button']],
+    );
     return $form;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     // The image effect configuration is stored in the 'data' key in the form,
     // pass that through for validation.
-    $effect_data = array(
-      'values' => &$form_state['values']['data']
-    );
+    $effect_data = (new FormState())->setValues($form_state->getValue('data'));
     $this->imageEffect->validateConfigurationForm($form, $effect_data);
+    // Update the original form values.
+    $form_state->setValue('data', $effect_data->getValues());
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    form_state_values_clean($form_state);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $form_state->cleanValues();
 
     // The image effect configuration is stored in the 'data' key in the form,
     // pass that through for submission.
-    $effect_data = array(
-      'values' => &$form_state['values']['data']
-    );
+    $effect_data = (new FormState())->setValues($form_state->getValue('data'));
     $this->imageEffect->submitConfigurationForm($form, $effect_data);
-    $this->imageEffect->setWeight($form_state['values']['weight']);
+    // Update the original form values.
+    $form_state->setValue('data', $effect_data->getValues());
+
+    $this->imageEffect->setWeight($form_state->getValue('weight'));
     if (!$this->imageEffect->getUuid()) {
       $this->imageStyle->addImageEffect($this->imageEffect->getConfiguration());
     }
     $this->imageStyle->save();
 
     drupal_set_message($this->t('The image effect was successfully applied.'));
-    $form_state['redirect_route'] = $this->imageStyle->urlInfo('edit-form');
+    $form_state->setRedirectUrl($this->imageStyle->urlInfo('edit-form'));
   }
 
   /**

@@ -12,7 +12,7 @@ use Symfony\Component\Validator\Constraint;
 /**
  * Checks if a user's email address is unique on the site.
  *
- * @Plugin(
+ * @Constraint(
  *   id = "UserMailUnique",
  *   label = @Translation("User email unique", context = "Validation")
  * )
@@ -25,6 +25,6 @@ class UserMailUnique extends Constraint {
    * {@inheritdoc}
    */
   public function validatedBy() {
-    return '\Drupal\user\Plugin\Validation\Constraint\UserUniqueValidator';
+    return '\Drupal\Core\Validation\Plugin\Validation\Constraint\UniqueFieldValueValidator';
   }
 }

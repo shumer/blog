@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views_test_data\Plugin\views\argument_default\ArgumentDefaultTest.
+ * Contains \Drupal\views_test_data\Plugin\views\argument_default\ArgumentDefaultTest.
  */
 
 namespace Drupal\views_test_data\Plugin\views\argument_default;
@@ -34,6 +34,15 @@ class ArgumentDefaultTest extends ArgumentDefaultPluginBase {
    */
   public function getArgument() {
     return $this->options['value'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    return [
+      'content' => ['ArgumentDefaultTest'],
+    ];
   }
 
 }

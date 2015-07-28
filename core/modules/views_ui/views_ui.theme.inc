@@ -6,8 +6,9 @@
  */
 
 use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Form\FormState;
 use Drupal\Core\Render\Element;
-use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
 
 /**
  * Prepares variables for Views UI display tab setting templates.
@@ -26,21 +27,10 @@ use Drupal\Core\Template\Attribute;
  *     appended to the setting's description.
  */
 function template_preprocess_views_ui_display_tab_setting(&$variables) {
-
-  // Add default class attributes.
-  $variables['attributes']['class'][] = 'views-display-setting';
-  $variables['attributes']['class'][] = 'clearfix';
-
   // Put the primary link to the left side.
   array_unshift($variables['settings_links'], $variables['link']);
 
-  $variables['attributes']['class'][] = 'views-ui-display-tab-setting';
-
-  if (!empty($variables['defaulted'])) {
-    $variables['attributes']['class'][] = 'defaulted';
-  }
   if (!empty($variables['overridden'])) {
-    $variables['attributes']['class'][] = 'overridden';
     $variables['attributes']['title'][] = t('Overridden');
   }
 
@@ -63,89 +53,21 @@ function template_preprocess_views_ui_display_tab_setting(&$variables) {
 function template_preprocess_views_ui_display_tab_bucket(&$variables) {
   $element = $variables['element'];
 
-  $variables['attributes']['class'][] = 'views-ui-display-tab-bucket';
-
-  if (!empty($element['#name'])) {
-    $variables['attributes']['class'][] = drupal_html_class($element['#name']);
-  }
   if (!empty($element['#overridden'])) {
-    $variables['attributes']['class'][] = 'overridden';
     $variables['attributes']['title'][] = t('Overridden');
   }
 
+  $variables['name'] = isset($element['#name']) ? $element['#name'] : NULL;
+  $variables['overridden'] = isset($element['#overridden']) ? $element['#overridden'] : NULL;
   $variables['content'] = $element['#children'];
   $variables['title'] = $element['#title'];
   $variables['actions'] = !empty($element['#actions']) ? $element['#actions'] : array();
 }
 
 /**
- * Prepares variables for Views UI View info templates.
- *
- * Default template: views-ui-view-info.html.twig.
- *
- * @param array $variables
- *   An associative array containing:
- *   - view: The View object.
- */
-function template_preprocess_views_ui_view_info(&$variables) {
-  $variables['title'] = $variables['view']->label();
-  if (empty($variables['displays'])) {
-    $displays = t('None');
-  }
-  else {
-    $displays = format_plural(count($variables['displays']), 'Display', 'Displays') . ': <em>';
-    $separator = '';
-    foreach ($variables['displays'] as $displays_item) {
-      $displays .= $separator . SafeMarkup::escape($displays_item);
-      $separator = ', ';
-    }
-    $displays = SafeMarkup::set($displays . '</em>');
-  }
-  $variables['displays'] = $displays;
-}
-
-/**
- * Theme the expose filter form.
- */
-function theme_views_ui_expose_filter_form($variables) {
-  $form = $variables['form'];
-  $more = drupal_render($form['more']);
-
-  $output = drupal_render($form['form_description']);
-  $output .= drupal_render($form['expose_button']);
-  $output .= drupal_render($form['group_button']);
-  if (isset($form['required'])) {
-    $output .= drupal_render($form['required']);
-  }
-  $output .= drupal_render($form['label']);
-  $output .= drupal_render($form['description']);
-
-  $output .= drupal_render($form['operator']);
-  $output .= drupal_render($form['value']);
-
-  if (isset($form['use_operator'])) {
-    $output .= '<div class="views-left-40">';
-    $output .= drupal_render($form['use_operator']);
-    $output .= '</div>';
-  }
-
-  // Only output the right column markup if there's a left column to begin with
-  if (!empty($form['operator']['#type'])) {
-    $output .= '<div class="views-right-60">';
-    $output .= drupal_render_children($form);
-    $output .= '</div>';
-  }
-  else {
-    $output .= drupal_render_children($form);
-  }
-
-  $output .= $more;
-
-  return $output;
-}
-
-/**
  * Theme the build group filter form.
+ *
+ * @ingroup themeable
  */
 function theme_views_ui_build_group_filter_form($variables) {
   $form = $variables['form'];
@@ -181,8 +103,9 @@ function theme_views_ui_build_group_filter_form($variables) {
     t('Operations'),
   );
 
-  $form['default_group'] = form_process_radios($form['default_group']);
-  $form['default_group_multiple'] = form_process_checkboxes($form['default_group_multiple']);
+  $form_state = new FormState();
+  $form['default_group'] = Element\Radios::processRadios($form['default_group'], $form_state, $form);
+  $form['default_group_multiple'] = Element\Checkboxes::processCheckboxes($form['default_group_multiple'], $form_state, $form);
   $form['default_group']['All']['#title'] = '';
 
   hide($form['default_group_multiple']['All']);
@@ -198,13 +121,35 @@ function theme_views_ui_build_group_filter_form($variables) {
 
   foreach (Element::children($form['group_items']) as $group_id) {
     $form['group_items'][$group_id]['value']['#title'] = '';
+    $default = [
+      $form['default_group'][$group_id],
+      $form['default_group_multiple'][$group_id],
+    ];
+    $link = [
+      '#type' => 'link',
+      '#url' => Url::fromRoute('<none>', [], [
+        'attributes' => [
+          'id' => 'views-remove-link-' . $group_id,
+          'class' => [
+            'views-hidden',
+            'views-button-remove',
+            'views-groups-remove-link',
+            'views-remove-link',
+          ],
+          'alt' => t('Remove this item'),
+          'title' => t('Remove this item'),
+        ],
+      ]),
+      '#title' => SafeMarkup::format('<span>@text</span>', ['@text' => t('Remove')]),
+    ];
+    $remove = [$form['group_items'][$group_id]['remove'], $link];
     $data = array(
-      'default' => drupal_render($form['default_group'][$group_id]) . drupal_render($form['default_group_multiple'][$group_id]),
+      'default' => ['data' => $default],
       'weight' => drupal_render($form['group_items'][$group_id]['weight']),
       'title' => drupal_render($form['group_items'][$group_id]['title']),
       'operator' => drupal_render($form['group_items'][$group_id]['operator']),
       'value' => drupal_render($form['group_items'][$group_id]['value']),
-      'remove' => drupal_render($form['group_items'][$group_id]['remove']) . l('<span>' . t('Remove') . '</span>', 'javascript:void()', array('attributes' => array('id' => 'views-remove-link-' . $group_id, 'class' => array('views-hidden', 'views-button-remove', 'views-groups-remove-link', 'views-remove-link'), 'alt' => t('Remove this item'), 'title' => t('Remove this item')), 'html' => true)),
+      'remove' => ['data' => $remove],
     );
     $rows[] = array('data' => $data, 'id' => 'views-row-' . $group_id, 'class' => array('draggable'));
   }
@@ -224,18 +169,28 @@ function theme_views_ui_build_group_filter_form($variables) {
       )
     ),
   );
+
+  // Render the "Add another item" button below the table.
+  $add_another = drupal_render($form['add_group']);
   $render_form = drupal_render_children($form);
-  return $output . $render_form . drupal_render($table) . drupal_render($form['add_group']) . $more;
+
+  return $output . $render_form . drupal_render($table) . $add_another . $more;
 }
 
 /**
- * Turn the rearrange form into a proper table
+ * Prepares variables for Views UI rearrange filter form templates.
+ *
+ * Default template: views-ui-rearrange-filter-form.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
  */
-function theme_views_ui_rearrange_filter_form(&$variables) {
-  $form = $variables['form'];
+function template_preprocess_views_ui_rearrange_filter_form(&$variables) {
+  $form = &$variables['form'];
   $rows = $ungroupable_rows = array();
   // Enable grouping only if > 1 group.
-  $grouping = count(array_keys($form['#group_options'])) > 1;
+  $variables['grouping'] = count(array_keys($form['#group_options'])) > 1;
 
   foreach ($form['#group_renders'] as $group_id => $contents) {
     // Header row for the group.
@@ -254,10 +209,26 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
       // Title row, spanning all columns.
       $row = array();
       // Add a cell to the first row, containing the group operator.
-      $row[] = array('class' => array('group', 'group-operator', 'container-inline'), 'data' => drupal_render($form['filter_groups']['groups'][$group_id]), 'rowspan' => max(array(2, count($contents) + 1)));
+      $row[] = array(
+        'class' => array('group', 'group-operator', 'container-inline'),
+        'data' => $form['filter_groups']['groups'][$group_id],
+        'rowspan' => max(array(2, count($contents) + 1)),
+      );
       // Title.
-      $row[] = array('class' => array('group', 'group-title'), 'data' => '<span>' . $form['#group_options'][$group_id] . '</span>', 'colspan' => 4);
-      $rows[] = array('class' => array('views-group-title'), 'data' => $row, 'id' => 'views-group-title-' . $group_id);
+      $row[] = array(
+        'class' => array('group', 'group-title'),
+        'data' => array(
+          '#prefix' => '<span>',
+          '#markup' => $form['#group_options'][$group_id],
+          '#suffix' => '</span>',
+        ),
+        'colspan' => 4,
+      );
+      $rows[] = array(
+        'class' => array('views-group-title'),
+        'data' => $row,
+        'id' => 'views-group-title-' . $group_id,
+      );
 
       // Row which will only appear if the group has nothing in it.
       $row = array();
@@ -269,22 +240,64 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
       if (!empty($form['remove_groups'][$group_id]['#type']) && $form['remove_groups'][$group_id]['#type'] == 'submit') {
         $form['remove_groups'][$group_id]['#attributes']['class'][] = 'js-hide';
       }
-      $row[] = array('colspan' => 5, 'data' => $instructions . drupal_render($form['remove_groups'][$group_id]));
-      $rows[] = array('class' => array("group-message", "group-$group_id-message", $class), 'data' => $row, 'id' => 'views-group-' . $group_id);
+      $row[] = array(
+        'colspan' => 5,
+        'data' => array(
+          array('#markup' => $instructions),
+          $form['remove_groups'][$group_id],
+        ),
+      );
+      $rows[] = array(
+        'class' => array(
+          'group-message',
+          'group-' . $group_id . '-message',
+          $class,
+        ),
+        'data' => $row,
+        'id' => 'views-group-' . $group_id,
+      );
     }
 
     foreach ($contents as $id) {
       if (isset($form['filters'][$id]['name'])) {
         $row = array();
-        $row[] = drupal_render($form['filters'][$id]['name']);
+        $row[]['data'] = $form['filters'][$id]['name'];
         $form['filters'][$id]['weight']['#attributes']['class'] = array('weight');
-        $row[] = drupal_render($form['filters'][$id]['weight']);
+        $row[]['data'] = $form['filters'][$id]['weight'];
         $form['filters'][$id]['group']['#attributes']['class'] = array('views-group-select views-group-select-' . $group_id);
-        $row[] = drupal_render($form['filters'][$id]['group']);
+        $row[]['data'] = $form['filters'][$id]['group'];
         $form['filters'][$id]['removed']['#attributes']['class'][] = 'js-hide';
-        $row[] = drupal_render($form['filters'][$id]['removed']) . l('<span>' . t('Remove') . '</span>', '', array('attributes' => array('id' => 'views-remove-link-' . $id, 'class' => array('views-hidden', 'views-button-remove', 'views-groups-remove-link', 'views-remove-link'), 'alt' => t('Remove this item'), 'title' => t('Remove this item')), 'html' => TRUE));
 
-        $row = array('data' => $row, 'class' => array('draggable'), 'id' => 'views-row-' . $id);
+        $remove_link = array(
+          '#type' => 'link',
+          '#url' => Url::fromRoute('<none>'),
+          '#title' => SafeMarkup::format('<span>@text</span>', array('@text' => t('Remove'))),
+          '#weight' => '1',
+          '#options' => array(
+            'attributes' => array(
+              'id' => 'views-remove-link-' . $id,
+              'class' => array(
+                'views-hidden',
+                'views-button-remove',
+                'views-groups-remove-link',
+                'views-remove-link',
+              ),
+              'alt' => t('Remove this item'),
+              'title' => t('Remove this item'),
+            ),
+          ),
+        );
+        $row[]['data'] = array(
+          $form['filters'][$id]['removed'],
+          $remove_link,
+        );
+
+        $row = array(
+          'data' => $row,
+          'class' => array('draggable'),
+          'id' => 'views-row-' . $id,
+        );
+
         if ($group_id !== 'ungroupable') {
           $rows[] = $row;
         }
@@ -294,23 +307,25 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
       }
     }
   }
-  if (empty($rows)) {
-    $rows[] = array(array('data' => t('No fields available.'), 'colspan' => '2'));
-  }
 
-  $output = drupal_render($form['override']);
-  $output .= '<div class="scroll" data-drupal-views-scroll>';
-  if ($grouping) {
-    $output .= drupal_render($form['filter_groups']['operator']);
-  }
-  else {
+  if (!$variables['grouping']) {
     $form['filter_groups']['groups'][0]['#title'] = t('Operator');
-    $output .= drupal_render($form['filter_groups']['groups'][0]);
   }
 
   if (!empty($ungroupable_rows)) {
-    $header = array(t('Ungroupable filters'), t('Weight'), array('class' => array('views-hide-label'), 'data' => t('Group')), array('class' => array('views-hide-label'), 'data' => t('Remove')));
-    $table = array(
+    $header = array(
+      t('Ungroupable filters'),
+      t('Weight'),
+      array(
+        'data' => t('Group'),
+        'class' => array('views-hide-label'),
+      ),
+      array(
+        'data' => t('Remove'),
+        'class' => array('views-hide-label'),
+      ),
+    );
+    $variables['ungroupable_table'] = array(
       '#type' => 'table',
       '#header' => $header,
       '#rows' => $ungroupable_rows,
@@ -326,11 +341,14 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
         )
       ),
     );
-    $output .= drupal_render($table);
+  }
+
+  if (empty($rows)) {
+    $rows[] = array(array('data' => t('No fields available.'), 'colspan' => '2'));
   }
 
   // Set up tabledrag so that the weights are changed when rows are dragged.
-  $table = array(
+  $variables['table'] = array(
     '#type' => 'table',
     '#rows' => $rows,
     '#attributes' => array(
@@ -342,19 +360,14 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
         'action' => 'order',
         'relationship' => 'sibling',
         'group' => 'weight',
-      )
+      ),
     ),
   );
-  $output .= drupal_render($table);
-  $output .= '</div>';
 
   // When JavaScript is enabled, the button for adding a new group should be
   // hidden, since it will be replaced by a link on the client side.
   $form['actions']['add_group']['#attributes']['class'][] = 'js-hide';
 
-  // Render the rest of the form and return.
-  $output .= drupal_render_children($form);
-  return $output;
 }
 
 /**

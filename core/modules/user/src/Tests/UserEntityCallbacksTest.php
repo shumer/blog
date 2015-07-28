@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\user\Tests\UserEntityCallbacksTest.
+ * Contains \Drupal\user\Tests\UserEntityCallbacksTest.
  */
 
 namespace Drupal\user\Tests;
@@ -25,11 +25,20 @@ class UserEntityCallbacksTest extends WebTestBase {
   public static $modules = array('user');
 
   /**
+   * An authenticated user to use for testing.
+   *
    * @var \Drupal\user\UserInterface
    */
   protected $account;
 
-  function setUp() {
+  /**
+   * An anonymous user to use for testing.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $anonymous;
+
+  protected function setUp() {
     parent::setUp();
 
     $this->account = $this->drupalCreateUser();
@@ -43,15 +52,9 @@ class UserEntityCallbacksTest extends WebTestBase {
     $this->assertEqual($this->account->label(), $this->account->getUsername(), 'The username should be used as label');
 
     // Setup a random anonymous name to be sure the name is used.
-    $name = $this->randomName();
-    \Drupal::config('user.settings')->set('anonymous', $name)->save();
+    $name = $this->randomMachineName();
+    $this->config('user.settings')->set('anonymous', $name)->save();
     $this->assertEqual($this->anonymous->label(), $name, 'The variable anonymous should be used for name of uid 0');
   }
 
-  /**
-   * Test URI callback.
-   */
-  function testUriCallback() {
-    $this->assertEqual('user/' . $this->account->id(), $this->account->getSystemPath(), 'Correct user URI.');
-  }
 }

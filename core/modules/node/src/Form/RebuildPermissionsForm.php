@@ -8,6 +8,7 @@
 namespace Drupal\node\Form;
 
 use Drupal\Core\Form\ConfirmFormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 
 class RebuildPermissionsForm extends ConfirmFormBase {
@@ -50,9 +51,9 @@ class RebuildPermissionsForm extends ConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     node_access_rebuild(TRUE);
-    $form_state['redirect_route'] = $this->getCancelUrl();
+    $form_state->setRedirectUrl($this->getCancelUrl());
   }
 
 }

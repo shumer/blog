@@ -1,9 +1,8 @@
 <?php
-
 namespace GuzzleHttp\Message;
 
-use GuzzleHttp\Event\HasEmitterTrait;
 use GuzzleHttp\Collection;
+use GuzzleHttp\Event\HasEmitterTrait;
 use GuzzleHttp\Subscriber\Prepare;
 use GuzzleHttp\Url;
 
@@ -70,8 +69,6 @@ class Request extends AbstractMessage implements RequestInterface
     {
         $this->url = $url instanceof Url ? $url : Url::fromString($url);
         $this->updateHostHeaderFromUrl();
-
-        return $this;
     }
 
     public function getUrl()
@@ -82,8 +79,6 @@ class Request extends AbstractMessage implements RequestInterface
     public function setQuery($query)
     {
         $this->url->setQuery($query);
-
-        return $this;
     }
 
     public function getQuery()
@@ -94,8 +89,6 @@ class Request extends AbstractMessage implements RequestInterface
     public function setMethod($method)
     {
         $this->method = strtoupper($method);
-
-        return $this;
     }
 
     public function getMethod()
@@ -111,8 +104,6 @@ class Request extends AbstractMessage implements RequestInterface
     public function setScheme($scheme)
     {
         $this->url->setScheme($scheme);
-
-        return $this;
     }
 
     public function getPort()
@@ -124,8 +115,6 @@ class Request extends AbstractMessage implements RequestInterface
     {
         $this->url->setPort($port);
         $this->updateHostHeaderFromUrl();
-
-        return $this;
     }
 
     public function getHost()
@@ -137,8 +126,6 @@ class Request extends AbstractMessage implements RequestInterface
     {
         $this->url->setHost($host);
         $this->updateHostHeaderFromUrl();
-
-        return $this;
     }
 
     public function getPath()
@@ -149,8 +136,6 @@ class Request extends AbstractMessage implements RequestInterface
     public function setPath($path)
     {
         $this->url->setPath($path);
-
-        return $this;
     }
 
     public function getResource()
@@ -177,12 +162,6 @@ class Request extends AbstractMessage implements RequestInterface
             $this->emitter = $options['emitter'];
             unset($options['emitter']);
         }
-    }
-
-    protected function getStartLine()
-    {
-        return trim($this->method . ' ' . $this->getResource())
-            . ' HTTP/' . $this->getProtocolVersion();
     }
 
     /**

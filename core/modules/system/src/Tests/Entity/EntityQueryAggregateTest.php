@@ -42,22 +42,22 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
    */
   public $factory;
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    $this->entityStorage = $this->container->get('entity.manager')->getStorage('entity_test');
+    $this->entityStorage = $this->entityManager->getStorage('entity_test');
     $this->factory = $this->container->get('entity.query');
 
     // Add some fieldapi fields to be used in the test.
     for ($i = 1; $i <= 2; $i++) {
       $field_name = 'field_test_' . $i;
       entity_create('field_storage_config', array(
-        'name' => $field_name,
+        'field_name' => $field_name,
         'entity_type' => 'entity_test',
         'type' => 'integer',
         'cardinality' => 2,
       ))->save();
-      entity_create('field_instance_config', array(
+      entity_create('field_config', array(
         'field_name' => $field_name,
         'entity_type' => 'entity_test',
         'bundle' => 'entity_test',
@@ -160,12 +160,14 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     // Apply aggregation and a condition which matches.
     $this->queryResult = $this->factory->getAggregate('entity_test')
       ->aggregate('id', 'COUNT')
+      ->groupBy('id')
       ->conditionAggregate('id', 'COUNT', 8)
       ->execute();
     $this->assertResults(array());
 
     // Don't call aggregate to test the implicit aggregate call.
     $this->queryResult = $this->factory->getAggregate('entity_test')
+      ->groupBy('id')
       ->conditionAggregate('id', 'COUNT', 8)
       ->execute();
     $this->assertResults(array());
@@ -173,6 +175,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     // Apply aggregation and a condition which matches.
     $this->queryResult = $this->factory->getAggregate('entity_test')
       ->aggregate('id', 'count')
+      ->groupBy('id')
       ->conditionAggregate('id', 'COUNT', 6)
       ->execute();
     $this->assertResults(array(array('id_count' => 6)));
@@ -523,7 +526,8 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
       array('field_test_1' => 1, 'field_test_2_count' => 2),
     ));
 
-    // Groupy and aggregate by fieldapi field, and sort by the aggregated field.
+    // Groupby and aggregate by fieldapi field, and sort by the aggregated
+    // field.
     $this->queryResult = $this->factory->getAggregate('entity_test')
       ->groupBy('field_test_1')
       ->sortAggregate('field_test_2', 'COUNT', 'DESC')

@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\field\Custom.
+ * Contains \Drupal\views\Plugin\views\field\Custom.
  */
 
 namespace Drupal\views\Plugin\views\field;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ResultRow;
 
 /**
@@ -25,20 +26,29 @@ class Custom extends FieldPluginBase {
     return FALSE;
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function query() {
     // do nothing -- to override the parent query.
   }
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
     // Override the alter text option to always alter the text.
-    $options['alter']['contains']['alter_text'] = array('default' => TRUE, 'bool' => TRUE);
-    $options['hide_alter_empty'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['alter']['contains']['alter_text'] = array('default' => TRUE);
+    $options['hide_alter_empty'] = array('default' => FALSE);
     return $options;
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  /**
+   * {@inheritdoc}
+   */
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     // Remove the checkbox

@@ -7,6 +7,7 @@
 
 namespace Drupal\config_translation\Form;
 
+use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -24,11 +25,11 @@ class ConfigTranslationAddForm extends ConfigTranslationFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state, Request $request = NULL, $plugin_id = NULL, $langcode = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, Request $request = NULL, $plugin_id = NULL, $langcode = NULL) {
     $form = parent::buildForm($form, $form_state, $request, $plugin_id, $langcode);
     $form['#title'] = $this->t('Add @language translation for %label', array(
       '%label' => $this->mapper->getTitle(),
-      '@language' => $this->language->name,
+      '@language' => $this->language->getName(),
     ));
     return $form;
   }
@@ -36,9 +37,9 @@ class ConfigTranslationAddForm extends ConfigTranslationFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     parent::submitForm($form, $form_state);
-    drupal_set_message($this->t('Successfully saved @language translation.', array('@language' => $this->language->name)));
+    drupal_set_message($this->t('Successfully saved @language translation.', array('@language' => $this->language->getName())));
   }
 
 }

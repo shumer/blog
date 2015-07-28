@@ -7,35 +7,29 @@
 
 namespace Drupal\taxonomy\Form;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Entity\ContentEntityDeleteForm;
 use Drupal\Core\Url;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\Core\Entity\EntityManagerInterface;
-use Drupal\Core\Entity\ContentEntityConfirmFormBase;
 
 /**
  * Provides a deletion confirmation form for taxonomy term.
  */
-class TermDeleteForm extends ContentEntityConfirmFormBase {
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getFormId() {
-    return 'taxonomy_term_confirm_delete';
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getQuestion() {
-    return $this->t('Are you sure you want to delete the term %title?', array('%title' => $this->entity->getName()));
-  }
+class TermDeleteForm extends ContentEntityDeleteForm {
 
   /**
    * {@inheritdoc}
    */
   public function getCancelUrl() {
-    return new Url('taxonomy.vocabulary_list');
+    // The cancel URL is the vocabulary collection, terms have no global
+    // list page.
+    return new Url('entity.taxonomy_vocabulary.collection');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getRedirectUrl() {
+    return $this->getCancelUrl();
   }
 
   /**
@@ -48,24 +42,25 @@ class TermDeleteForm extends ContentEntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getConfirmText() {
-    return $this->t('Delete');
+  protected function getDeletionMessage() {
+    return $this->t('Deleted term %name.', array('%name' => $this->entity->label()));
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submit(array $form, array &$form_state) {
-    $this->entity->delete();
-    $storage = $this->entityManager->getStorage('taxonomy_vocabulary');
-    $vocabulary = $storage->load($this->entity->bundle());
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    parent::submitForm($form, $form_state);
 
-    // @todo Move to storage http://drupal.org/node/1988712
-    taxonomy_check_vocabulary_hierarchy($vocabulary, array('tid' => $this->entity->id()));
+    /** @var \Drupal\Core\Entity\ContentEntityInterface $term */
+    $term = $this->getEntity();
+    if ($term->isDefaultTranslation()) {
+      $storage = $this->entityManager->getStorage('taxonomy_vocabulary');
+      $vocabulary = $storage->load($this->entity->bundle());
 
-    drupal_set_message($this->t('Deleted term %name.', array('%name' => $this->entity->getName())));
-    watchdog('taxonomy', 'Deleted term %name.', array('%name' => $this->entity->getName()), WATCHDOG_NOTICE);
-    $form_state['redirect_route'] = $this->getCancelUrl();
+      // @todo Move to storage http://drupal.org/node/1988712
+      taxonomy_check_vocabulary_hierarchy($vocabulary, array('tid' => $term->id()));
+    }
   }
 
 }

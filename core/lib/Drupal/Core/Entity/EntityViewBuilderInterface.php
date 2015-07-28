@@ -11,7 +11,7 @@ use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 
 /**
- * Defines a common interface for entity view controller classes.
+ * Defines an interface for entity view builders.
  *
  * @ingroup entity_api
  */
@@ -36,7 +36,7 @@ interface EntityViewBuilderInterface {
   public function buildComponents(array &$build, array $entities, array $displays, $view_mode, $langcode = NULL);
 
   /**
-   * Returns the render array for the provided entity.
+   * Builds the render array for the provided entity.
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity to render.
@@ -58,7 +58,7 @@ interface EntityViewBuilderInterface {
   public function view(EntityInterface $entity, $view_mode = 'full', $langcode = NULL);
 
   /**
-   * Returns the render array for the provided entities.
+   * Builds the render array for the provided entities.
    *
    * @param array $entities
    *   An array of entities implementing EntityInterface to view.
@@ -89,7 +89,7 @@ interface EntityViewBuilderInterface {
   public function resetCache(array $entities = NULL);
 
   /**
-   * Returns a renderable array for the value of a single field in an entity.
+   * Builds a renderable array for the value of a single field in an entity.
    *
    * The resulting output is a fully themed field with label and multiple
    * values.
@@ -106,10 +106,10 @@ interface EntityViewBuilderInterface {
    *
    * @param \Drupal\Core\Field\FieldItemListInterface $items
    *   FieldItemList containing the values to be displayed.
-   * @param array $display_options
+   * @param string|array $display_options
    *  Can be either:
    *   - The name of a view mode. The field will be displayed according to the
-   *     display settings specified for this view mode in the $instance
+   *     display settings specified for this view mode in the $field
    *     definition for the field in the entity's bundle. If no display settings
    *     are found for the view mode, the settings for the 'default' view mode
    *     will be used.
@@ -133,11 +133,11 @@ interface EntityViewBuilderInterface {
   public function viewField(FieldItemListInterface $items, $display_options = array());
 
   /**
-   * Returns a renderable array for a single field item.
+   * Builds a renderable array for a single field item.
    *
    * @param \Drupal\Core\Field\FieldItemInterface $item
    *   FieldItem to be displayed.
-   * @param array $display_options
+   * @param string|array $display_options
    *   Can be either the name of a view mode, or an array of display settings.
    *   See EntityViewBuilderInterface::viewField() for more information.
    *
@@ -157,6 +157,6 @@ interface EntityViewBuilderInterface {
    * @return array
    *   An array of cache tags.
    */
-  public function getCacheTag();
+  public function getCacheTags();
 
 }

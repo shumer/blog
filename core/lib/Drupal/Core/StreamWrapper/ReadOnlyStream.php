@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\StreamWrapper\ReadOnlyStream.
+ * Contains \Drupal\Core\StreamWrapper\ReadOnlyStream.
  */
 
 namespace Drupal\Core\StreamWrapper;
@@ -168,6 +168,14 @@ abstract class ReadOnlyStream implements StreamWrapperInterface {
    */
   public function stream_metadata($uri, $option, $value) {
     trigger_error('stream_metadata() not supported for read-only stream wrappers', E_USER_WARNING);
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function stream_truncate($new_size) {
+    trigger_error('stream_truncate() not supported for read-only stream wrappers', E_USER_WARNING);
     return FALSE;
   }
 

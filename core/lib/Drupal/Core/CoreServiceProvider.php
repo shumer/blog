@@ -2,14 +2,20 @@
 
 /**
  * @file
- * Definition of Drupal\Core\CoreServiceProvider.
+ * Contains \Drupal\Core\CoreServiceProvider.
  */
 
 namespace Drupal\Core;
 
-use Drupal\Core\Cache\CacheContextsPass;
+use Drupal\Core\Cache\Context\CacheContextsPass;
 use Drupal\Core\Cache\ListCacheBinsPass;
 use Drupal\Core\DependencyInjection\Compiler\BackendCompilerPass;
+use Drupal\Core\DependencyInjection\Compiler\RegisterLazyRouteEnhancers;
+use Drupal\Core\DependencyInjection\Compiler\RegisterLazyRouteFilters;
+use Drupal\Core\DependencyInjection\Compiler\DependencySerializationTraitPass;
+use Drupal\Core\DependencyInjection\Compiler\StackedKernelPass;
+use Drupal\Core\DependencyInjection\Compiler\StackedSessionHandlerPass;
+use Drupal\Core\DependencyInjection\Compiler\RegisterStreamWrappersPass;
 use Drupal\Core\DependencyInjection\ServiceProviderInterface;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\DependencyInjection\Compiler\ModifyServiceDefinitionsPass;
@@ -17,12 +23,9 @@ use Drupal\Core\DependencyInjection\Compiler\TaggedHandlersPass;
 use Drupal\Core\DependencyInjection\Compiler\RegisterKernelListenersPass;
 use Drupal\Core\DependencyInjection\Compiler\RegisterAccessChecksPass;
 use Drupal\Core\DependencyInjection\Compiler\RegisterServicesForDestructionPass;
-use Drupal\Core\DependencyInjection\Compiler\RegisterAuthenticationPass;
 use Drupal\Core\Plugin\PluginManagerPass;
+use Drupal\Core\Render\MainContent\MainContentRenderersPass;
 use Drupal\Core\Site\Settings;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 
 /**
@@ -34,6 +37,8 @@ use Symfony\Component\DependencyInjection\Compiler\PassConfig;
  *
  * Modules wishing to register services to the container should use
  * modulename.services.yml in their respective directories.
+ *
+ * @ingroup container
  */
 class CoreServiceProvider implements ServiceProviderInterface  {
 
@@ -41,9 +46,14 @@ class CoreServiceProvider implements ServiceProviderInterface  {
    * {@inheritdoc}
    */
   public function register(ContainerBuilder $container) {
-    $this->registerTwig($container);
     $this->registerUuid($container);
     $this->registerTest($container);
+
+    // Only register the private file stream wrapper if a file path has been set.
+    if (Settings::get('file_private_path')) {
+      $container->register('stream_wrapper.private', 'Drupal\Core\StreamWrapper\PrivateStream')
+        ->addTag('stream_wrapper', ['scheme' => 'private']);
+    }
 
     // Add the compiler pass that lets service providers modify existing
     // service definitions. This pass must come first so that later
@@ -52,13 +62,22 @@ class CoreServiceProvider implements ServiceProviderInterface  {
 
     $container->addCompilerPass(new BackendCompilerPass());
 
+    $container->addCompilerPass(new StackedKernelPass());
+
+    $container->addCompilerPass(new StackedSessionHandlerPass());
+
+    $container->addCompilerPass(new MainContentRenderersPass());
+
     // Collect tagged handler services as method calls on consumer services.
     $container->addCompilerPass(new TaggedHandlersPass());
+    $container->addCompilerPass(new RegisterStreamWrappersPass());
 
     // Add a compiler pass for registering event subscribers.
     $container->addCompilerPass(new RegisterKernelListenersPass(), PassConfig::TYPE_AFTER_REMOVING);
 
     $container->addCompilerPass(new RegisterAccessChecksPass());
+    $container->addCompilerPass(new RegisterLazyRouteEnhancers());
+    $container->addCompilerPass(new RegisterLazyRouteFilters());
 
     // Add a compiler pass for registering services needing destruction.
     $container->addCompilerPass(new RegisterServicesForDestructionPass());
@@ -67,49 +86,10 @@ class CoreServiceProvider implements ServiceProviderInterface  {
     $container->addCompilerPass(new ListCacheBinsPass());
     $container->addCompilerPass(new CacheContextsPass());
 
-    // Add the compiler pass that will process tagged authentication services.
-    $container->addCompilerPass(new RegisterAuthenticationPass());
-
     // Register plugin managers.
     $container->addCompilerPass(new PluginManagerPass());
-  }
 
-  /**
-   * Registers Twig services.
-   *
-   * This method is public and static so that it can be reused in the installer.
-   */
-  public static function registerTwig(ContainerBuilder $container) {
-    $container->register('twig.loader.filesystem', 'Twig_Loader_Filesystem')
-      ->addArgument(DRUPAL_ROOT);
-    $container->setAlias('twig.loader', 'twig.loader.filesystem');
-
-     $twig_extension = new Definition('Drupal\Core\Template\TwigExtension');
-     $twig_extension->addMethodCall('setGenerators', array(new Reference('url_generator')));
-
-    $container->register('twig', 'Drupal\Core\Template\TwigEnvironment')
-      ->addArgument(new Reference('twig.loader'))
-      ->addArgument(array(
-        // This is saved / loaded via drupal_php_storage().
-        // All files can be refreshed by clearing caches.
-        // @todo ensure garbage collection of expired files.
-        // When in the installer, twig_cache must be FALSE until we know the
-        // files folder is writable.
-        'cache' => drupal_installation_attempted() ? FALSE : Settings::get('twig_cache', TRUE),
-        'autoescape' => TRUE,
-        'debug' => Settings::get('twig_debug', FALSE),
-        'auto_reload' => Settings::get('twig_auto_reload', NULL),
-      ))
-      ->addArgument(new Reference('module_handler'))
-      ->addArgument(new Reference('theme_handler'))
-      ->addMethodCall('addExtension', array($twig_extension))
-      // @todo Figure out what to do about debugging functions.
-      // @see http://drupal.org/node/1804998
-      ->addMethodCall('addExtension', array(new Definition('Twig_Extension_Debug')))
-      ->addTag('service_collector', array(
-        'tag' => 'twig.extension',
-        'call' => 'addExtension',
-      ));
+    $container->addCompilerPass(new DependencySerializationTraitPass());
   }
 
   /**

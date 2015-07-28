@@ -2,13 +2,18 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Entity\EntityQueryTest.
+ * Contains \Drupal\system\Tests\Entity\EntityQueryTest.
  */
 
 namespace Drupal\system\Tests\Entity;
 
-use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\Core\Language\Language;
+use Drupal\Component\Utility\Unicode;
+use Drupal\entity_test\Entity\EntityTestMulRev;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
+use Drupal\taxonomy\Entity\Term;
+use Drupal\taxonomy\Entity\Vocabulary;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -43,28 +48,27 @@ class EntityQueryTest extends EntityUnitTestBase {
   public $greetings;
 
   /**
-   * Field name for the greetings field.
+   * Field name for the figures field.
    *
    * @var string
    */
   public $figures;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->installEntitySchema('entity_test_mulrev');
 
     $this->installConfig(array('language'));
 
-    $figures = drupal_strtolower($this->randomName());
-    $greetings = drupal_strtolower($this->randomName());
+    $figures = Unicode::strtolower($this->randomMachineName());
+    $greetings = Unicode::strtolower($this->randomMachineName());
     foreach (array($figures => 'shape', $greetings => 'text') as $field_name => $field_type) {
       $field_storage = entity_create('field_storage_config', array(
-        'name' => $field_name,
+        'field_name' => $field_name,
         'entity_type' => 'entity_test_mulrev',
         'type' => $field_type,
         'cardinality' => 2,
-        'translatable' => TRUE,
       ));
       $field_storage->save();
       $field_storages[] = $field_storage;
@@ -74,11 +78,11 @@ class EntityQueryTest extends EntityUnitTestBase {
       // For the sake of tablesort, make sure the second bundle is higher than
       // the first one. Beware: MySQL is not case sensitive.
       do {
-        $bundle = $this->randomName();
+        $bundle = $this->randomMachineName();
       } while ($bundles && strtolower($bundles[0]) >= strtolower($bundle));
       entity_test_create_bundle($bundle);
       foreach ($field_storages as $field_storage) {
-        entity_create('field_instance_config', array(
+        entity_create('field_config', array(
           'field_storage' => $field_storage,
           'bundle' => $bundle,
         ))->save();
@@ -105,21 +109,8 @@ class EntityQueryTest extends EntityUnitTestBase {
       'format' => 'format-pl'
     ));
     // Make these languages available to the greetings field.
-    $langcode = new Language(array(
-      'id' => 'en',
-      'name' => $this->randomString(),
-    ));
-    language_save($langcode);
-    $langcode = new Language(array(
-      'id' => 'tr',
-      'name' => $this->randomString(),
-    ));
-    language_save($langcode);
-    $langcode = new Language(array(
-      'id' => 'pl',
-      'name' => $this->randomString(),
-    ));
-    language_save($langcode);
+    ConfigurableLanguage::createFromLangcode('tr')->save();
+    ConfigurableLanguage::createFromLangcode('pl')->save();
     // Calculate the cartesian product of the unit array by looking at the
     // bits of $i and add the unit at the bits that are 1. For example,
     // decimal 13 is binary 1101 so unit 3,2 and 0 will be added to the
@@ -127,12 +118,12 @@ class EntityQueryTest extends EntityUnitTestBase {
     for ($i = 1; $i <= 15; $i++) {
       $entity = entity_create('entity_test_mulrev', array(
         'type' => $bundles[$i & 1],
-        'name' => $this->randomName(),
+        'name' => $this->randomMachineName(),
         'langcode' => 'en',
       ));
       // Make sure the name is set for every language that we might create.
       foreach (array('tr', 'pl') as $langcode) {
-        $entity->getTranslation($langcode)->name = $this->randomName();
+        $entity->getTranslation($langcode)->name = $this->randomMachineName();
       }
       foreach (array_reverse(str_split(decbin($i))) as $key => $bit) {
         if ($bit) {
@@ -233,11 +224,26 @@ class EntityQueryTest extends EntityUnitTestBase {
       ->sort('id')
       ->execute();
     $entities = entity_load_multiple('entity_test_mulrev', $ids);
+    $first_entity = reset($entities);
+    $old_name = $first_entity->name->value;
     foreach ($entities as $entity) {
       $entity->setNewRevision();
       $entity->getTranslation('tr')->$greetings->value = 'xsiemax';
+      $entity->name->value .= 'x';
       $entity->save();
     }
+    // We changed the entity names, so the current revision should not match.
+    $this->queryResults = $this->factory->get('entity_test_mulrev')
+      ->condition('name.value', $old_name)
+      ->execute();
+    $this->assertResult();
+    // Only if all revisions are queried, we find the old revision.
+    $this->queryResults = $this->factory->get('entity_test_mulrev')
+      ->condition('name.value', $old_name)
+      ->allRevisions()
+      ->sort('revision_id')
+      ->execute();
+    $this->assertRevisionResult(array($first_entity->id()), array($first_entity->id()));
     // When querying current revisions, this string is no longer found.
     $this->queryResults = $this->factory->get('entity_test_mulrev')
       ->condition("$greetings.value", 'merhaba')
@@ -245,21 +251,18 @@ class EntityQueryTest extends EntityUnitTestBase {
     $this->assertResult();
     $this->queryResults = $this->factory->get('entity_test_mulrev')
       ->condition("$greetings.value", 'merhaba')
-      ->age(EntityStorageInterface::FIELD_LOAD_REVISION)
+      ->allRevisions()
       ->sort('revision_id')
       ->execute();
-    // Bit 2 needs to be set.
-    // The keys must be 16-23 because the first batch stopped at 15 so the
-    // second started at 16 and eight entities were saved.
-    $assert = $this->assertRevisionResult(range(16, 23), array(4, 5, 6, 7, 12, 13, 14, 15));
+    // The query only matches the original revisions.
+    $this->assertRevisionResult(array(4, 5, 6, 7, 12, 13, 14, 15), array(4, 5, 6, 7, 12, 13, 14, 15));
     $results = $this->factory->get('entity_test_mulrev')
       ->condition("$greetings.value", 'siema', 'CONTAINS')
       ->sort('id')
       ->execute();
-    // This is the same as the previous one because xsiemax replaced merhaba
-    // but also it contains the entities that siema originally but not
-    // merhaba.
-    $assert = array_slice($assert, 0, 4, TRUE) + array(8 => '8', 9 => '9', 10 => '10', 11 => '11') + array_slice($assert, 4, 4, TRUE);
+    // This matches both the original and new current revisions, multiple
+    // revisions are returned for some entities.
+    $assert = array(16 => '4', 17 => '5', 18 => '6', 19 => '7', 8 => '8', 9 => '9', 10 => '10', 11 => '11', 20 => '12', 21 => '13', 22 => '14', 23 => '15');
     $this->assertIdentical($results, $assert);
     $results = $this->factory->get('entity_test_mulrev')
       ->condition("$greetings.value", 'siema', 'STARTS_WITH')
@@ -277,10 +280,12 @@ class EntityQueryTest extends EntityUnitTestBase {
     $this->assertIdentical($results, array_slice($assert, 4, 8, TRUE));
     $results = $this->factory->get('entity_test_mulrev')
       ->condition("$greetings.value", 'a', 'ENDS_WITH')
-      ->age(EntityStorageInterface::FIELD_LOAD_REVISION)
+      ->allRevisions()
       ->sort('id')
+      ->sort('revision_id')
       ->execute();
     // Now we get everything.
+    $assert = array(4 => '4', 5 => '5', 6 => '6', 7 => '7', 8 => '8', 9 => '9', 10 => '10', 11 => '11', 12 => '12', 20 => '12', 13 => '13', 21 => '13', 14 => '14', 22 => '14', 15 => '15', 23 => '15');
     $this->assertIdentical($results, $assert);
   }
 
@@ -373,7 +378,7 @@ class EntityQueryTest extends EntityUnitTestBase {
   /**
    * Test tablesort().
    */
-  protected function testTableSort() {
+  public function testTableSort() {
     // While ordering on bundles do not give us a definite order, we can still
     // assert that all entities from one bundle are after the other as the
     // order dictates.
@@ -422,19 +427,19 @@ class EntityQueryTest extends EntityUnitTestBase {
   /**
    * Test that count queries are separated across entity types.
    */
-  protected function testCount() {
+  public function testCount() {
     // Create a field with the same name in a different entity type.
     $field_name = $this->figures;
     $field_storage = entity_create('field_storage_config', array(
-      'name' => $field_name,
+      'field_name' => $field_name,
       'entity_type' => 'entity_test',
       'type' => 'shape',
       'cardinality' => 2,
       'translatable' => TRUE,
     ));
     $field_storage->save();
-    $bundle = $this->randomName();
-    entity_create('field_instance_config', array(
+    $bundle = $this->randomMachineName();
+    entity_create('field_config', array(
       'field_storage' => $field_storage,
       'bundle' => $bundle,
     ))->save();
@@ -502,7 +507,7 @@ class EntityQueryTest extends EntityUnitTestBase {
    *
    * The tags and metadata should propagate to the SQL query object.
    */
-  function testMetaData() {
+  public function testMetaData() {
     $query = \Drupal::entityQuery('entity_test_mulrev');
     $query
       ->addTag('efq_metadata_test')
@@ -512,4 +517,249 @@ class EntityQueryTest extends EntityUnitTestBase {
     global $efq_test_metadata;
     $this->assertEqual($efq_test_metadata, 'bar', 'Tag and metadata propagated to the SQL query object.');
   }
+
+  /**
+   * Test case sensitive and in-sensitive query conditions.
+   */
+  public function testCaseSensitivity() {
+    $bundle = $this->randomMachineName();
+
+    $field_storage = FieldStorageConfig::create(array(
+      'field_name' => 'field_ci',
+      'entity_type' => 'entity_test_mulrev',
+      'type' => 'string',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'settings' => array(
+        'case_sensitive' => FALSE,
+      )
+    ));
+    $field_storage->save();
+
+    FieldConfig::create(array(
+      'field_storage' => $field_storage,
+      'bundle' => $bundle,
+    ))->save();
+
+    $field_storage = FieldStorageConfig::create(array(
+      'field_name' => 'field_cs',
+      'entity_type' => 'entity_test_mulrev',
+      'type' => 'string',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'settings' => array(
+        'case_sensitive' => TRUE,
+      ),
+    ));
+    $field_storage->save();
+
+    FieldConfig::create(array(
+      'field_storage' => $field_storage,
+      'bundle' => $bundle,
+    ))->save();
+
+    $fixtures = array();
+
+    for ($i = 0; $i < 2; $i++) {
+      // If the last 4 of the string are all numbers, then there is no
+      // difference between upper and lowercase and the case sensitive CONTAINS
+      // test will fail. Ensure that can not happen by appending a non-numeric
+      // character. See https://www.drupal.org/node/2397297.
+      $string = $this->randomMachineName(7) . 'a';
+      $fixtures[] = array(
+        'original' => $string,
+        'uppercase' => Unicode::strtoupper($string),
+        'lowercase' => Unicode::strtolower($string),
+      );
+    }
+
+    EntityTestMulRev::create(array(
+      'type' => $bundle,
+      'name' => $this->randomMachineName(),
+      'langcode' => 'en',
+      'field_ci' => $fixtures[0]['uppercase'] . $fixtures[1]['lowercase'],
+      'field_cs' => $fixtures[0]['uppercase'] . $fixtures[1]['lowercase']
+    ))->save();
+
+    // Check the case insensitive field, = operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[0]['lowercase'] . $fixtures[1]['lowercase']
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case insensitive, lowercase');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[0]['uppercase'] . $fixtures[1]['uppercase']
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case insensitive, uppercase');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[0]['uppercase'] . $fixtures[1]['lowercase']
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case insensitive, mixed.');
+
+    // Check the case sensitive field, = operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[0]['lowercase'] . $fixtures[1]['lowercase']
+    )->execute();
+    $this->assertIdentical(count($result), 0, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[0]['uppercase'] . $fixtures[1]['uppercase']
+    )->execute();
+    $this->assertIdentical(count($result), 0, 'Case sensitive, uppercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[0]['uppercase'] . $fixtures[1]['lowercase']
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, exact match.');
+
+    // Check the case insensitive field, STARTS_WITH operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[0]['lowercase'], 'STARTS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[0]['uppercase'], 'STARTS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, exact match.');
+
+    // Check the case sensitive field, STARTS_WITH operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[0]['lowercase'], 'STARTS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 0, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[0]['uppercase'], 'STARTS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, exact match.');
+
+
+    // Check the case insensitive field, ENDS_WITH operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[1]['lowercase'], 'ENDS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', $fixtures[1]['uppercase'], 'ENDS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, exact match.');
+
+    // Check the case sensitive field, ENDS_WITH operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[1]['lowercase'], 'ENDS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', $fixtures[1]['uppercase'], 'ENDS_WITH'
+    )->execute();
+    $this->assertIdentical(count($result), 0, 'Case sensitive, exact match.');
+
+
+    // Check the case insensitive field, CONTAINS operator, use the inner 8
+    // characters of the uppercase and lowercase strings.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', Unicode::substr($fixtures[0]['uppercase'] . $fixtures[1]['lowercase'], 4, 8), 'CONTAINS'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_ci', Unicode::strtolower(Unicode::substr($fixtures[0]['uppercase'] . $fixtures[1]['lowercase'], 4, 8)), 'CONTAINS'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, exact match.');
+
+    // Check the case sensitive field, CONTAINS operator.
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', Unicode::substr($fixtures[0]['uppercase'] . $fixtures[1]['lowercase'], 4, 8), 'CONTAINS'
+    )->execute();
+    $this->assertIdentical(count($result), 1, 'Case sensitive, lowercase.');
+
+    $result = \Drupal::entityQuery('entity_test_mulrev')->condition(
+      'field_cs', Unicode::strtolower(Unicode::substr($fixtures[0]['uppercase'] . $fixtures[1]['lowercase'], 4, 8)), 'CONTAINS'
+    )->execute();
+    $this->assertIdentical(count($result), 0, 'Case sensitive, exact match.');
+
+  }
+
+  /**
+   * Test base fields with multiple columns.
+   */
+  public function testBaseFieldMultipleColumns() {
+    $this->enableModules(['taxonomy']);
+    $this->installEntitySchema('taxonomy_term');
+
+    Vocabulary::create(['vid' => 'tags']);
+
+    $term1 = Term::create([
+      'name' => $this->randomMachineName(),
+      'vid' => 'tags',
+      'description' => array(
+        'value' => $this->randomString(),
+        'format' => 'format1',
+      )]);
+    $term1->save();
+
+    $term2 = Term::create([
+      'name' => $this->randomMachineName(),
+      'vid' => 'tags',
+      'description' => array(
+        'value' => $this->randomString(),
+        'format' => 'format2',
+      )]);
+    $term2->save();
+
+    $ids = \Drupal::entityQuery('taxonomy_term')
+      ->condition('description.format', 'format1')
+      ->execute();
+
+    $this->assertEqual(count($ids), 1);
+    $this->assertEqual($term1->id(), reset($ids));
+  }
+
+  /**
+   * Test forward-revisions.
+   */
+  public function testForwardRevisions() {
+    // Ensure entity 14 is returned.
+    $result = \Drupal::entityQuery('entity_test_mulrev')
+      ->condition('id', [14], 'IN')
+      ->execute();
+    $this->assertEqual(count($result), 1);
+
+    // Set a revision on entity 14 that isn't the current default.
+    $entity = EntityTestMulRev::load(14);
+    $current_values = $entity->{$this->figures}->getValue();
+
+    $entity->setNewRevision(TRUE);
+    $entity->isDefaultRevision(FALSE);
+    $entity->{$this->figures}->setValue([
+      'color' => 'red',
+      'shape' => 'square'
+    ]);
+    $entity->save();
+
+    // Entity query should still return entity 14.
+    $result = \Drupal::entityQuery('entity_test_mulrev')
+      ->condition('id', [14], 'IN')
+      ->execute();
+    $this->assertEqual(count($result), 1);
+
+    // Verify that field conditions on the default and forward revision are
+    // work as expected.
+    $result = \Drupal::entityQuery('entity_test_mulrev')
+      ->condition('id', [14], 'IN')
+      ->condition("$this->figures.color", $current_values[0]['color'])
+      ->execute();
+    $this->assertEqual($result, [14 => '14']);
+    $result = $this->factory->get('entity_test_mulrev')
+      ->condition('id', [14], 'IN')
+      ->condition("$this->figures.color", 'red')
+      ->allRevisions()
+      ->execute();
+    $this->assertEqual($result, [16 => '14']);
+  }
+
 }

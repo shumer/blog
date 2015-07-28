@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\image\Tests\ImageThemeFunctionTest.
+ * Contains \Drupal\image\Tests\ImageThemeFunctionTest.
  */
 
 namespace Drupal\image\Tests;
 
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Url;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -36,21 +37,21 @@ class ImageThemeFunctionTest extends WebTestBase {
    */
   protected $imageFactory;
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     entity_create('field_storage_config', array(
-      'name' => 'image_test',
       'entity_type' => 'entity_test',
+      'field_name' => 'image_test',
       'type' => 'image',
       'cardinality' => FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'image_test',
       'bundle' => 'entity_test',
     ))->save();
-    file_unmanaged_copy(DRUPAL_ROOT . '/core/misc/druplicon.png', 'public://example.jpg');
+    file_unmanaged_copy(\Drupal::root() . '/core/misc/druplicon.png', 'public://example.jpg');
     $this->image = entity_create('file', array(
       'uri' => 'public://example.jpg',
     ));
@@ -62,6 +63,9 @@ class ImageThemeFunctionTest extends WebTestBase {
    * Tests usage of the image field formatters.
    */
   function testImageFormatterTheme() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
+
     // Create an image.
     $files = $this->drupalGetTestFiles('image');
     $file = reset($files);
@@ -81,19 +85,17 @@ class ImageThemeFunctionTest extends WebTestBase {
     $entity->save();
 
     // Create the base element that we'll use in the tests below.
-    $path = $this->randomName();
+    $path = $this->randomMachineName();
     $base_element = array(
       '#theme' => 'image_formatter',
       '#image_style' => 'test',
       '#item' => $entity->image_test,
-      '#path' => array(
-        'path' => $path,
-      ),
+      '#url' => Url::fromUri('base:' . $path),
     );
 
     // Test using theme_image_formatter() with a NULL value for the alt option.
     $element = $base_element;
-    $this->drupalSetContent(drupal_render($element));
+    $this->setRawContent($renderer->renderRoot($element));
     $elements = $this->xpath('//a[@href=:path]/img[@class="image-style-test" and @src=:url and @width=:width and @height=:height]', array(':path' => base_path() . $path, ':url' => $url, ':width' => $image->getWidth(), ':height' => $image->getHeight()));
     $this->assertEqual(count($elements), 1, 'theme_image_formatter() correctly renders with a NULL value for the alt option.');
 
@@ -101,20 +103,21 @@ class ImageThemeFunctionTest extends WebTestBase {
     // link options.
     $element = $base_element;
     $element['#item']->alt = '';
-    $this->drupalSetContent(drupal_render($element));
+    $this->setRawContent($renderer->renderRoot($element));
     $elements = $this->xpath('//a[@href=:path]/img[@class="image-style-test" and @src=:url and @width=:width and @height=:height and @alt=""]', array(':path' => base_path() . $path, ':url' => $url, ':width' => $image->getWidth(), ':height' => $image->getHeight()));
     $this->assertEqual(count($elements), 1, 'theme_image_formatter() correctly renders without title, alt, or path options.');
 
     // Link the image to a fragment on the page, and not a full URL.
-    $fragment = $this->randomName();
+    $fragment = $this->randomMachineName();
     $element = $base_element;
-    $element['#path']['path'] = '';
-    $element['#path']['options'] = array(
-      'external' => TRUE,
-      'fragment' => $fragment,
-    );
-    $this->drupalSetContent(drupal_render($element));
-    $elements = $this->xpath('//a[@href=:fragment]/img[@class="image-style-test" and @src=:url and @width=:width and @height=:height and @alt=""]', array(':fragment' => '#' . $fragment, ':url' => $url, ':width' => $image->getWidth(), ':height' => $image->getHeight()));
+    $element['#url'] = Url::fromRoute('<none>', [], ['fragment' => $fragment]);
+    $this->setRawContent($renderer->renderRoot($element));
+    $elements = $this->xpath('//a[@href=:fragment]/img[@class="image-style-test" and @src=:url and @width=:width and @height=:height and @alt=""]', array(
+      ':fragment' => '#' . $fragment,
+      ':url' => $url,
+      ':width' => $image->getWidth(),
+      ':height' => $image->getHeight()
+    ));
     $this->assertEqual(count($elements), 1, 'theme_image_formatter() correctly renders a link fragment.');
   }
 
@@ -122,6 +125,9 @@ class ImageThemeFunctionTest extends WebTestBase {
    * Tests usage of the image style theme function.
    */
   function testImageStyleTheme() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
+
     // Create an image.
     $files = $this->drupalGetTestFiles('image');
     $file = reset($files);
@@ -140,16 +146,75 @@ class ImageThemeFunctionTest extends WebTestBase {
     );
 
     $element = $base_element;
-    $this->drupalSetContent(drupal_render($element));
+    $this->setRawContent($renderer->renderRoot($element));
     $elements = $this->xpath('//img[@class="image-style-image-test" and @src=:url and @alt=""]', array(':url' => $url));
     $this->assertEqual(count($elements), 1, 'theme_image_style() renders an image correctly.');
 
     // Test using theme_image_style() with a NULL value for the alt option.
     $element = $base_element;
     $element['#alt'] = NULL;
-    $this->drupalSetContent(drupal_render($element));
+    $this->setRawContent($renderer->renderRoot($element));
     $elements = $this->xpath('//img[@class="image-style-image-test" and @src=:url]', array(':url' => $url));
     $this->assertEqual(count($elements), 1, 'theme_image_style() renders an image correctly with a NULL value for the alt option.');
   }
 
+  /**
+   * Tests image alt attribute functionality.
+   */
+  function testImageAltFunctionality() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
+
+    // Test using alt directly with alt attribute.
+    $image_with_alt_property = array(
+      '#theme' => 'image',
+      '#uri' => '/core/themes/bartik/logo.svg',
+      '#alt' => 'Regular alt',
+      '#title' => 'Test title',
+      '#width' => '50%',
+      '#height' => '50%',
+      '#attributes' => array('class' => 'image-with-regular-alt', 'id' => 'my-img'),
+    );
+
+    $this->setRawContent($renderer->renderRoot($image_with_alt_property));
+    $elements = $this->xpath('//img[contains(@class, class) and contains(@alt, :alt)]', array(":class" => "image-with-regular-alt", ":alt" => "Regular alt"));
+    $this->assertEqual(count($elements), 1, 'Regular alt displays correctly');
+
+    // Test using alt attribute inside attributes.
+    $image_with_alt_attribute_alt_attribute = array(
+      '#theme' => 'image',
+      '#uri' => '/core/themes/bartik/logo.svg',
+      '#width' => '50%',
+      '#height' => '50%',
+      '#attributes' => array(
+        'class' => 'image-with-attribute-alt',
+        'id' => 'my-img',
+        'title' => 'New test title',
+        'alt' => 'Attribute alt',
+      ),
+    );
+
+    $this->setRawContent($renderer->renderRoot($image_with_alt_attribute_alt_attribute));
+    $elements = $this->xpath('//img[contains(@class, class) and contains(@alt, :alt)]', array(":class" => "image-with-attribute-alt", ":alt" => "Attribute alt"));
+    $this->assertEqual(count($elements), 1, 'Attribute alt displays correctly');
+
+    // Test using alt attribute as property and inside attributes.
+    $image_with_alt_attribute_both = array(
+      '#theme' => 'image',
+      '#uri' => '/core/themes/bartik/logo.svg',
+      '#width' => '50%',
+      '#height' => '50%',
+      '#alt' => 'Kitten sustainable',
+      '#attributes' => array(
+        'class' => 'image-with-attribute-alt',
+        'id' => 'my-img',
+        'title' => 'New test title',
+        'alt' => 'Attribute alt',
+      ),
+    );
+
+    $this->setRawContent($renderer->renderRoot($image_with_alt_attribute_both));
+    $elements = $this->xpath('//img[contains(@class, class) and contains(@alt, :alt)]', array(":class" => "image-with-attribute-alt", ":alt" => "Attribute alt"));
+    $this->assertEqual(count($elements), 1, 'Attribute alt overrides alt property if both set.');
+  }
 }

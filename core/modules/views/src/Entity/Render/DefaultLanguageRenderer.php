@@ -12,19 +12,13 @@ use Drupal\views\ResultRow;
 /**
  * Renders entities in their default language.
  */
-class DefaultLanguageRenderer extends RendererBase {
+class DefaultLanguageRenderer extends EntityTranslationRendererBase {
 
   /**
-   * Returns the language code associated to the given row.
-   *
-   * @param \Drupal\views\ResultRow $row
-   *   The result row.
-   *
-   * @return string
-   *   A language code.
+   * {@inheritdoc}
    */
-  protected function getLangcode(ResultRow $row) {
-    return $row->_entity->getUntranslated()->language()->id;
+  public function getLangcode(ResultRow $row) {
+    return $row->_entity->getUntranslated()->language()->getId();
   }
 
 }

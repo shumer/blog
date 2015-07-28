@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\InsertCommand.
+ * Contains \Drupal\Core\Ajax\BeforeCommand.
  */
 
 namespace Drupal\Core\Ajax;
@@ -20,6 +20,8 @@ use Drupal\Core\Ajax\InsertCommand;
  * defined in misc/ajax.js.
  *
  * @see http://docs.jquery.com/Manipulation/before#content
+ *
+ * @ingroup ajax
  */
 class BeforeCommand extends InsertCommand {
 
@@ -32,7 +34,7 @@ class BeforeCommand extends InsertCommand {
       'command' => 'insert',
       'method' => 'before',
       'selector' => $this->selector,
-      'data' => $this->html,
+      'data' => $this->getRenderedContent(),
       'settings' => $this->settings,
     );
   }

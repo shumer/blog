@@ -7,6 +7,11 @@
 
 namespace Drupal\migrate_drupal\Plugin\migrate\source\d6;
 
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\migrate\Entity\MigrationInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+
 /**
  * The view mode source.
  *
@@ -20,13 +25,13 @@ class ViewMode extends ViewModeBase {
   /**
    * {@inheritdoc}
    */
-  protected function runQuery() {
+  protected function initializeIterator() {
     $rows = array();
     $result = $this->prepareQuery()->execute();
     while ($field_row = $result->fetchAssoc()) {
       $field_row['display_settings'] = unserialize($field_row['display_settings']);
       foreach ($this->getViewModes() as $view_mode) {
-        if (isset($field_row['display_settings'][$view_mode]) && !$field_row['display_settings'][$view_mode]['exclude']) {
+        if (isset($field_row['display_settings'][$view_mode]) && empty($field_row['display_settings'][$view_mode]['exclude'])) {
           if (!isset($rows[$view_mode])) {
             $rows[$view_mode]['entity_type'] = 'node';
             $rows[$view_mode]['view_mode'] = $view_mode;
@@ -65,6 +70,17 @@ class ViewMode extends ViewModeBase {
   public function getIds() {
     $ids['view_mode']['type'] = 'string';
     return $ids;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    $this->dependencies = parent::calculateDependencies();
+    if (isset($this->configuration['constants']['targetEntityType'])) {
+      $this->addDependency('module', $this->entityManager->getDefinition($this->configuration['constants']['targetEntityType'])->getProvider());
+    }
+    return $this->dependencies;
   }
 
 }

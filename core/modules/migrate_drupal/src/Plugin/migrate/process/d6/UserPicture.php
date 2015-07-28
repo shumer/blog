@@ -2,14 +2,14 @@
 
 /**
  * @file
- * Contains \Drupal\migrate_drupal\Plugin\migrate\Process\d6\UserPicture.
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\process\d6\UserPicture.
  */
 
-namespace Drupal\migrate_drupal\Plugin\migrate\Process\d6;
+namespace Drupal\migrate_drupal\Plugin\migrate\process\d6;
 
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\migrate\Entity\MigrationInterface;
-use Drupal\migrate\MigrateExecutable;
+use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\Plugin\MigrateProcessInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
@@ -56,7 +56,7 @@ class UserPicture extends ProcessPluginBase implements ContainerFactoryPluginInt
   /**
    * {@inheritdoc}
    */
-  public function transform($value, MigrateExecutable $migrate_executable, Row $row, $destination_property) {
+  public function transform($value, MigrateExecutableInterface $migrate_executable, Row $row, $destination_property) {
     return $row->getSourceProperty('picture') ? $this->migrationPlugin->transform($value, $migrate_executable, $row, $destination_property) : NULL;
   }
 

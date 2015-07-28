@@ -2,37 +2,32 @@
 
 /**
  * @file
- * Definition of Drupal\text\TextFieldTest.
+ * Contains \Drupal\text\Tests\TextFieldTest.
  */
 
 namespace Drupal\text\Tests;
 
-use Drupal\Component\Utility\String;
-use Drupal\simpletest\WebTestBase;
+use Drupal\Component\Utility\Unicode;
+use Drupal\field\Tests\String\StringFieldTest;
 
 /**
  * Tests the creation of text fields.
  *
  * @group text
  */
-class TextFieldTest extends WebTestBase {
+class TextFieldTest extends StringFieldTest {
 
   /**
-   * Modules to enable.
+   * A user with relevant administrative privileges.
    *
-   * @var array
+   * @var \Drupal\user\UserInterface
    */
-  public static $modules = array('entity_test');
+  protected $adminUser;
 
-  protected $admin_user;
-  protected $web_user;
-
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    $this->admin_user = $this->drupalCreateUser(array('administer filters'));
-    $this->web_user = $this->drupalCreateUser(array('view test entity', 'administer entity_test content'));
-    $this->drupalLogin($this->web_user);
+    $this->adminUser = $this->drupalCreateUser(array('administer filters'));
   }
 
   // Test fields.
@@ -43,9 +38,9 @@ class TextFieldTest extends WebTestBase {
   function testTextFieldValidation() {
     // Create a field with settings to validate.
     $max_length = 3;
-    $field_name = drupal_strtolower($this->randomName());
+    $field_name = Unicode::strtolower($this->randomMachineName());
     $field_storage = entity_create('field_storage_config', array(
-      'name' => $field_name,
+      'field_name' => $field_name,
       'entity_type' => 'entity_test',
       'type' => 'text',
       'settings' => array(
@@ -53,7 +48,7 @@ class TextFieldTest extends WebTestBase {
       )
     ));
     $field_storage->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'field_storage' => $field_storage,
       'bundle' => 'entity_test',
     ))->save();
@@ -81,64 +76,6 @@ class TextFieldTest extends WebTestBase {
   }
 
   /**
-   * Helper function for testTextfieldWidgets().
-   */
-  function _testTextfieldWidgets($field_type, $widget_type) {
-    // Setup a field and instance
-    $field_name = drupal_strtolower($this->randomName());
-    $field_storage = entity_create('field_storage_config', array(
-      'name' => $field_name,
-      'entity_type' => 'entity_test',
-      'type' => $field_type
-    ));
-    $field_storage->save();
-    entity_create('field_instance_config', array(
-      'field_storage' => $field_storage,
-      'bundle' => 'entity_test',
-      'label' => $this->randomName() . '_label',
-      'settings' => array(
-        'text_processing' => TRUE,
-      ),
-    ))->save();
-    entity_get_form_display('entity_test', 'entity_test', 'default')
-      ->setComponent($field_name, array(
-        'type' => $widget_type,
-        'settings' => array(
-          'placeholder' => 'A placeholder on ' . $widget_type,
-        ),
-      ))
-      ->save();
-    entity_get_display('entity_test', 'entity_test', 'full')
-      ->setComponent($field_name)
-      ->save();
-
-    // Display creation form.
-    $this->drupalGet('entity_test/add');
-    $this->assertFieldByName("{$field_name}[0][value]", '', 'Widget is displayed');
-    $this->assertNoFieldByName("{$field_name}[0][format]", '1', 'Format selector is not displayed');
-    $this->assertRaw(format_string('placeholder="A placeholder on !widget_type"', array('!widget_type' => $widget_type)));
-
-    // Submit with some value.
-    $value = $this->randomName();
-    $edit = array(
-      'user_id' => 1,
-      'name' => $this->randomName(),
-      "{$field_name}[0][value]" => $value,
-    );
-    $this->drupalPostForm(NULL, $edit, t('Save'));
-    preg_match('|entity_test/manage/(\d+)|', $this->url, $match);
-    $id = $match[1];
-    $this->assertText(t('entity_test @id has been created.', array('@id' => $id)), 'Entity was created');
-
-    // Display the entity.
-    $entity = entity_load('entity_test', $id);
-    $display = entity_get_display($entity->getEntityTypeId(), $entity->bundle(), 'full');
-    $content = $display->build($entity);
-    $this->drupalSetContent(drupal_render($content));
-    $this->assertText($value, 'Filtered tags are not displayed');
-  }
-
-  /**
    * Test widgets + 'formatted_text' setting.
    */
   function testTextfieldWidgetsFormatted() {
@@ -150,21 +87,21 @@ class TextFieldTest extends WebTestBase {
    * Helper function for testTextfieldWidgetsFormatted().
    */
   function _testTextfieldWidgetsFormatted($field_type, $widget_type) {
-    // Setup a field and instance
-    $field_name = drupal_strtolower($this->randomName());
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
+
+    // Create a field.
+    $field_name = Unicode::strtolower($this->randomMachineName());
     $field_storage = entity_create('field_storage_config', array(
-      'name' => $field_name,
+      'field_name' => $field_name,
       'entity_type' => 'entity_test',
       'type' => $field_type
     ));
     $field_storage->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'field_storage' => $field_storage,
       'bundle' => 'entity_test',
-      'label' => $this->randomName() . '_label',
-      'settings' => array(
-        'text_processing' => TRUE,
-      ),
+      'label' => $this->randomMachineName() . '_label',
     ))->save();
     entity_get_form_display('entity_test', 'entity_test', 'default')
       ->setComponent($field_name, array(
@@ -176,13 +113,13 @@ class TextFieldTest extends WebTestBase {
       ->save();
 
     // Disable all text formats besides the plain text fallback format.
-    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin($this->adminUser);
     foreach (filter_formats() as $format) {
       if (!$format->isFallbackFormat()) {
-        $this->drupalPostForm('admin/config/content/formats/manage/' . $format->format . '/disable', array(), t('Disable'));
+        $this->drupalPostForm('admin/config/content/formats/manage/' . $format->id() . '/disable', array(), t('Disable'));
       }
     }
-    $this->drupalLogin($this->web_user);
+    $this->drupalLogin($this->webUser);
 
     // Display the creation form. Since the user only has access to one format,
     // no format selector will be displayed.
@@ -191,10 +128,8 @@ class TextFieldTest extends WebTestBase {
     $this->assertNoFieldByName("{$field_name}[0][format]", '', 'Format selector is not displayed');
 
     // Submit with data that should be filtered.
-    $value = '<em>' . $this->randomName() . '</em>';
+    $value = '<em>' . $this->randomMachineName() . '</em>';
     $edit = array(
-      'user_id' => 1,
-      'name' => $this->randomName(),
       "{$field_name}[0][value]" => $value,
     );
     $this->drupalPostForm(NULL, $edit, t('Save'));
@@ -206,26 +141,26 @@ class TextFieldTest extends WebTestBase {
     $entity = entity_load('entity_test', $id);
     $display = entity_get_display($entity->getEntityTypeId(), $entity->bundle(), 'full');
     $content = $display->build($entity);
-    $this->drupalSetContent(drupal_render($content));
+    $this->setRawContent($renderer->renderRoot($content));
     $this->assertNoRaw($value, 'HTML tags are not displayed.');
-    $this->assertRaw(String::checkPlain($value), 'Escaped HTML is displayed correctly.');
+    $this->assertEscaped($value, 'Escaped HTML is displayed correctly.');
 
     // Create a new text format that does not escape HTML, and grant the user
     // access to it.
-    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin($this->adminUser);
     $edit = array(
-      'format' => drupal_strtolower($this->randomName()),
-      'name' => $this->randomName(),
+      'format' => Unicode::strtolower($this->randomMachineName()),
+      'name' => $this->randomMachineName(),
     );
     $this->drupalPostForm('admin/config/content/formats/add', $edit, t('Save configuration'));
     filter_formats_reset();
     $format = entity_load('filter_format', $edit['format']);
-    $format_id = $format->format;
+    $format_id = $format->id();
     $permission = $format->getPermissionName();
-    $roles = $this->web_user->getRoles();
+    $roles = $this->webUser->getRoles();
     $rid = $roles[0];
     user_role_grant_permissions($rid, array($permission));
-    $this->drupalLogin($this->web_user);
+    $this->drupalLogin($this->webUser);
 
     // Display edition form.
     // We should now have a 'text format' selector.
@@ -235,8 +170,6 @@ class TextFieldTest extends WebTestBase {
 
     // Edit and change the text format to the new one that was created.
     $edit = array(
-      'user_id' => 1,
-      'name' => $this->randomName(),
       "{$field_name}[0][format]" => $format_id,
     );
     $this->drupalPostForm(NULL, $edit, t('Save'));
@@ -247,7 +180,7 @@ class TextFieldTest extends WebTestBase {
     $entity = entity_load('entity_test', $id);
     $display = entity_get_display($entity->getEntityTypeId(), $entity->bundle(), 'full');
     $content = $display->build($entity);
-    $this->drupalSetContent(drupal_render($content));
+    $this->setRawContent($renderer->renderRoot($content));
     $this->assertRaw($value, 'Value is displayed unfiltered');
   }
 

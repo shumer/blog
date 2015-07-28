@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\system\Tests\Entity\EntityTypeConstraintValidatorTest.
+ * Contains \Drupal\system\Tests\Entity\EntityTypeConstraintValidatorTest.
  */
 
 namespace Drupal\system\Tests\Entity;
@@ -27,7 +27,7 @@ class EntityTypeConstraintValidatorTest extends EntityUnitTestBase {
 
   public static $modules = array('node', 'field', 'user');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->typedData = $this->container->get('typed_data_manager');
   }

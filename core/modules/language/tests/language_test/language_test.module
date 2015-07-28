@@ -9,12 +9,12 @@ use Drupal\Core\Language\LanguageInterface;
 use Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationUI;
 
 /**
- * Implements hook_page_build().
+ * Implements hook_page_top().
  */
-function language_test_page_build() {
-  language_test_store_language_negotiation();
-  if (isset(\Drupal::languageManager()->getCurrentLanguage()->id) && isset(\Drupal::languageManager()->getCurrentLanguage()->method_id)) {
-    drupal_set_message(t('Language negotiation method: @name', array('@name' => \Drupal::languageManager()->getCurrentLanguage()->method_id)));
+function language_test_page_top() {
+  if (\Drupal::moduleHandler()->moduleExists('language')) {
+    language_test_store_language_negotiation();
+    drupal_set_message(t('Language negotiation method: @name', array('@name' => \Drupal::languageManager()->getNegotiatedLanguageMethod())));
   }
 }
 
@@ -45,10 +45,11 @@ function language_test_language_types_info_alter(array &$language_types) {
     unset($language_types[LanguageInterface::TYPE_CONTENT]['fixed']);
     // By default languages are not configurable. Make
     // LanguageInterface::TYPE_CONTENT configurable.
-    $configurable = \Drupal::config('language.types')->get('configurable');
+    $config = \Drupal::configFactory()->getEditable('language.types');
+    $configurable = $config->get('configurable');
     if (!in_array(LanguageInterface::TYPE_CONTENT, $configurable)) {
       $configurable[] = LanguageInterface::TYPE_CONTENT;
-      \Drupal::config('language.types')->set('configurable', $configurable)->save();
+      $config->set('configurable', $configurable)->save();
     }
   }
 }
@@ -66,13 +67,11 @@ function language_test_language_negotiation_info_alter(array &$negotiation_info)
  * Store the last negotiated languages.
  */
 function language_test_store_language_negotiation() {
-  if (\Drupal::moduleHandler()->moduleExists('language')) {
-    $last = array();
-    foreach (\Drupal::languageManager()->getDefinedLanguageTypes() as $type) {
-      $last[$type] = \Drupal::languageManager()->getCurrentLanguage($type)->id;
-    }
-    \Drupal::state()->set('language_test.language_negotiation_last', $last);
+  $last = array();
+  foreach (\Drupal::languageManager()->getDefinedLanguageTypes() as $type) {
+    $last[$type] = \Drupal::languageManager()->getCurrentLanguage($type)->getId();
   }
+  \Drupal::state()->set('language_test.language_negotiation_last', $last);
 }
 
 /**

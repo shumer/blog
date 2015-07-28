@@ -7,24 +7,58 @@
 
 namespace Drupal\field_ui\Tests;
 
-use Drupal\config\Tests\SchemaCheckTestTrait;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\node\Entity\NodeType;
+use Drupal\simpletest\WebTestBase;
+use Drupal\taxonomy\Entity\Vocabulary;
 
 /**
  * Tests the Field UI "Manage display" and "Manage form display" screens.
  *
  * @group field_ui
  */
-class ManageDisplayTest extends FieldUiTestBase {
+class ManageDisplayTest extends WebTestBase {
 
-  use SchemaCheckTestTrait;
+  use FieldUiTestTrait;
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
-  public static $modules = array('search', 'field_test', 'field_third_party_test');
+  public static $modules = array('node', 'field_ui', 'taxonomy', 'search', 'field_test', 'field_third_party_test', 'block');
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
+    parent::setUp();
+    $this->drupalPlaceBlock('system_breadcrumb_block');
+
+    // Create a test user.
+    $admin_user = $this->drupalCreateUser(array('access content', 'administer content types', 'administer node fields', 'administer node form display', 'administer node display', 'administer taxonomy', 'administer taxonomy_term fields', 'administer taxonomy_term display', 'administer users', 'administer account settings', 'administer user display', 'bypass node access'));
+    $this->drupalLogin($admin_user);
+
+    // Create content type, with underscores.
+    $type_name = strtolower($this->randomMachineName(8)) . '_test';
+    $type = $this->drupalCreateContentType(array('name' => $type_name, 'type' => $type_name));
+    $this->type = $type->id();
+
+    // Create a default vocabulary.
+    $vocabulary = Vocabulary::create(array(
+      'name' => $this->randomMachineName(),
+      'description' => $this->randomMachineName(),
+      'vid' => Unicode::strtolower($this->randomMachineName()),
+      'langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
+      'help' => '',
+      'nodes' => array('article' => 'article'),
+      'weight' => mt_rand(0, 10),
+    ));
+    $vocabulary->save();
+    $this->vocabulary = $vocabulary->id();
+  }
 
   /**
    * Tests formatter settings.
@@ -34,13 +68,10 @@ class ManageDisplayTest extends FieldUiTestBase {
     $manage_display = $manage_fields . '/display';
 
     // Create a field, and a node with some data for the field.
-    $edit = array(
-      'fields[_add_new_field][label]' => 'Test field',
-      'fields[_add_new_field][field_name]' => 'test',
-    );
-    $this->fieldUIAddNewField($manage_fields, $edit);
+    $this->fieldUIAddNewField($manage_fields, 'test', 'Test field');
 
-    // Clear the test-side cache and get the saved field instance.
+    // Get the display options (formatter and settings) that were automatically
+    // assigned for the 'default' display.
     $display = entity_get_display('node', $this->type, 'default');
     $display_options = $display->getComponent('field_test');
     $format = $display_options['type'];
@@ -66,6 +97,7 @@ class ManageDisplayTest extends FieldUiTestBase {
       'field_test_default',
       'field_test_multiple',
       'field_test_with_prepare_view',
+      'field_test_applicable',
       'hidden',
     );
     $this->assertEqual($options, $expected_options, 'The expected formatter ordering is respected.');
@@ -110,7 +142,6 @@ class ManageDisplayTest extends FieldUiTestBase {
     $display = entity_load('entity_view_display', 'node.' . $this->type . '.default', TRUE);
     $this->assertEqual($display->getRenderer('field_test')->getThirdPartySetting('field_third_party_test', 'field_test_field_formatter_third_party_settings_form'), 'foo');
     $this->assertTrue(in_array('field_third_party_test', $display->calculateDependencies()['module']), 'The display has a dependency on field_third_party_test module.');
-    $this->assertConfigSchema(\Drupal::service('config.typed'), $display->getEntityType()->getConfigPrefix() . '.' . $display->id(), $display->toArray());
 
     // Confirm that the third party settings are not updated on the settings form.
     $this->drupalPostAjaxForm(NULL, array(), "field_test_settings_edit");
@@ -134,8 +165,9 @@ class ManageDisplayTest extends FieldUiTestBase {
     $this->assertFieldByName('field_test_settings_edit');
     // Uninstall the module providing third party settings and ensure the button
     // is no longer there.
-    \Drupal::moduleHandler()->uninstall(array('field_third_party_test'));
+    \Drupal::service('module_installer')->uninstall(array('field_third_party_test'));
     $this->drupalGet($manage_display);
+    $this->assertResponse(200);
     $this->assertNoFieldByName('field_test_settings_edit');
   }
 
@@ -143,17 +175,17 @@ class ManageDisplayTest extends FieldUiTestBase {
    * Tests widget settings.
    */
   public function testWidgetUI() {
+    // Admin Manage Fields page.
     $manage_fields = 'admin/structure/types/manage/' . $this->type;
+    // Admin Manage Display page.
     $manage_display = $manage_fields . '/form-display';
 
-    // Create a field, and a node with some data for the field.
-    $edit = array(
-      'fields[_add_new_field][label]' => 'Test field',
-      'fields[_add_new_field][field_name]' => 'test',
-    );
-    $this->fieldUIAddNewField($manage_fields, $edit);
+    // Creates a new field that can be used with multiple formatters.
+    // Reference: Drupal\field_test\Plugin\Field\FieldWidget\TestFieldWidgetMultiple::isApplicable().
+    $this->fieldUIAddNewField($manage_fields, 'test', 'Test field');
 
-    // Clear the test-side cache and get the saved field instance.
+    // Get the display options (formatter and settings) that were automatically
+    // assigned for the 'default' display.
     $display = entity_get_form_display('node', $this->type, 'default');
     $display_options = $display->getComponent('field_test');
     $widget_type = $display_options['type'];
@@ -161,7 +193,7 @@ class ManageDisplayTest extends FieldUiTestBase {
     $setting_name = key($default_settings);
     $setting_value = $display_options['settings'][$setting_name];
 
-    // Display the "Manage form display" screen and check that the expected
+    // Display the "Manage form display" screen and check if the expected
     // widget is selected.
     $this->drupalGet($manage_display);
     $this->assertFieldByName('fields[field_test][type]', $widget_type, 'The expected widget is selected.');
@@ -217,11 +249,21 @@ class ManageDisplayTest extends FieldUiTestBase {
     $display = entity_load('entity_form_display', 'node.' . $this->type . '.default', TRUE);
     $this->assertEqual($display->getRenderer('field_test')->getThirdPartySetting('field_third_party_test', 'field_test_widget_third_party_settings_form'), 'foo');
     $this->assertTrue(in_array('field_third_party_test', $display->calculateDependencies()['module']), 'Form display does not have a dependency on field_third_party_test module.');
-    $this->assertConfigSchema(\Drupal::service('config.typed'), $display->getEntityType()->getConfigPrefix() . '.' . $display->id(), $display->toArray());
 
     // Confirm that the third party settings are not updated on the settings form.
     $this->drupalPostAjaxForm(NULL, array(), "field_test_settings_edit");
     $this->assertFieldByName($fieldname, '');
+
+    // Creates a new field that can not be used with the multiple formatter.
+    // Reference: Drupal\field_test\Plugin\Field\FieldWidget\TestFieldWidgetMultiple::isApplicable().
+    $this->fieldUIAddNewField($manage_fields, 'onewidgetfield', 'One Widget Field');
+
+    // Go to the Manage Form Display.
+    $this->drupalGet($manage_display);
+
+    // Checks if the select elements contain the specified options.
+    $this->assertFieldSelectOptions('fields[field_test][type]', array('test_field_widget', 'test_field_widget_multiple', 'hidden'));
+    $this->assertFieldSelectOptions('fields[field_onewidgetfield][type]', array('test_field_widget', 'hidden'));
   }
 
   /**
@@ -229,11 +271,7 @@ class ManageDisplayTest extends FieldUiTestBase {
    */
   function testViewModeCustom() {
     // Create a field, and a node with some data for the field.
-    $edit = array(
-      'fields[_add_new_field][label]' => 'Test field',
-      'fields[_add_new_field][field_name]' => 'test',
-    );
-    $this->fieldUIAddNewField('admin/structure/types/manage/' . $this->type, $edit);
+    $this->fieldUIAddNewField('admin/structure/types/manage/' . $this->type, 'test', 'Test field');
     \Drupal::entityManager()->clearCachedFieldDefinitions();
     // For this test, use a formatter setting value that is an integer unlikely
     // to appear in a rendered node other than as part of the field being tested
@@ -300,15 +338,22 @@ class ManageDisplayTest extends FieldUiTestBase {
   }
 
   /**
-   * Tests that field instances with no explicit display settings do not break.
+   * Tests the local tasks are displayed correctly for view modes.
+   */
+  public function testViewModeLocalTasks() {
+    $manage_display = 'admin/structure/types/manage/' . $this->type . '/display';
+    $this->drupalGet($manage_display);
+    $this->assertNoLink('Full content');
+    $this->drupalGet($manage_display . '/teaser');
+    $this->assertNoLink('Full content');
+  }
+
+  /**
+   * Tests that fields with no explicit display settings do not break.
    */
   function testNonInitializedFields() {
     // Create a test field.
-    $edit = array(
-      'fields[_add_new_field][label]' => 'Test',
-      'fields[_add_new_field][field_name]' => 'test',
-    );
-    $this->fieldUIAddNewField('admin/structure/types/manage/' . $this->type, $edit);
+    $this->fieldUIAddNewField('admin/structure/types/manage/' . $this->type, 'test', 'Test');
 
     // Check that the field appears as 'hidden' on the 'Manage display' page
     // for the 'teaser' mode.
@@ -332,14 +377,13 @@ class ManageDisplayTest extends FieldUiTestBase {
    */
   function testNoFieldsDisplayOverview() {
     // Create a fresh content type without any fields.
-    $this->drupalCreateContentType(array(
+    NodeType::create(array(
       'type' => 'no_fields',
       'name' => 'No fields',
-      'create_body' => FALSE,
-    ));
+    ))->save();
 
     $this->drupalGet('admin/structure/types/manage/no_fields/display');
-    $this->assertRaw(t('There are no fields yet added. You can add new fields on the <a href="@link">Manage fields</a> page.', array('@link' => url('admin/structure/types/manage/no_fields/fields'))));
+    $this->assertRaw(t('There are no fields yet added. You can add new fields on the <a href="@link">Manage fields</a> page.', array('@link' => \Drupal::url('entity.node.field_ui_fields', array('node_type' => 'no_fields')))));
   }
 
   /**
@@ -405,22 +449,75 @@ class ManageDisplayTest extends FieldUiTestBase {
     \Drupal::entityManager()->clearCachedFieldDefinitions();
 
     // Save current content so that we can restore it when we're done.
-    $old_content = $this->drupalGetContent();
+    $old_content = $this->getRawContent();
 
     // Render a cloned node, so that we do not alter the original.
     $clone = clone $node;
     $element = node_view($clone, $view_mode);
-    $output = drupal_render($element);
+    $output = \Drupal::service('renderer')->renderRoot($element);
     $this->verbose(t('Rendered node - view mode: @view_mode', array('@view_mode' => $view_mode)) . '<hr />'. $output);
 
     // Assign content so that WebTestBase functions can be used.
-    $this->drupalSetContent($output);
+    $this->setRawContent($output);
     $method = ($not_exists ? 'assertNoText' : 'assertText');
     $return = $this->{$method}((string) $text, $message);
 
     // Restore previous content.
-    $this->drupalSetContent($old_content);
+    $this->setRawContent($old_content);
 
     return $return;
   }
+
+  /**
+   * Checks if a select element contains the specified options.
+   *
+   * @param string $name
+   *   The field name.
+   * @param array $expected_options
+   *   An array of expected options.
+   *
+   * @return bool
+   *   TRUE if the assertion succeeded, FALSE otherwise.
+   */
+  protected function assertFieldSelectOptions($name, array $expected_options) {
+    $xpath = $this->buildXPathQuery('//select[@name=:name]', array(':name' => $name));
+    $fields = $this->xpath($xpath);
+    if ($fields) {
+      $field = $fields[0];
+      $options = $this->getAllOptionsList($field);
+
+      sort($options);
+      sort($expected_options);
+
+      return $this->assertIdentical($options, $expected_options);
+    }
+    else {
+      return $this->fail('Unable to find field ' . $name);
+    }
+  }
+
+  /**
+   * Extracts all options from a select element.
+   *
+   * @param \SimpleXMLElement $element
+   *   The select element field information.
+   *
+   * @return array
+   *   An array of option values as strings.
+   */
+  protected function getAllOptionsList(\SimpleXMLElement $element) {
+    $options = array();
+    // Add all options items.
+    foreach ($element->option as $option) {
+      $options[] = (string) $option['value'];
+    }
+
+    // Loops trough all the option groups
+    foreach ($element->optgroup as $optgroup) {
+      $options = array_merge($this->getAllOptionsList($optgroup), $options);
+    }
+
+    return $options;
+  }
+
 }

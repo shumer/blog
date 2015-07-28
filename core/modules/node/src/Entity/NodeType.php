@@ -7,7 +7,6 @@
 
 namespace Drupal\node\Entity;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\node\NodeTypeInterface;
@@ -18,8 +17,8 @@ use Drupal\node\NodeTypeInterface;
  * @ConfigEntityType(
  *   id = "node_type",
  *   label = @Translation("Content type"),
- *   controllers = {
- *     "access" = "Drupal\node\NodeTypeAccessController",
+ *   handlers = {
+ *     "access" = "Drupal\node\NodeTypeAccessControlHandler",
  *     "form" = {
  *       "add" = "Drupal\node\NodeTypeForm",
  *       "edit" = "Drupal\node\NodeTypeForm",
@@ -35,9 +34,18 @@ use Drupal\node\NodeTypeInterface;
  *     "label" = "name"
  *   },
  *   links = {
- *     "add-form" = "node.add",
- *     "edit-form" = "node.type_edit",
- *     "delete-form" = "node.type_delete_confirm"
+ *     "edit-form" = "/admin/structure/types/manage/{node_type}",
+ *     "delete-form" = "/admin/structure/types/manage/{node_type}/delete",
+ *     "collection" = "/admin/structure/types",
+ *   },
+ *   config_export = {
+ *     "name",
+ *     "type",
+ *     "description",
+ *     "help",
+ *     "new_revision",
+ *     "preview_mode",
+ *     "display_submitted",
  *   }
  * )
  */
@@ -50,7 +58,7 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
    *
    * @todo Rename to $id.
    */
-  public $type;
+  protected $type;
 
   /**
    * The human-readable name of the node type.
@@ -59,77 +67,48 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
    *
    * @todo Rename to $label.
    */
-  public $name;
+  protected $name;
 
   /**
    * A brief description of this node type.
    *
    * @var string
    */
-  public $description;
+  protected $description;
 
   /**
    * Help information shown to the user when creating a Node of this type.
    *
    * @var string
    */
-  public $help;
+  protected $help;
 
   /**
-   * The label to use for the title of a Node of this type in the user interface.
-   *
-   * @var string
-   *
-   * @todo Rename to $node_title_label.
-   */
-  public $title_label = 'Title';
-
-  /**
-   * Indicates whether a Body field should be created for this node type.
-   *
-   * This property affects entity creation only. It allows default configuration
-   * of modules and installation profiles to specify whether a Body field should
-   * be created for this bundle.
+   * Default value of the 'Create new revision' checkbox of this node type.
    *
    * @var bool
-   *
-   * @see \Drupal\node\Entity\NodeType::$create_body_label
    */
-  protected $create_body = TRUE;
+  protected $new_revision = FALSE;
 
   /**
-   * The label to use for the Body field upon entity creation.
+   * The preview mode.
    *
-   * @see \Drupal\node\Entity\NodeType::$create_body
-   *
-   * @var string
+   * @var int
    */
-  protected $create_body_label = 'Body';
+  protected $preview_mode = DRUPAL_OPTIONAL;
 
   /**
-   * Module-specific settings for this node type, keyed by module name.
+   * Display setting for author and date Submitted by post information.
    *
-   * @var array
-   *
-   * @todo Pluginify.
+   * @var bool
    */
-  public $settings = array();
+  protected $display_submitted = TRUE;
 
   /**
    * {@inheritdoc}
    */
   public function id() {
     return $this->type;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getModuleSettings($module) {
-    if (isset($this->settings[$module]) && is_array($this->settings[$module])) {
-      return $this->settings[$module];
-    }
-    return array();
   }
 
   /**
@@ -143,21 +122,69 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
   /**
    * {@inheritdoc}
    */
+  public function isNewRevision() {
+    return $this->new_revision;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setNewRevision($new_revision) {
+    $this->new_revision = $new_revision;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function displaySubmitted() {
+    return $this->display_submitted;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setDisplaySubmitted($display_submitted) {
+    $this->display_submitted = $display_submitted;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPreviewMode() {
+    return $this->preview_mode;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setPreviewMode($preview_mode) {
+    $this->preview_mode = $preview_mode;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getHelp() {
+    return $this->help;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getDescription() {
+    return $this->description;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function postSave(EntityStorageInterface $storage, $update = TRUE) {
     parent::postSave($storage, $update);
 
-    if (!$update) {
-      // Create a body if the create_body property is true and we're not in
-      // the syncing process.
-      if ($this->get('create_body') && !$this->isSyncing()) {
-        $label = $this->get('create_body_label');
-        node_add_body_field($this, $label);
-      }
-    }
-    elseif ($this->getOriginalId() != $this->id()) {
+    if ($update && $this->getOriginalId() != $this->id()) {
       $update_count = node_type_update_nodes($this->getOriginalId(), $this->id());
       if ($update_count) {
-        drupal_set_message(format_plural($update_count,
+        drupal_set_message(\Drupal::translation()->formatPlural($update_count,
           'Changed the content type of 1 post from %old-type to %type.',
           'Changed the content type of @count posts from %old-type to %type.',
           array(
@@ -181,28 +208,6 @@ class NodeType extends ConfigEntityBundleBase implements NodeTypeInterface {
 
     // Clear the node type cache to reflect the removal.
     $storage->resetCache(array_keys($entities));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function preCreate(EntityStorageInterface $storage, array &$values) {
-    parent::preCreate($storage, $values);
-
-    // Ensure default values are set.
-    if (!isset($values['settings']['node'])) {
-      $values['settings']['node'] = array();
-    }
-    $values['settings']['node'] = NestedArray::mergeDeep(array(
-      'options' => array(
-        'status' => TRUE,
-        'promote' => TRUE,
-        'sticky' => FALSE,
-        'revision' => FALSE,
-      ),
-      'preview' => DRUPAL_OPTIONAL,
-      'submitted' => TRUE,
-    ), $values['settings']['node']);
   }
 
 }

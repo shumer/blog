@@ -2,16 +2,16 @@
 
 /**
  * @file
- * Definition of Drupal\file\Entity\File.
+ * Contains \Drupal\file\Entity\File.
  */
 
 namespace Drupal\file\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
+use Drupal\Core\Entity\EntityChangedTrait;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Field\FieldDefinition;
-use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\file\FileInterface;
 use Drupal\user\UserInterface;
 
@@ -21,31 +21,24 @@ use Drupal\user\UserInterface;
  * @ContentEntityType(
  *   id = "file",
  *   label = @Translation("File"),
- *   controllers = {
+ *   handlers = {
  *     "storage" = "Drupal\file\FileStorage",
- *     "access" = "Drupal\file\FileAccessController",
- *     "view_builder" = "Drupal\Core\Entity\EntityViewBuilder"
+ *     "storage_schema" = "Drupal\file\FileStorageSchema",
+ *     "access" = "Drupal\file\FileAccessControlHandler",
+ *     "views_data" = "Drupal\file\FileViewsData",
  *   },
  *   base_table = "file_managed",
  *   entity_keys = {
  *     "id" = "fid",
  *     "label" = "filename",
+ *     "langcode" = "langcode",
  *     "uuid" = "uuid"
  *   }
  * )
  */
 class File extends ContentEntityBase implements FileInterface {
 
-  /**
-   * The plain data values of the contained properties.
-   *
-   * Define default values.
-   *
-   * @var array
-   */
-  protected $values = array(
-    'langcode' => array(LanguageInterface::LANGCODE_DEFAULT => array(0 => array('value' => LanguageInterface::LANGCODE_NOT_SPECIFIED))),
-  );
+  use EntityChangedTrait;
 
   /**
    * {@inheritdoc}
@@ -193,7 +186,7 @@ class File extends ContentEntityBase implements FileInterface {
 
     // Automatically detect filemime if not set.
     if (!isset($values['filemime']) && isset($values['uri'])) {
-      $values['filemime'] = file_get_mimetype($values['uri']);
+      $values['filemime'] = \Drupal::service('file.mime_type.guesser')->guess($values['uri']);
     }
   }
 
@@ -231,54 +224,58 @@ class File extends ContentEntityBase implements FileInterface {
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    $fields['fid'] = FieldDefinition::create('integer')
+    $fields['fid'] = BaseFieldDefinition::create('integer')
       ->setLabel(t('File ID'))
       ->setDescription(t('The file ID.'))
       ->setReadOnly(TRUE)
       ->setSetting('unsigned', TRUE);
 
-    $fields['uuid'] = FieldDefinition::create('uuid')
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
       ->setLabel(t('UUID'))
       ->setDescription(t('The file UUID.'))
       ->setReadOnly(TRUE);
 
-    $fields['langcode'] = FieldDefinition::create('language')
+    $fields['langcode'] = BaseFieldDefinition::create('language')
       ->setLabel(t('Language code'))
       ->setDescription(t('The file language code.'));
 
-    $fields['uid'] = FieldDefinition::create('entity_reference')
+    $fields['uid'] = BaseFieldDefinition::create('entity_reference')
       ->setLabel(t('User ID'))
       ->setDescription(t('The user ID of the file.'))
       ->setSetting('target_type', 'user');
 
-    $fields['filename'] = FieldDefinition::create('string')
+    $fields['filename'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Filename'))
       ->setDescription(t('Name of the file with no path components.'));
 
-    $fields['uri'] = FieldDefinition::create('uri')
+    $fields['uri'] = BaseFieldDefinition::create('uri')
       ->setLabel(t('URI'))
       ->setDescription(t('The URI to access the file (either local or remote).'))
-      ->setSetting('max_length', 255);
+      ->setSetting('max_length', 255)
+      ->setSetting('case_sensitive', TRUE)
+      ->addConstraint('FileUriUnique');
 
-    $fields['filemime'] = FieldDefinition::create('string')
+    $fields['filemime'] = BaseFieldDefinition::create('string')
       ->setLabel(t('File MIME type'))
+      ->setSetting('is_ascii', TRUE)
       ->setDescription(t("The file's MIME type."));
 
-    $fields['filesize'] = FieldDefinition::create('integer')
+    $fields['filesize'] = BaseFieldDefinition::create('integer')
       ->setLabel(t('File size'))
       ->setDescription(t('The size of the file in bytes.'))
       ->setSetting('unsigned', TRUE)
       ->setSetting('size', 'big');
 
-    $fields['status'] = FieldDefinition::create('boolean')
+    $fields['status'] = BaseFieldDefinition::create('boolean')
       ->setLabel(t('Status'))
-      ->setDescription(t('The status of the file, temporary (FALSE) and permanent (TRUE).'));
+      ->setDescription(t('The status of the file, temporary (FALSE) and permanent (TRUE).'))
+      ->setDefaultValue(FALSE);
 
-    $fields['created'] = FieldDefinition::create('created')
+    $fields['created'] = BaseFieldDefinition::create('created')
       ->setLabel(t('Created'))
       ->setDescription(t('The timestamp that the file was created.'));
 
-    $fields['changed'] = FieldDefinition::create('changed')
+    $fields['changed'] = BaseFieldDefinition::create('changed')
       ->setLabel(t('Changed'))
       ->setDescription(t('The timestamp that the file was last changed.'));
 

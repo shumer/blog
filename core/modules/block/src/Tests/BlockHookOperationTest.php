@@ -2,6 +2,8 @@
 
 /**
  * @file
+ * Contains \Drupal\block\Tests\BlockHookOperationTest.
+ *
  * Tests for Block module regarding hook_entity_operations_alter().
  */
 
@@ -18,13 +20,13 @@ use Drupal\simpletest\WebTestBase;
 class BlockHookOperationTest extends WebTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
   public static $modules = array('block', 'entity_test');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $permissions = array(
@@ -42,7 +44,7 @@ class BlockHookOperationTest extends WebTestBase {
   public function testBlockOperationAlter() {
     // Add a test block, any block will do.
     // Set the machine name so the test_operation link can be built later.
-    $block_id = Unicode::strtolower($this->randomName(16));
+    $block_id = Unicode::strtolower($this->randomMachineName(16));
     $this->drupalPlaceBlock('system_powered_by_block', array('id' => $block_id));
 
     // Get the Block listing.

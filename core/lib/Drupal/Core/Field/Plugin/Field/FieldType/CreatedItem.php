@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\CreatedItem.
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldType\CreatedItem.
  */
 
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
@@ -14,7 +14,8 @@ namespace Drupal\Core\Field\Plugin\Field\FieldType;
  *   id = "created",
  *   label = @Translation("Created"),
  *   description = @Translation("An entity field containing a UNIX timestamp of when the entity has been created."),
- *   no_ui = TRUE
+ *   no_ui = TRUE,
+ *   default_formatter = "timestamp",
  * )
  */
 class CreatedItem extends TimestampItem {

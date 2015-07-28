@@ -39,8 +39,10 @@ class TextFieldRdfaTest extends FieldRdfaTestBase {
    */
   public static $modules = array('text', 'filter');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
+
+    $this->installConfig(array('filter'));
 
     $this->createTestField();
 
@@ -62,13 +64,13 @@ class TextFieldRdfaTest extends FieldRdfaTestBase {
    * @todo Check for the summary mapping.
    */
   public function testAllFormatters() {
+    $formatted_value = strip_tags($this->entity->{$this->fieldName}->processed);
+
     // Tests the default formatter.
-    $this->assertFormatterRdfa(array('type'=>'text_default'), 'http://schema.org/text', array('value' => $this->testValue));
-    // Tests the plain formatter.
-    $this->assertFormatterRdfa(array('type'=>'string'), 'http://schema.org/text', array('value' => $this->testValue));
+    $this->assertFormatterRdfa(array('type'=>'text_default'), 'http://schema.org/text', array('value' => $formatted_value));
     // Tests the summary formatter.
-    $this->assertFormatterRdfa(array('type'=>'text_summary_or_trimmed'), 'http://schema.org/text', array('value' => $this->testValue));
+    $this->assertFormatterRdfa(array('type'=>'text_summary_or_trimmed'), 'http://schema.org/text', array('value' => $formatted_value));
     // Tests the trimmed formatter.
-    $this->assertFormatterRdfa(array('type'=>'text_trimmed'), 'http://schema.org/text', array('value' => $this->testValue));
+    $this->assertFormatterRdfa(array('type'=>'text_trimmed'), 'http://schema.org/text', array('value' => $formatted_value));
   }
 }

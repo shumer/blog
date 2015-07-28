@@ -8,6 +8,7 @@
 namespace Drupal\field_ui;
 
 use Drupal\Component\Utility\UrlHelper;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Url;
 
 /**
@@ -28,10 +29,8 @@ class FieldUI {
    */
   public static function getOverviewRouteInfo($entity_type_id, $bundle) {
     $entity_type = \Drupal::entityManager()->getDefinition($entity_type_id);
-    if ($entity_type->hasLinkTemplate('admin-form')) {
-      return new Url("field_ui.overview_$entity_type_id", array(
-        $entity_type->getBundleEntityType() => $bundle,
-      ));
+    if ($entity_type->get('field_ui_base_route')) {
+      return new Url("entity.{$entity_type_id}.field_ui_fields", static::getRouteBundleParameter($entity_type, $bundle));
     }
   }
 
@@ -41,22 +40,43 @@ class FieldUI {
    * @param array $destinations
    *   An array of destinations to redirect to.
    *
-   * @return array
+   * @return \Drupal\Core\Url
    *   The next destination to redirect to.
    */
   public static function getNextDestination(array $destinations) {
     $next_destination = array_shift($destinations);
     if (is_array($next_destination)) {
       $next_destination['options']['query']['destinations'] = $destinations;
+      $next_destination += array(
+        'route_parameters' => array(),
+      );
+      $next_destination = Url::fromRoute($next_destination['route_name'], $next_destination['route_parameters'], $next_destination['options']);
     }
     else {
       $options = UrlHelper::parse($next_destination);
       if ($destinations) {
         $options['query']['destinations'] = $destinations;
       }
-      $next_destination = array($options['path'], $options);
+      // Redirect to any given path within the same domain.
+      // @todo Revisit this in https://www.drupal.org/node/2418219.
+      $next_destination = Url::fromUserInput('/' . $options['path']);
     }
     return $next_destination;
+  }
+
+  /**
+   * Gets the route parameter that should be used for Field UI routes.
+   *
+   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
+   *   The actual entity type, not the bundle (e.g. the content entity type).
+   * @param string $bundle
+   *   The bundle name.
+   *
+   * @return array
+   *   An array that can be used a route parameter.
+   */
+  public static function getRouteBundleParameter(EntityTypeInterface $entity_type, $bundle) {
+    return array($entity_type->getBundleEntityType() => $bundle);
   }
 
 }

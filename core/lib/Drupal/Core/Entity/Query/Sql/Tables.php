@@ -8,13 +8,8 @@
 namespace Drupal\Core\Entity\Query\Sql;
 
 use Drupal\Core\Database\Query\SelectInterface;
-use Drupal\Core\Entity\ContentEntityTypeInterface;
-use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\Core\Entity\ContentEntityDatabaseStorage;
 use Drupal\Core\Entity\Query\QueryException;
 use Drupal\Core\Entity\Sql\SqlEntityStorageInterface;
-use Drupal\field\Entity\FieldStorageConfig;
-use Drupal\field\FieldStorageConfigInterface;
 
 /**
  * Adds tables and fields to the SQL entity query.
@@ -53,6 +48,13 @@ class Tables implements TablesInterface {
   protected $entityManager;
 
   /**
+   * List of case sensitive fields.
+   *
+   * @var array
+   */
+  protected $caseSensitiveFields = array();
+
+  /**
    * @param \Drupal\Core\Database\Query\SelectInterface $sql_query
    */
   public function __construct(SelectInterface $sql_query) {
@@ -65,7 +67,7 @@ class Tables implements TablesInterface {
    */
   public function addField($field, $type, $langcode) {
     $entity_type_id = $this->sqlQuery->getMetaData('entity_type');
-    $age = $this->sqlQuery->getMetaData('age');
+    $all_revisions = $this->sqlQuery->getMetaData('all_revisions');
     // This variable ensures grouping works correctly. For example:
     // ->condition('tags', 2, '>')
     // ->condition('tags', 20, '<')
@@ -82,16 +84,11 @@ class Tables implements TablesInterface {
     $propertyDefinitions = array();
     $entity_type = $this->entityManager->getDefinition($entity_type_id);
 
-    $field_storage_definitions = array();
-    // @todo Needed for menu links, make this implementation content entity
-    //   specific after https://drupal.org/node/2256521.
-    if ($entity_type instanceof ContentEntityTypeInterface) {
-      $field_storage_definitions = $this->entityManager->getFieldStorageDefinitions($entity_type_id);
-    }
+    $field_storage_definitions = $this->entityManager->getFieldStorageDefinitions($entity_type_id);
     for ($key = 0; $key <= $count; $key ++) {
       // If there is revision support and only the current revision is being
       // queried then use the revision id. Otherwise, the entity id will do.
-      if (($revision_key = $entity_type->getKey('revision')) && $age == EntityStorageInterface::FIELD_LOAD_CURRENT) {
+      if (($revision_key = $entity_type->getKey('revision')) && $all_revisions) {
         // This contains the relevant SQL field to be used when joining entity
         // tables.
         $entity_id_field = $revision_key;
@@ -112,15 +109,20 @@ class Tables implements TablesInterface {
       else {
         $field_storage = FALSE;
       }
-      // If we managed to retrieve a configurable field, process it.
-      if ($field_storage instanceof FieldStorageConfigInterface) {
+
+      /** @var \Drupal\Core\Entity\Sql\DefaultTableMapping $table_mapping */
+      $table_mapping = $this->entityManager->getStorage($entity_type_id)->getTableMapping();
+
+      // Check whether this field is stored in a dedicated table.
+      if ($field_storage && $table_mapping->requiresDedicatedTableStorage($field_storage)) {
         // Find the field column.
         $column = $field_storage->getMainPropertyName();
+
         if ($key < $count) {
           $next = $specifiers[$key + 1];
           // Is this a field column?
           $columns = $field_storage->getColumns();
-          if (isset($columns[$next]) || in_array($next, FieldStorageConfig::getReservedColumns())) {
+          if (isset($columns[$next]) || in_array($next, $table_mapping->getReservedColumns())) {
             // Use it.
             $column = $next;
             // Do not process it again.
@@ -142,23 +144,53 @@ class Tables implements TablesInterface {
           }
         }
         $table = $this->ensureFieldTable($index_prefix, $field_storage, $type, $langcode, $base_table, $entity_id_field, $field_id_field);
-        $sql_column = ContentEntityDatabaseStorage::_fieldColumnName($field_storage, $column);
+        $sql_column = $table_mapping->getFieldColumnName($field_storage, $column);
+        $property_definitions = $field_storage->getPropertyDefinitions();
+        if (isset($property_definitions[$column])) {
+          $this->caseSensitiveFields[$field] = $property_definitions[$column]->getSetting('case_sensitive');
+        }
       }
-      // This is an entity base field (non-configurable field).
+      // The field is stored in a shared table.
       else {
         // ensureEntityTable() decides whether an entity property will be
         // queried from the data table or the base table based on where it
         // finds the property first. The data table is preferred, which is why
         // it gets added before the base table.
         $entity_tables = array();
-        if ($data_table = $entity_type->getDataTable()) {
+        if ($data_table = $all_revisions ? $entity_type->getRevisionDataTable() : $entity_type->getDataTable()) {
           $this->sqlQuery->addMetaData('simple_query', FALSE);
           $entity_tables[$data_table] = $this->getTableMapping($data_table, $entity_type_id);
         }
-        $entity_base_table = $entity_type->getBaseTable();
+        $entity_base_table = $all_revisions ? $entity_type->getRevisionTable() : $entity_type->getBaseTable();
         $entity_tables[$entity_base_table] = $this->getTableMapping($entity_base_table, $entity_type_id);
         $sql_column = $specifier;
-        $table = $this->ensureEntityTable($index_prefix, $specifier, $type, $langcode, $base_table, $entity_id_field, $entity_tables);
+
+        // If there are more specifiers, get the right sql column name if the
+        // next one is a column of this field.
+        if ($key < $count) {
+          $next = $specifiers[$key + 1];
+          // Is this a field column?
+          $columns = $field_storage->getColumns();
+          if (isset($columns[$next]) || in_array($next, $table_mapping->getReservedColumns())) {
+            // Use it.
+            $sql_column = $table_mapping->getFieldColumnName($field_storage, $next);
+            // Do not process it again.
+            $key++;
+          }
+        }
+
+        $table = $this->ensureEntityTable($index_prefix, $sql_column, $type, $langcode, $base_table, $entity_id_field, $entity_tables);
+
+        // If there is a field storage (some specifiers are not), check for case
+        // sensitivity.
+        if ($field_storage) {
+          $column = $field_storage->getMainPropertyName();
+          $base_field_property_definitions = $field_storage->getPropertyDefinitions();
+          if (isset($base_field_property_definitions[$column])) {
+            $this->caseSensitiveFields[$field] = $base_field_property_definitions[$column]->getSetting('case_sensitive');
+          }
+        }
+
       }
       // If there are more specifiers to come, it's a relationship.
       if ($field_storage && $key < $count) {
@@ -191,6 +223,15 @@ class Tables implements TablesInterface {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function isFieldCaseSensitive($field_name) {
+    if (isset($this->caseSensitiveFields[$field_name])) {
+      return $this->caseSensitiveFields[$field_name];
+    }
+  }
+
+  /**
    * Join entity table if necessary and return the alias for it.
    *
    * @param string $property
@@ -220,11 +261,13 @@ class Tables implements TablesInterface {
   protected function ensureFieldTable($index_prefix, &$field, $type, $langcode, $base_table, $entity_id_field, $field_id_field) {
     $field_name = $field->getName();
     if (!isset($this->fieldTables[$index_prefix . $field_name])) {
-      $table = $this->sqlQuery->getMetaData('age') == EntityStorageInterface::FIELD_LOAD_CURRENT ? ContentEntityDatabaseStorage::_fieldTableName($field) : ContentEntityDatabaseStorage::_fieldRevisionTableName($field);
+      $entity_type_id = $this->sqlQuery->getMetaData('entity_type');
+      /** @var \Drupal\Core\Entity\Sql\DefaultTableMapping $table_mapping */
+      $table_mapping = $this->entityManager->getStorage($entity_type_id)->getTableMapping();
+      $table = !$this->sqlQuery->getMetaData('all_revisions') ? $table_mapping->getDedicatedDataTableName($field) : $table_mapping->getDedicatedRevisionTableName($field);
       if ($field->getCardinality() != 1) {
         $this->sqlQuery->addMetaData('simple_query', FALSE);
       }
-      $entity_type = $this->sqlQuery->getMetaData('entity_type');
       $this->fieldTables[$index_prefix . $field_name] = $this->addJoin($type, $table, "%alias.$field_id_field = $base_table.$entity_id_field", $langcode);
     }
     return $this->fieldTables[$index_prefix . $field_name];
@@ -233,15 +276,20 @@ class Tables implements TablesInterface {
   protected function addJoin($type, $table, $join_condition, $langcode) {
     $arguments = array();
     if ($langcode) {
+      $entity_type_id = $this->sqlQuery->getMetaData('entity_type');
+      $entity_type = $this->entityManager->getDefinition($entity_type_id);
+      // Only the data table follows the entity language key, dedicated field
+      // tables have an hard-coded 'langcode' column.
+      $langcode_key = $entity_type->getDataTable() == $table ? $entity_type->getKey('langcode') : 'langcode';
       $placeholder = ':langcode' . $this->sqlQuery->nextPlaceholder();
-      $join_condition .= ' AND %alias.langcode = ' . $placeholder;
+      $join_condition .= ' AND %alias.' . $langcode_key . ' = ' . $placeholder;
       $arguments[$placeholder] = $langcode;
     }
     return $this->sqlQuery->addJoin($type, $table, NULL, $join_condition, $arguments);
   }
 
   /**
-   * Returns the schema for the given table.
+   * Gets the schema for the given table.
    *
    * @param string $table
    *   The table name.
@@ -255,10 +303,7 @@ class Tables implements TablesInterface {
       $mapping = $storage->getTableMapping()->getAllColumns($table);
     }
     else {
-      // @todo Stop calling drupal_get_schema() once menu links are converted
-      //   to the Entity Field API. See https://drupal.org/node/1842858.
-      $schema = drupal_get_schema($table);
-      $mapping = array_keys($schema['fields']);
+      return FALSE;
     }
     return array_flip($mapping);
   }

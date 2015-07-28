@@ -7,32 +7,37 @@
 
 namespace Drupal\migrate_drupal\Tests\d6;
 
-use Drupal\field\Entity\FieldInstanceConfig;
+use Drupal\field\Entity\FieldConfig;
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
+use Drupal\node\Entity\NodeType;
 
 /**
  * Upgrade node types to node.type.*.yml.
  *
  * @group migrate_drupal
  */
-class MigrateNodeTypeTest extends MigrateDrupalTestBase {
+class MigrateNodeTypeTest extends MigrateDrupal6TestBase {
 
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('node');
+  public static $modules = array('node', 'text', 'filter');
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
+
+    $this->installConfig(array('node'));
+
     $migration = entity_load('migration', 'd6_node_type');
     $dumps = array(
-      $this->getDumpDirectory() . '/Drupal6NodeType.php',
+      $this->getDumpDirectory() . '/NodeType.php',
+      $this->getDumpDirectory() . '/Variable.php',
     );
     $this->prepare($migration, $dumps);
     $executable = new MigrateExecutable($migration, $this);
@@ -45,65 +50,42 @@ class MigrateNodeTypeTest extends MigrateDrupalTestBase {
   public function testNodeType() {
     $migration = entity_load('migration', 'd6_node_type');
     // Test the test_page content type.
-    $node_type_page = entity_load('node_type', 'test_page');
-    $this->assertEqual($node_type_page->id(), 'test_page', 'Node type test_page loaded');
-    $expected = array(
-      'options' => array(
-        'status' => TRUE,
-        'promote' => TRUE,
-        'sticky' => TRUE,
-        'revision' => FALSE,
-      ),
-      'preview' => 1,
-      'submitted' => TRUE,
-    );
-
-    $this->assertEqual($node_type_page->settings['node'], $expected, 'Node type test_page settings correct.');
-    $this->assertEqual(array('test_page'), $migration->getIdMap()->lookupDestinationID(array('test_page')));
+    $node_type_page = NodeType::load('test_page');
+    $this->assertIdentical('test_page', $node_type_page->id(), 'Node type test_page loaded');
+    $this->assertIdentical(TRUE, $node_type_page->displaySubmitted());
+    $this->assertIdentical(FALSE, $node_type_page->isNewRevision());
+    $this->assertIdentical(DRUPAL_OPTIONAL, $node_type_page->getPreviewMode());
+    $this->assertIdentical($migration->getIdMap()->lookupDestinationID(array('test_page')), array('test_page'));
 
     // Test we have a body field.
-    $instance = FieldInstanceConfig::loadByName('node', 'test_page', 'body');
-    $this->assertEqual($instance->getLabel(), 'This is the body field label', 'Body field was found.');
+    $field = FieldConfig::loadByName('node', 'test_page', 'body');
+    $this->assertIdentical('This is the body field label', $field->getLabel(), 'Body field was found.');
 
     // Test the test_story content type.
-    $node_type_story = entity_load('node_type', 'test_story');
-    $this->assertEqual($node_type_story->id(), 'test_story', 'Node type test_story loaded');
-    $expected = array(
-      'options' => array(
-        'status' => TRUE,
-        'promote' => TRUE,
-        'sticky' => FALSE,
-        'revision' => FALSE,
-      ),
-      'preview' => 1,
-      'submitted' => TRUE,
-    );
-    $this->assertEqual($node_type_story->settings['node'], $expected, 'Node type test_story settings correct.');
-    $this->assertEqual(array('test_story'), $migration->getIdMap()->lookupDestinationID(array('test_story')));
+    $node_type_story = NodeType::load('test_story');
+    $this->assertIdentical('test_story', $node_type_story->id(), 'Node type test_story loaded');
+
+    $this->assertIdentical(TRUE, $node_type_story->displaySubmitted());
+    $this->assertIdentical(FALSE, $node_type_story->isNewRevision());
+    $this->assertIdentical(DRUPAL_OPTIONAL, $node_type_story->getPreviewMode());
+    $this->assertIdentical($migration->getIdMap()->lookupDestinationID(array('test_story')), array('test_story'));
 
     // Test we don't have a body field.
-    $instance = FieldInstanceConfig::loadByName('node', 'test_story', 'body');
-    $this->assertEqual($instance, NULL, 'No body field found');
+    $field = FieldConfig::loadByName('node', 'test_story', 'body');
+    $this->assertIdentical(NULL, $field, 'No body field found');
 
     // Test the test_event content type.
-    $node_type_event = entity_load('node_type', 'test_event');
-    $this->assertEqual($node_type_event->id(), 'test_event', 'Node type test_event loaded');
-    $expected = array(
-      'options' => array(
-        'status' => FALSE,
-        'promote' => FALSE,
-        'sticky' => TRUE,
-        'revision' => TRUE,
-      ),
-      'preview' => 1,
-      'submitted' => TRUE,
-    );
+    $node_type_event = NodeType::load('test_event');
+    $this->assertIdentical('test_event', $node_type_event->id(), 'Node type test_event loaded');
 
-    $this->assertEqual($node_type_event->settings['node'], $expected, 'Node type test_event settings correct.');
-    $this->assertEqual(array('test_event'), $migration->getIdMap()->lookupDestinationID(array('test_event')));
+    $this->assertIdentical(TRUE, $node_type_event->displaySubmitted());
+    $this->assertIdentical(TRUE, $node_type_event->isNewRevision());
+    $this->assertIdentical(DRUPAL_OPTIONAL, $node_type_event->getPreviewMode());
+    $this->assertIdentical($migration->getIdMap()->lookupDestinationID(array('test_event')), array('test_event'));
 
     // Test we have a body field.
-    $instance = FieldInstanceConfig::loadByName('node', 'test_event', 'body');
-    $this->assertEqual($instance->getLabel(), 'Body', 'Body field was found.');
+    $field = FieldConfig::loadByName('node', 'test_event', 'body');
+    $this->assertIdentical('Body', $field->getLabel(), 'Body field was found.');
   }
+
 }

@@ -7,15 +7,16 @@
 
 namespace Drupal\migrate_drupal\Tests\d6;
 
+use Drupal\Core\Entity\Entity\EntityViewMode;
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
 
 /**
  * Migrate view modes.
  *
  * @group migrate_drupal
  */
-class MigrateViewModesTest extends MigrateDrupalTestBase {
+class MigrateViewModesTest extends MigrateDrupal6TestBase {
 
   /**
    * Modules to enable.
@@ -27,11 +28,15 @@ class MigrateViewModesTest extends MigrateDrupalTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $migration = entity_load('migration', 'd6_view_modes');
     $dumps = array(
-      $this->getDumpDirectory() . '/Drupal6FieldInstance.php',
+      $this->getDumpDirectory() . '/ContentNodeFieldInstance.php',
+      $this->getDumpDirectory() . '/ContentNodeField.php',
+      $this->getDumpDirectory() . '/ContentFieldTest.php',
+      $this->getDumpDirectory() . '/ContentFieldTestTwo.php',
+      $this->getDumpDirectory() . '/ContentFieldMultivalue.php',
     );
     $this->prepare($migration, $dumps);
     $executable = new MigrateExecutable($migration, $this);
@@ -43,11 +48,11 @@ class MigrateViewModesTest extends MigrateDrupalTestBase {
    */
   public function testViewModes() {
     // Test a new view mode.
-    $view_mode = entity_load('view_mode', 'node.preview');
-    $this->assertEqual(is_null($view_mode), FALSE, 'Preview view mode loaded.');
-    $this->assertEqual($view_mode->label(), 'Preview', 'View mode has correct label.');
+    $view_mode = EntityViewMode::load('node.preview');
+    $this->assertIdentical(FALSE, is_null($view_mode), 'Preview view mode loaded.');
+    $this->assertIdentical('Preview', $view_mode->label(), 'View mode has correct label.');
     // Test the Id Map.
-    $this->assertEqual(array('node', 'preview'), entity_load('migration', 'd6_view_modes')->getIdMap()->lookupDestinationID(array(1)));
+    $this->assertIdentical(array('node', 'preview'), entity_load('migration', 'd6_view_modes')->getIdMap()->lookupDestinationID(array(1)));
   }
 
 }

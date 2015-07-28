@@ -9,6 +9,7 @@ namespace Drupal\Tests\Core\DependencyInjection;
 
 use Drupal\Core\DependencyInjection\Container;
 use Drupal\Tests\UnitTestCase;
+use Drupal\Tests\Core\DependencyInjection\Fixture\BarClass;
 
 /**
  * @coversDefaultClass \Drupal\Core\DependencyInjection\Container
@@ -17,32 +18,24 @@ use Drupal\Tests\UnitTestCase;
 class ContainerTest extends UnitTestCase {
 
   /**
-   * The tested container.
+   * Tests serialization.
    *
-   * @var \Drupal\Core\DependencyInjection\Container
+   * @expectedException \PHPUnit_Framework_Error
    */
-  public $container;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
-    $this->container = new Container();
+  public function testSerialize() {
+    $container = new Container();
+    serialize($container);
   }
 
   /**
-   * Tests the get method.
-   *
-   * @see \Drupal\Core\DependencyInjection\Container::get()
+   * @covers ::set
    */
-  public function testGet() {
-    $service = new \stdClass();
-    $service->key = 'value';
-
-    $this->container->set('test_service', $service);
-    $result = $this->container->get('test_service');
-    $this->assertSame($service, $result);
-    $this->assertEquals('test_service', $result->_serviceId);
+  public function testSet() {
+    $container = new Container();
+    $class = new BarClass();
+    $container->set('bar', $class);
+    // Ensure that _serviceId is set on the object.
+    $this->assertEquals('bar', $class->_serviceId);
   }
 
 }

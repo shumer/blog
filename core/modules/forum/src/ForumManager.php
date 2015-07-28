@@ -195,17 +195,17 @@ class ForumManager implements ForumManagerInterface {
       $query->join('forum_index', 'f', 'f.nid = n.nid');
       $query->addField('f', 'tid', 'forum_tid');
 
-      $query->join('users', 'u', 'n.uid = u.uid');
+      $query->join('users_field_data', 'u', 'n.uid = u.uid AND u.default_langcode = 1');
       $query->addField('u', 'name');
 
-      $query->join('users', 'u2', 'ces.last_comment_uid = u2.uid');
+      $query->join('users_field_data', 'u2', 'ces.last_comment_uid = u2.uid AND u.default_langcode = 1');
 
       $query->addExpression('CASE ces.last_comment_uid WHEN 0 THEN ces.last_comment_name ELSE u2.name END', 'last_comment_name');
 
       $query
         ->orderBy('f.sticky', 'DESC')
         ->orderByHeader($header)
-        ->condition('n.nid', $nids)
+        ->condition('n.nid', $nids, 'IN')
         // @todo This should be actually filtering on the desired node language
         //   and just fall back to the default language.
         ->condition('n.default_langcode', 1);
@@ -341,7 +341,7 @@ class ForumManager implements ForumManagerInterface {
     $query = $this->connection->select('node_field_data', 'n');
     $query->join('forum', 'f', 'n.vid = f.vid AND f.tid = :tid', array(':tid' => $tid));
     $query->join('comment_entity_statistics', 'ces', "n.nid = ces.entity_id AND ces.field_name = 'comment_forum' AND ces.entity_type = 'node'");
-    $query->join('users', 'u', 'ces.last_comment_uid = u.uid');
+    $query->join('users_field_data', 'u', 'ces.last_comment_uid = u.uid AND u.default_langcode = 1');
     $query->addExpression('CASE ces.last_comment_uid WHEN 0 THEN ces.last_comment_name ELSE u.name END', 'last_comment_name');
 
     $topic = $query
@@ -405,7 +405,7 @@ class ForumManager implements ForumManagerInterface {
       return $this->forumChildren[$tid];
     }
     $forums = array();
-    $_forums = taxonomy_get_tree($vid, $tid, NULL, TRUE);
+    $_forums = $this->entityManager->getStorage('taxonomy_term')->loadTree($vid, $tid, NULL, TRUE);
     foreach ($_forums as $forum) {
       // Merge in the topic and post counters.
       if (($count = $this->getForumStatistics($forum->id()))) {
@@ -463,7 +463,7 @@ class ForumManager implements ForumManagerInterface {
    * {@inheritdoc}
    */
   public function getParents($tid) {
-    return taxonomy_term_load_parents_all($tid);
+    return $this->entityManager->getStorage('taxonomy_term')->loadAllParents($tid);
   }
 
   /**

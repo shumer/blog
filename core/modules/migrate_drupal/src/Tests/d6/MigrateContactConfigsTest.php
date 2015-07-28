@@ -10,14 +10,14 @@ namespace Drupal\migrate_drupal\Tests\d6;
 use Drupal\config\Tests\SchemaCheckTestTrait;
 use Drupal\migrate\MigrateMessage;
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
 
 /**
  * Upgrade variables to contact.settings.yml.
  *
  * @group migrate_drupal
  */
-class MigrateContactConfigsTest extends MigrateDrupalTestBase {
+class MigrateContactConfigsTest extends MigrateDrupal6TestBase {
 
   use SchemaCheckTestTrait;
 
@@ -31,7 +31,7 @@ class MigrateContactConfigsTest extends MigrateDrupalTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     // Add some id mappings for the dependent migrations.
     $id_mappings = array(
@@ -40,11 +40,11 @@ class MigrateContactConfigsTest extends MigrateDrupalTestBase {
         array(array(2), array('some_other_category')),
       ),
     );
-    $this->prepareIdMappings($id_mappings);
+    $this->prepareMigrations($id_mappings);
     $migration = entity_load('migration', 'd6_contact_settings');
     $dumps = array(
-      $this->getDumpDirectory() . '/Drupal6ContactSettings.php',
-      $this->getDumpDirectory() . '/Drupal6ContactCategory.php',
+      $this->getDumpDirectory() . '/Variable.php',
+      $this->getDumpDirectory() . '/Contact.php',
     );
     $this->prepare($migration, $dumps);
     $executable = new MigrateExecutable($migration, new MigrateMessage());
@@ -55,10 +55,10 @@ class MigrateContactConfigsTest extends MigrateDrupalTestBase {
    * Tests migration of contact variables to contact.settings.yml.
    */
   public function testContactSettings() {
-    $config = \Drupal::config('contact.settings');
-    $this->assertIdentical($config->get('user_default_enabled'), true);
-    $this->assertIdentical($config->get('flood.limit'), 3);
-    $this->assertIdentical($config->get('default_category'), 'some_other_category');
+    $config = $this->config('contact.settings');
+    $this->assertIdentical(true, $config->get('user_default_enabled'));
+    $this->assertIdentical(3, $config->get('flood.limit'));
+    $this->assertIdentical('some_other_category', $config->get('default_form'));
     $this->assertConfigSchema(\Drupal::service('config.typed'), 'contact.settings', $config->get());
   }
 

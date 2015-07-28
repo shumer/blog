@@ -9,27 +9,35 @@ namespace Drupal\system\Tests\KeyValueStore;
 
 use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Entity\EntityStorageException;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests KeyValueEntityStorage for content entities.
  *
  * @group KeyValueStore
  */
-class KeyValueContentEntityStorageTest extends DrupalUnitTestBase {
+class KeyValueContentEntityStorageTest extends KernelTestBase {
 
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('entity', 'user', 'entity_test', 'keyvalue_test');
+  public static $modules = array('user', 'entity_test', 'keyvalue_test');
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
+    parent::setUp();
+    $this->installEntitySchema('user');
+  }
 
   /**
    * Tests CRUD operations.
    */
   function testCRUD() {
-    $default_langcode = language_default()->id;
+    $default_langcode = \Drupal::languageManager()->getDefaultLanguage()->getId();
     // Verify default properties on a newly created empty entity.
     $empty = entity_create('entity_test_label');
     $this->assertIdentical($empty->id->value, NULL);
@@ -79,7 +87,7 @@ class KeyValueContentEntityStorageTest extends DrupalUnitTestBase {
 
     // Verify properties on a newly created entity.
     $entity_test = entity_create('entity_test_label', $expected = array(
-      'id' => $this->randomName(),
+      'id' => $this->randomMachineName(),
       'name' => $this->randomString(),
     ));
     $this->assertIdentical($entity_test->id->value, $expected['id']);
@@ -133,7 +141,7 @@ class KeyValueContentEntityStorageTest extends DrupalUnitTestBase {
     }
 
     // Verify that renaming the ID returns correct status and properties.
-    $ids = array($expected['id'], 'second_' . $this->randomName(4), 'third_' . $this->randomName(4));
+    $ids = array($expected['id'], 'second_' . $this->randomMachineName(4), 'third_' . $this->randomMachineName(4));
     for ($i = 1; $i < 3; $i++) {
       $old_id = $ids[$i - 1];
       $new_id = $ids[$i];

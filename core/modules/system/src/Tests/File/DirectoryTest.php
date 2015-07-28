@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\File\DirectoryTest.
+ * Contains \Drupal\system\Tests\File\DirectoryTest.
  */
 
 namespace Drupal\system\Tests\File;
+
+use Drupal\Component\PhpStorage\FileStorage;
 
 /**
  * Tests operations dealing with directories.
@@ -17,12 +19,13 @@ class DirectoryTest extends FileTestBase {
    * Test local directory handling functions.
    */
   function testFileCheckLocalDirectoryHandling() {
-    $directory = conf_path() . '/files';
+    $site_path = $this->container->get('site.path');
+    $directory = $site_path . '/files';
 
     // Check a new recursively created local directory for correct file system
     // permissions.
-    $parent = $this->randomName();
-    $child = $this->randomName();
+    $parent = $this->randomMachineName();
+    $child = $this->randomMachineName();
 
     // Files directory already exists.
     $this->assertTrue(is_dir($directory), t('Files directory already exists.'), 'File');
@@ -46,7 +49,7 @@ class DirectoryTest extends FileTestBase {
     $this->assertDirectoryPermissions($directory, $old_mode);
 
     // Check creating a directory using an absolute path.
-    $absolute_path = drupal_realpath($directory) . DIRECTORY_SEPARATOR . $this->randomName() . DIRECTORY_SEPARATOR . $this->randomName();
+    $absolute_path = drupal_realpath($directory) . DIRECTORY_SEPARATOR . $this->randomMachineName() . DIRECTORY_SEPARATOR . $this->randomMachineName();
     $this->assertTrue(drupal_mkdir($absolute_path, 0775, TRUE), 'No error reported when creating new absolute directories.', 'File');
     $this->assertDirectoryPermissions($absolute_path, 0775);
   }
@@ -56,7 +59,7 @@ class DirectoryTest extends FileTestBase {
    */
   function testFileCheckDirectoryHandling() {
     // A directory to operate on.
-    $directory = file_default_scheme() . '://' . $this->randomName() . '/' . $this->randomName();
+    $directory = file_default_scheme() . '://' . $this->randomMachineName() . '/' . $this->randomMachineName();
     $this->assertFalse(is_dir($directory), 'Directory does not exist prior to testing.');
 
     // Non-existent directory.
@@ -93,7 +96,7 @@ class DirectoryTest extends FileTestBase {
     $this->assertTrue(is_file(file_default_scheme() . '://.htaccess'), 'Successfully re-created the .htaccess file in the files directory.', 'File');
     // Verify contents of .htaccess file.
     $file = file_get_contents(file_default_scheme() . '://.htaccess');
-    $this->assertEqual($file, file_htaccess_lines(FALSE), 'The .htaccess file contains the proper content.', 'File');
+    $this->assertEqual($file, FileStorage::htaccessLines(FALSE), 'The .htaccess file contains the proper content.', 'File');
   }
 
   /**
@@ -155,7 +158,7 @@ class DirectoryTest extends FileTestBase {
    */
   function testFileDirectoryTemp() {
     // Start with an empty variable to ensure we have a clean slate.
-    $config = \Drupal::config('system.file');
+    $config = $this->config('system.file');
     $config->set('path.temporary', '')->save();
     $tmp_directory = file_directory_temp();
     $this->assertEqual(empty($tmp_directory), FALSE, 'file_directory_temp() returned a non-empty value.');

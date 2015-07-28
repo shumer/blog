@@ -1,5 +1,5 @@
 --TEST--
-phpunit --filter testBalanceIsInitiallyZero BankAccountTest ../_files/BankAccountTest.php
+phpunit --filter doesNotExist BankAccountTest ../_files/BankAccountTest.php
 --FILE--
 <?php
 $_SERVER['argv'][1] = '--no-configuration';
@@ -12,7 +12,7 @@ require __DIR__ . '/../bootstrap.php';
 PHPUnit_TextUI_Command::main();
 ?>
 --EXPECTF--
-PHPUnit %s by Sebastian Bergmann.
+PHPUnit %s by Sebastian Bergmann and contributors.
 
 
 

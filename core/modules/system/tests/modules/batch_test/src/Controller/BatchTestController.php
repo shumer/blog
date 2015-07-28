@@ -6,6 +6,7 @@
 
 namespace Drupal\batch_test\Controller;
 
+use Drupal\Core\Form\FormState;
 
 /**
  * Controller routines for batch tests.
@@ -75,7 +76,7 @@ class BatchTestController {
    * Submits the 'Chained' form programmatically.
    *
    * Programmatic form: the page submits the 'Chained' form through
-   * drupal_form_submit().
+   * \Drupal::formBuilder()->submitForm().
    *
    * @param int $value
    *   Some value passed to a the chained form.
@@ -84,9 +85,9 @@ class BatchTestController {
    *   Render array containing markup.
    */
   function testProgrammatic($value = 1) {
-    $form_state = array(
-      'values' => array('value' => $value)
-    );
+    $form_state = (new FormState())->setValues([
+      'value' => $value,
+    ]);
     \Drupal::formBuilder()->submitForm('Drupal\batch_test\Form\BatchTestChainedForm', $form_state);
     return array(
       'success' => array(
@@ -108,6 +109,24 @@ class BatchTestController {
         array('_batch_test_theme_callback', array()),
       ),
     );
+    batch_set($batch);
+    return batch_process('batch-test/redirect');
+  }
+
+  /**
+   * Runs a batch for testing the title shown on the progress page.
+   *
+   * @return \Symfony\Component\HttpFoundation\RedirectResponse|null
+   *   A redirect response if the batch is progressive. No return value otherwise.
+   */
+  public function testTitleBatch() {
+    batch_test_stack(NULL, TRUE);
+    $batch = [
+      'title' => 'Batch Test',
+      'operations' => [
+        ['_batch_test_title_callback', []],
+      ],
+    ];
     batch_set($batch);
     return batch_process('batch-test/redirect');
   }

@@ -7,6 +7,7 @@
 
 namespace Drupal\aggregator\Tests\Views;
 
+use Drupal\Core\Url;
 use Drupal\views\Views;
 use Drupal\views\Tests\ViewTestData;
 use Drupal\views\Tests\ViewUnitTestBase;
@@ -19,11 +20,11 @@ use Drupal\views\Tests\ViewUnitTestBase;
 class IntegrationTest extends ViewUnitTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
-  public static $modules = array('aggregator', 'aggregator_test_views', 'system', 'entity', 'field', 'options');
+  public static $modules = array('aggregator', 'aggregator_test_views', 'system', 'field', 'options', 'user');
 
   /**
    * Views used by this test.
@@ -46,6 +47,9 @@ class IntegrationTest extends ViewUnitTestBase {
    */
   protected $feedStorage;
 
+  /**
+   * {@inheritdoc}
+   */
   protected function setUp() {
     parent::setUp();
 
@@ -63,11 +67,11 @@ class IntegrationTest extends ViewUnitTestBase {
    */
   public function testAggregatorItemView() {
     $feed = $this->feedStorage->create(array(
-      'title' => $this->randomName(),
-      'url' => 'http://drupal.org/',
+      'title' => $this->randomMachineName(),
+      'url' => 'https://www.drupal.org/',
       'refresh' => 900,
       'checked' => 123543535,
-      'description' => $this->randomName(),
+      'description' => $this->randomMachineName(),
     ));
     $feed->save();
 
@@ -77,11 +81,11 @@ class IntegrationTest extends ViewUnitTestBase {
       $values = array();
       $values['fid'] = $feed->id();
       $values['timestamp'] = mt_rand(REQUEST_TIME - 10, REQUEST_TIME + 10);
-      $values['title'] = $this->randomName();
-      $values['description'] = $this->randomName();
+      $values['title'] = $this->randomMachineName();
+      $values['description'] = $this->randomMachineName();
       // Add a image to ensure that the sanitizing can be tested below.
-      $values['author'] = $this->randomName() . '<img src="http://example.com/example.png" \>"';
-      $values['link'] = 'http://drupal.org/node/' . mt_rand(1000, 10000);
+      $values['author'] = $this->randomMachineName() . '<img src="http://example.com/example.png" \>"';
+      $values['link'] = 'https://www.drupal.org/node/' . mt_rand(1000, 10000);
       $values['guid'] = $this->randomString();
 
       $aggregator_item = $this->itemStorage->create($values);
@@ -97,9 +101,9 @@ class IntegrationTest extends ViewUnitTestBase {
 
     $column_map = array(
       'iid' => 'iid',
-      'aggregator_item_title' => 'title',
+      'title' => 'title',
       'aggregator_item_timestamp' => 'timestamp',
-      'aggregator_item_description' => 'description',
+      'description' => 'description',
       'aggregator_item_author' => 'author',
     );
     $this->assertIdenticalResultset($view, $expected, $column_map);
@@ -107,7 +111,7 @@ class IntegrationTest extends ViewUnitTestBase {
     // Ensure that the rendering of the linked title works as expected.
     foreach ($view->result as $row) {
       $iid = $view->field['iid']->getValue($row);
-      $expected_link = l($items[$iid]->getTitle(), $items[$iid]->getLink(), array('absolute' => TRUE));
+      $expected_link = \Drupal::l($items[$iid]->getTitle(), Url::fromUri($items[$iid]->getLink(), ['absolute' => TRUE]));
       $this->assertEqual($view->field['title']->advancedRender($row), $expected_link, 'Ensure the right link is generated');
 
       $expected_author = aggregator_filter_xss($items[$iid]->getAuthor());

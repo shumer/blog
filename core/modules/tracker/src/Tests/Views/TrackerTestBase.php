@@ -7,6 +7,7 @@
 
 namespace Drupal\tracker\Tests\Views;
 
+use Drupal\comment\Tests\CommentTestTrait;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\views\Tests\ViewTestBase;
 use Drupal\views\Tests\ViewTestData;
@@ -15,6 +16,8 @@ use Drupal\views\Tests\ViewTestData;
  * Base class for all tracker tests.
  */
 abstract class TrackerTestBase extends ViewTestBase {
+
+  use CommentTestTrait;
 
   /**
    * Modules to enable.
@@ -30,6 +33,13 @@ abstract class TrackerTestBase extends ViewTestBase {
    */
   protected $node;
 
+  /**
+   * The comment used for testing.
+   *
+   * @var \Drupal\comment\CommentInterface
+   */
+  protected $comment;
+
   protected function setUp() {
     parent::setUp();
 
@@ -37,7 +47,7 @@ abstract class TrackerTestBase extends ViewTestBase {
 
     $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Basic page'));
     // Add a comment field.
-    $this->container->get('comment.manager')->addDefaultField('node', 'page');
+    $this->addDefaultCommentField('node', 'page');
 
     $permissions = array('access comments', 'create page content', 'post comments', 'skip comment approval');
     $account = $this->drupalCreateUser($permissions);
@@ -45,7 +55,7 @@ abstract class TrackerTestBase extends ViewTestBase {
     $this->drupalLogin($account);
 
     $this->node = $this->drupalCreateNode(array(
-      'title' => $this->randomName(8),
+      'title' => $this->randomMachineName(8),
       'uid' => $account->id(),
       'status' => 1,
     ));
@@ -54,8 +64,8 @@ abstract class TrackerTestBase extends ViewTestBase {
       'entity_id' => $this->node->id(),
       'entity_type' => 'node',
       'field_name' => 'comment',
-      'subject' => $this->randomName(),
-      'comment_body[' . LanguageInterface::LANGCODE_NOT_SPECIFIED . '][0][value]' => $this->randomName(20),
+      'subject' => $this->randomMachineName(),
+      'comment_body[' . LanguageInterface::LANGCODE_NOT_SPECIFIED . '][0][value]' => $this->randomMachineName(20),
     ));
 
   }

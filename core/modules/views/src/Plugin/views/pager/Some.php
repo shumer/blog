@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\pager\Some.
+ * Contains \Drupal\views\Plugin\views\pager\Some.
  */
 
 namespace Drupal\views\Plugin\views\pager;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Plugin for views without pagers.
@@ -23,9 +25,9 @@ class Some extends PagerPluginBase {
 
   public function summaryTitle() {
     if (!empty($this->options['offset'])) {
-      return format_plural($this->options['items_per_page'], '@count item, skip @skip', '@count items, skip @skip', array('@count' => $this->options['items_per_page'], '@skip' => $this->options['offset']));
+      return $this->formatPlural($this->options['items_per_page'], '@count item, skip @skip', '@count items, skip @skip', array('@count' => $this->options['items_per_page'], '@skip' => $this->options['offset']));
     }
-      return format_plural($this->options['items_per_page'], '@count item', '@count items', array('@count' => $this->options['items_per_page']));
+      return $this->formatPlural($this->options['items_per_page'], '@count item', '@count items', array('@count' => $this->options['items_per_page']));
   }
 
   protected function defineOptions() {
@@ -39,7 +41,7 @@ class Some extends PagerPluginBase {
   /**
    * Provide the default form for setting options.
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
     $pager_text = $this->displayHandler->getPagerText();
     $form['items_per_page'] = array(
@@ -51,8 +53,8 @@ class Some extends PagerPluginBase {
 
     $form['offset'] = array(
       '#type' => 'textfield',
-      '#title' => t('Offset (number of items to skip)'),
-      '#description' => t('For example, set this to 3 and the first 3 items will not be displayed.'),
+      '#title' => $this->t('Offset (number of items to skip)'),
+      '#description' => $this->t('For example, set this to 3 and the first 3 items will not be displayed.'),
       '#default_value' => $this->options['offset'],
     );
   }

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Batch\PageTest.
+ * Contains \Drupal\system\Tests\Batch\PageTest.
  */
 
 namespace Drupal\system\Tests\Batch;
@@ -29,8 +29,8 @@ class PageTest extends WebTestBase {
   function testBatchProgressPageTheme() {
     // Make sure that the page which starts the batch (an administrative page)
     // is using a different theme than would normally be used by the batch API.
-    $this->container->get('theme_handler')->enable(array('seven', 'bartik'));
-    $this->container->get('config.factory')->get('system.theme')
+    $this->container->get('theme_handler')->install(array('seven', 'bartik'));
+    $this->config('system.theme')
       ->set('default', 'bartik')
       ->set('admin', 'seven')
       ->save();
@@ -47,4 +47,18 @@ class PageTest extends WebTestBase {
     // page.
     $this->assertEqual(batch_test_stack(), array('seven'), 'A progressive batch correctly uses the theme of the page that started the batch.');
   }
+
+  /**
+   * Tests that the batch API progress page shows the title correctly.
+   */
+  function testBatchProgressPageTitle() {
+    // Visit an administrative page that runs a test batch, and check that the
+    // title shown during batch execution (which the batch callback function
+    // saved as a variable) matches the theme used on the administrative page.
+    $this->drupalGet('batch-test/test-title');
+    // The stack should contain the title shown on the progress page.
+    $this->assertEqual(batch_test_stack(), ['Batch Test'], 'The batch title is shown on the batch page.');
+    $this->assertText('Redirection successful.', 'Redirection after batch execution is correct.');
+  }
+
 }

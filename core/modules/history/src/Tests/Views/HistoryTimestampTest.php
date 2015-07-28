@@ -43,7 +43,7 @@ class HistoryTimestampTest extends ViewTestBase {
 
     $account = $this->drupalCreateUser();
     $this->drupalLogin($account);
-    $GLOBALS['user'] = $account;
+    \Drupal::currentUser()->setAccount($account);
 
     db_insert('history')
       ->fields(array(
@@ -70,7 +70,7 @@ class HistoryTimestampTest extends ViewTestBase {
     $this->executeView($view);
     $this->assertEqual(count($view->result), 2);
     $output = $view->preview();
-    $this->drupalSetContent(drupal_render($output));
+    $this->setRawContent(\Drupal::service('renderer')->renderRoot($output));
     $result = $this->xpath('//span[@class=:class]', array(':class' => 'marker'));
     $this->assertEqual(count($result), 1, 'Just one node is marked as new');
 

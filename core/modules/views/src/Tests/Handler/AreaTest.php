@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Tests\Handler\AreaTest.
+ * Contains \Drupal\views\Tests\Handler\AreaTest.
  */
 
 namespace Drupal\views\Tests\Handler;
 
+use Drupal\Component\Utility\Xss;
 use Drupal\views\Views;
 
 /**
@@ -23,7 +24,7 @@ class AreaTest extends HandlerTestBase {
    *
    * @var array
    */
-  public static $testViews = array('test_example_area');
+  public static $testViews = array('test_example_area', 'test_example_area_access');
 
   /**
    * Modules to enable.
@@ -69,7 +70,7 @@ class AreaTest extends HandlerTestBase {
       $this->assertText('Test Example area');
 
       // Then setup a no empty label.
-      $labels[$type] = $this->randomName();
+      $labels[$type] = $this->randomMachineName();
       $this->drupalPostForm($edit_path, array('options[admin_label]' => $labels[$type]), t('Apply'));
       // Make sure that the new label appears on the site.
       $this->assertText($labels[$type]);
@@ -90,11 +91,12 @@ class AreaTest extends HandlerTestBase {
     $view = Views::getView('test_example_area');
     $view->initHandlers();
 
-    // Insert a random string to the test area plugin and see whether it is
-    // rendered for both header, footer and empty text.
-    $header_string = $this->randomString();
-    $footer_string = $this->randomString();
-    $empty_string = $this->randomString();
+    // Insert a random string with XSS injection in the test area plugin.
+    // Ensure that the string is rendered for the header, footer, and empty
+    // text with the markup properly escaped.
+    $header_string = '<script type="text/javascript">alert("boo");</script><p>' . $this->randomMachineName() . '</p>';
+    $footer_string = '<script type="text/javascript">alert("boo");</script><p>' . $this->randomMachineName() . '</p>';
+    $empty_string = '<script type="text/javascript">alert("boo");</script><p>' . $this->randomMachineName() . '</p>';
 
     $view->header['test_example']->options['string'] = $header_string;
     $view->header['test_example']->options['empty'] = TRUE;
@@ -104,12 +106,52 @@ class AreaTest extends HandlerTestBase {
 
     $view->empty['test_example']->options['string'] = $empty_string;
 
-    // Check whether the strings exists in the output.
+    // Check whether the strings exist in the output and are sanitized.
     $output = $view->preview();
-    $output = drupal_render($output);
-    $this->assertTrue(strpos($output, $header_string) !== FALSE);
-    $this->assertTrue(strpos($output, $footer_string) !== FALSE);
-    $this->assertTrue(strpos($output, $empty_string) !== FALSE);
+    $output = $this->container->get('renderer')->renderRoot($output);
+    $this->assertTrue(strpos($output, Xss::filterAdmin($header_string)) !== FALSE, 'Views header exists in the output and is sanitized');
+    $this->assertTrue(strpos($output, Xss::filterAdmin($footer_string)) !== FALSE, 'Views footer exists in the output and is sanitized');
+    $this->assertTrue(strpos($output, Xss::filterAdmin($empty_string)) !== FALSE, 'Views empty exists in the output and is sanitized');
+    $this->assertTrue(strpos($output, '<script') === FALSE, 'Script tags were escaped');
+  }
+
+  /**
+   * Tests the access for an area.
+   */
+  public function testAreaAccess() {
+    // Test with access denied for the area handler.
+    $view = Views::getView('test_example_area_access');
+    $view->initDisplay();
+    $view->initHandlers();
+    $handlers = $view->display_handler->getHandlers('empty');
+    $this->assertEqual(0, count($handlers));
+
+    $output = $view->preview();
+    $output = \Drupal::service('renderer')->renderRoot($output);
+    // The area output should not be present since access was denied.
+    $this->assertFalse(strpos($output, 'a custom string') !== FALSE);
+    $view->destroy();
+
+    // Test with access granted for the area handler.
+    $view = Views::getView('test_example_area_access');
+    $view->initDisplay();
+    $view->display_handler->overrideOption('empty', [
+      'test_example' => [
+        'field' => 'test_example',
+        'id' => 'test_example',
+        'table' => 'views',
+        'plugin_id' => 'test_example',
+        'string' => 'a custom string',
+        'custom_access' => TRUE,
+      ],
+    ]);
+    $view->initHandlers();
+    $handlers = $view->display_handler->getHandlers('empty');
+
+    $output = $view->preview();
+    $output = \Drupal::service('renderer')->renderRoot($output);
+    $this->assertTrue(strpos($output, 'a custom string') !== FALSE);
+    $this->assertEqual(1, count($handlers));
   }
 
   /**
@@ -145,7 +187,7 @@ class AreaTest extends HandlerTestBase {
 
     // Test we have the site:name token in the output.
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $this->container->get('renderer')->renderRoot($output);
     $expected = \Drupal::token()->replace('[site:name]');
     $this->assertTrue(strpos($output, $expected) !== FALSE);
   }
@@ -166,6 +208,7 @@ class AreaTest extends HandlerTestBase {
         'admin_label' => '',
         'empty' => '0',
         'title' => 'Overridden title',
+        'plugin_id' => 'title',
       ),
     ));
 

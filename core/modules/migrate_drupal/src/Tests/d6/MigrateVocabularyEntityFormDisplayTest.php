@@ -8,21 +8,21 @@
 namespace Drupal\migrate_drupal\Tests\d6;
 
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
 
 /**
  * Vocabulary entity form display migration.
  *
  * @group migrate_drupal
  */
-class MigrateVocabularyEntityFormDisplayTest extends MigrateDrupalTestBase {
+class MigrateVocabularyEntityFormDisplayTest extends MigrateDrupal6TestBase {
 
   /**
    * The modules to be enabled during the test.
    *
    * @var array
    */
-  static $modules = array('taxonomy', 'field');
+  static $modules = array('node', 'taxonomy', 'field', 'text', 'entity_reference');
 
   /**
    * {@inheritdoc}
@@ -32,19 +32,31 @@ class MigrateVocabularyEntityFormDisplayTest extends MigrateDrupalTestBase {
 
     entity_create('field_storage_config', array(
       'entity_type' => 'node',
-      'name' => 'tags',
-      'type' => 'taxonomy_term_reference',
+      'field_name' => 'tags',
+      'type' => 'entity_reference',
+      'settings' => array(
+        'target_type' => 'taxonomy_term',
+      ),
     ))->save();
 
     foreach (array('page', 'article', 'story') as $type) {
       entity_create('node_type', array('type' => $type))->save();
-      entity_create('field_instance_config', array(
+      entity_create('field_config', array(
         'label' => 'Tags',
         'description' => '',
         'field_name' => 'tags',
         'entity_type' => 'node',
         'bundle' => $type,
         'required' => 1,
+        'settings' => array(
+          'handler' => 'default',
+          'handler_settings' => array(
+            'target_bundles' => array(
+              'tags' => 'tags',
+            ),
+            'auto_create' => TRUE,
+          ),
+        ),
       ))->save();
     }
 
@@ -57,11 +69,12 @@ class MigrateVocabularyEntityFormDisplayTest extends MigrateDrupalTestBase {
         array(array(4, 'page'), array('node', 'page', 'tags')),
       )
     );
-    $this->prepareIdMappings($id_mappings);
+    $this->prepareMigrations($id_mappings);
 
     $migration = entity_load('migration', 'd6_vocabulary_entity_form_display');
     $dumps = array(
-      $this->getDumpDirectory() . '/Drupal6VocabularyField.php',
+      $this->getDumpDirectory() . '/Vocabulary.php',
+      $this->getDumpDirectory() . '/VocabularyNodeTypes.php',
     );
     $this->prepare($migration, $dumps);
     $executable = new MigrateExecutable($migration, $this);
@@ -75,10 +88,10 @@ class MigrateVocabularyEntityFormDisplayTest extends MigrateDrupalTestBase {
   public function testVocabularyEntityFormDisplay() {
     // Test that the field exists.
     $component = entity_get_form_display('node', 'page', 'default')->getComponent('tags');
-    $this->assertEqual($component['type'], 'options_select');
-    $this->assertEqual($component['weight'], 20);
+    $this->assertIdentical('options_select', $component['type']);
+    $this->assertIdentical(20, $component['weight']);
     // Test the Id map.
-    $this->assertEqual(array('node', 'article', 'default', 'tags'), entity_load('migration', 'd6_vocabulary_entity_form_display')->getIdMap()->lookupDestinationID(array(4, 'article')));
+    $this->assertIdentical(array('node', 'article', 'default', 'tags'), entity_load('migration', 'd6_vocabulary_entity_form_display')->getIdMap()->lookupDestinationID(array(4, 'article')));
   }
 
 }

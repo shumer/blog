@@ -8,7 +8,7 @@
 namespace Drupal\Component\Plugin\Discovery;
 
 /**
- * Interface for discovery compenents holding a cache of plugin definitions.
+ * Interface for discovery components holding a cache of plugin definitions.
  */
 interface CachedDiscoveryInterface extends DiscoveryInterface {
 
@@ -20,5 +20,18 @@ interface CachedDiscoveryInterface extends DiscoveryInterface {
    * the appropriate plugin type's plugin manager!
    */
   public function clearCachedDefinitions();
+
+  /**
+   * Disable the use of caches.
+   *
+   * Can be used to ensure that uncached plugin definitions are returned,
+   * without invalidating all cached information.
+   *
+   * This will also remove all local/static caches.
+   *
+   * @param bool $use_caches
+   *   FALSE to not use any caches.
+   */
+  public function useCaches($use_caches = FALSE);
 
 }

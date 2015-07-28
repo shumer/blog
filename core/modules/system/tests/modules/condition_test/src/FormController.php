@@ -9,6 +9,8 @@ namespace Drupal\condition_test;
 
 use Drupal\Core\Form\FormInterface;
 use Drupal\Core\Condition\ConditionManager;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\Entity\Node;
 
 /**
  * Routing controller class for condition_test testing of condition forms.
@@ -38,9 +40,9 @@ class FormController implements FormInterface {
   }
 
   /**
-   * Implements \Drupal\Core\Form\FormInterface::buildForm().
+   * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form = $this->condition->buildConfigurationForm($form, $form_state);
     $form['actions']['submit'] = array(
       '#type' => 'submit',
@@ -51,20 +53,23 @@ class FormController implements FormInterface {
 
   /**
    * Implements \Drupal\Core\Form\FormInterface::validateForm().
+   *
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     $this->condition->validateConfigurationForm($form, $form_state);
   }
 
   /**
-   * Implements \Drupal\Core\Form\FormInterface::submitForm().
+   * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->condition->submitConfigurationForm($form, $form_state);
     $config = $this->condition->getConfig();
-    $bundles = implode(' and ', $config['bundles']);
-    drupal_set_message(t('The bundles are @bundles', array('@bundles' => $bundles)));
-    $article = node_load(1);
+    foreach ($config['bundles'] as $bundle) {
+      drupal_set_message('Bundle: ' . $bundle);
+    }
+
+    $article = Node::load(1);
     $this->condition->setContextValue('node', $article);
     if ($this->condition->execute()) {
       drupal_set_message(t('Executed successfully.'));

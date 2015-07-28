@@ -72,8 +72,8 @@ class StyleGridTest extends PluginTestBase {
     $view->style_plugin->options['columns'] = $columns;
     $this->executeView($view);
     $output = $view->preview();
-    $output = drupal_render($output);
-    $this->drupalSetContent($output);
+    $output = \Drupal::service('renderer')->renderRoot($output);
+    $this->setRawContent($output);
     if (!in_array($alignment, $this->alignmentsTested)) {
       $result = $this->xpath('//div[contains(@class, "views-view-grid") and contains(@class, :alignment) and contains(@class, :columns)]', array(':alignment' => $alignment, ':columns' => 'cols-' . $columns));
       $this->assertTrue(count($result), ucfirst($alignment) . " grid markup detected.");

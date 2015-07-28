@@ -7,6 +7,7 @@
 
 namespace Drupal\system\Tests\System;
 
+use Drupal\Core\Menu\MenuTreeParameters;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -21,14 +22,14 @@ class AdminTest extends WebTestBase {
    *
    * @var \Drupal\Core\Session\AccountInterface
    */
-  protected $admin_user;
+  protected $adminUser;
 
   /**
    * User account with limited access to administration pages.
    *
    * @var \Drupal\Core\Session\AccountInterface
    */
-  protected $web_user;
+  protected $webUser;
 
   /**
    * Modules to enable.
@@ -37,19 +38,19 @@ class AdminTest extends WebTestBase {
    */
   public static $modules = array('locale');
 
-  function setUp() {
+  protected function setUp() {
     // testAdminPages() requires Locale module.
     parent::setUp();
 
     // Create an administrator with all permissions, as well as a regular user
     // who can only access administration pages and perform some Locale module
     // administrative tasks, but not all of them.
-    $this->admin_user = $this->drupalCreateUser(array_keys(\Drupal::moduleHandler()->invokeAll('permission')));
-    $this->web_user = $this->drupalCreateUser(array(
+    $this->adminUser = $this->drupalCreateUser(array_keys(\Drupal::service('user.permissions')->getPermissions()));
+    $this->webUser = $this->drupalCreateUser(array(
       'access administration pages',
       'translate interface',
     ));
-    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin($this->adminUser);
   }
 
   /**
@@ -62,9 +63,10 @@ class AdminTest extends WebTestBase {
     // Verify that all visible, top-level administration links are listed on
     // the main administration page.
     foreach ($this->getTopLevelMenuLinks() as $item) {
-      $this->assertLink($item['title']);
-      $this->assertLinkByHref($item['link_path']);
-      $this->assertText($item['localized_options']['attributes']['title']);
+      $this->assertLink($item->getTitle());
+      $this->assertLinkByHref($item->getUrlObject()->toString());
+      // The description should appear below the link.
+      $this->assertText($item->getDescription());
     }
 
     // For each administrative listing page on which the Locale module appears,
@@ -82,7 +84,7 @@ class AdminTest extends WebTestBase {
       // For the administrator, verify that there are links to Locale's primary
       // configuration pages, but no links to individual sub-configuration
       // pages.
-      $this->drupalLogin($this->admin_user);
+      $this->drupalLogin($this->adminUser);
       $this->drupalGet($page);
       $this->assertLinkByHref('admin/config');
       $this->assertLinkByHref('admin/config/regional/settings');
@@ -99,7 +101,7 @@ class AdminTest extends WebTestBase {
 
       // For a less privileged user, verify that there are no links to Locale's
       // primary configuration pages, but a link to the translate page exists.
-      $this->drupalLogin($this->web_user);
+      $this->drupalLogin($this->webUser);
       $this->drupalGet($page);
       $this->assertLinkByHref('admin/config');
       $this->assertNoLinkByHref('admin/config/regional/settings');
@@ -119,35 +121,38 @@ class AdminTest extends WebTestBase {
   /**
    * Returns all top level menu links.
    *
-   * @return \Drupal\menu_link\MenuLinkInterface[]
+   * @return \Drupal\Core\Menu\MenuLinkInterface[]
    */
   protected function getTopLevelMenuLinks() {
-    $route_provider = \Drupal::service('router.route_provider');
-    $routes = array();
-    foreach ($route_provider->getAllRoutes() as $key => $value) {
-      $path = $value->getPath();
-      if (strpos($path, '/admin/') === 0 && count(explode('/', $path)) == 3) {
-        $routes[$key] = $key;
-      }
-    }
-    $menu_link_ids = \Drupal::entityQuery('menu_link')
-      ->condition('route_name', $routes)
-      ->execute();
+    $menu_tree = \Drupal::menuTree();
 
-    $menu_items = \Drupal::entityManager()->getStorage('menu_link')->loadMultiple($menu_link_ids);
-    foreach ($menu_items as &$menu_item) {
-      _menu_link_translate($menu_item);
+    // The system.admin link is normally the parent of all top-level admin links.
+    $parameters = new MenuTreeParameters();
+    $parameters->setRoot('system.admin')->excludeRoot()->setTopLevelOnly()->onlyEnabledLinks();
+    $tree = $menu_tree->load(NULL, $parameters);
+    $manipulators = array(
+      array('callable' => 'menu.default_tree_manipulators:checkAccess'),
+      array('callable' => 'menu.default_tree_manipulators:flatten'),
+    );
+    $tree = $menu_tree->transform($tree, $manipulators);
+
+    // Transform the tree to a list of menu links.
+    $menu_links = array();
+    foreach ($tree as $element) {
+      $menu_links[] = $element->link;
     }
-    return $menu_items;
+
+    return $menu_links;
   }
 
   /**
    * Test compact mode.
    */
   function testCompactMode() {
-    // The front page defaults to 'user', which redirects to 'user/{user}'. We
-    // cannot use '<front>', since this does not match the redirected url.
-    $frontpage_url = 'user/' . $this->admin_user->id();
+    // The front page defaults to 'user/login', which redirects to 'user/{user}'
+    // for authenticated users. We cannot use '<front>', since this does not
+    // match the redirected url.
+    $frontpage_url = 'user/' . $this->adminUser->id();
 
     $this->drupalGet('admin/compact/on');
     $this->assertResponse(200, 'A valid page is returned after turning on compact mode.');

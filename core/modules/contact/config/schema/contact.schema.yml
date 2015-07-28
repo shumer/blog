@@ -1,8 +1,8 @@
 # Schema for the configuration files of the Contact module.
 
-contact.category.*:
+contact.form.*:
   type: config_entity
-  label: 'Contact category'
+  label: 'Contact form'
   mapping:
     id:
       type: string
@@ -14,8 +14,8 @@ contact.category.*:
       type: sequence
       label: 'Recipients'
       sequence:
-        - type: email
-          label: 'Email address'
+        type: email
+        label: 'Email address'
     reply:
       type: text
       label: 'Auto-reply'
@@ -24,12 +24,12 @@ contact.category.*:
       label: 'Weight'
 
 contact.settings:
-  type: mapping
+  type: config_object
   label: 'Contact settings'
   mapping:
-    default_category:
+    default_form:
       type: string
-      label: 'Default category identifier'
+      label: 'Default form identifier'
     flood:
       type: mapping
       label: 'Flood control'

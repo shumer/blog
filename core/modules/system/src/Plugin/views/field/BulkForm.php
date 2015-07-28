@@ -7,9 +7,18 @@
 
 namespace Drupal\system\Plugin\views\field;
 
-use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Entity\RevisionableInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\Core\Routing\RedirectDestinationTrait;
+use Drupal\Core\TypedData\TranslatableInterface;
+use Drupal\views\Entity\Render\EntityTranslationRenderTrait;
+use Drupal\views\Plugin\CacheablePluginInterface;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\field\FieldPluginBase;
+use Drupal\views\Plugin\views\field\UncacheableFieldHandlerTrait;
 use Drupal\views\Plugin\views\style\Table;
 use Drupal\views\ResultRow;
 use Drupal\views\ViewExecutable;
@@ -20,7 +29,18 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @ViewsField("bulk_form")
  */
-class BulkForm extends FieldPluginBase {
+class BulkForm extends FieldPluginBase implements CacheablePluginInterface {
+
+  use RedirectDestinationTrait;
+  use UncacheableFieldHandlerTrait;
+  use EntityTranslationRenderTrait;
+
+  /**
+   * The entity manager.
+   *
+   * @var \Drupal\Core\Entity\EntityManagerInterface
+   */
+  protected $entityManager;
 
   /**
    * The action storage.
@@ -32,9 +52,16 @@ class BulkForm extends FieldPluginBase {
   /**
    * An array of actions that can be executed.
    *
-   * @var array
+   * @var \Drupal\system\ActionConfigEntityInterface[]
    */
   protected $actions = array();
+
+  /**
+   * The language manager.
+   *
+   * @var \Drupal\Core\Language\LanguageManagerInterface
+   */
+  protected $languageManager;
 
   /**
    * Constructs a new BulkForm object.
@@ -45,20 +72,30 @@ class BulkForm extends FieldPluginBase {
    *   The plugin ID for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Entity\EntityStorageInterface $storage
-   *   The action storage.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
+   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
+   *   The language manager.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityStorageInterface $storage) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityManagerInterface $entity_manager, LanguageManagerInterface $language_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
-    $this->actionStorage = $storage;
+    $this->entityManager = $entity_manager;
+    $this->actionStorage = $entity_manager->getStorage('action');
+    $this->languageManager = $language_manager;
   }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
-    return new static($configuration, $plugin_id, $plugin_definition, $container->get('entity.manager')->getStorage('action'));
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $container->get('entity.manager'),
+      $container->get('language_manager')
+    );
   }
 
   /**
@@ -77,9 +114,53 @@ class BulkForm extends FieldPluginBase {
   /**
    * {@inheritdoc}
    */
+  public function isCacheable() {
+    // @todo Consider making the bulk operation form cacheable. See
+    //   https://www.drupal.org/node/2503009.
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheContexts() {
+    return $this->languageManager->isMultilingual() ? $this->getEntityTranslationRenderer()->getCacheContexts() : [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getEntityTypeId() {
+    return $this->getEntityType();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getEntityManager() {
+    return $this->entityManager;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getLanguageManager() {
+    return $this->languageManager;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getView() {
+    return $this->view;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['action_title'] = array('default' => 'With selection', 'translatable' => TRUE);
+    $options['action_title'] = array('default' => $this->t('With selection'));
     $options['include_exclude'] = array(
       'default' => 'exclude',
     );
@@ -92,26 +173,26 @@ class BulkForm extends FieldPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     $form['action_title'] = array(
       '#type' => 'textfield',
-      '#title' => t('Action title'),
+      '#title' => $this->t('Action title'),
       '#default_value' => $this->options['action_title'],
-      '#description' => t('The title shown above the actions dropdown.'),
+      '#description' => $this->t('The title shown above the actions dropdown.'),
     );
 
     $form['include_exclude'] = array(
       '#type' => 'radios',
-      '#title' => t('Available actions'),
+      '#title' => $this->t('Available actions'),
       '#options' => array(
-        'exclude' => t('All actions, except selected'),
-        'include' => t('Only selected actions'),
+        'exclude' => $this->t('All actions, except selected'),
+        'include' => $this->t('Only selected actions'),
       ),
       '#default_value' => $this->options['include_exclude'],
     );
     $form['selected_actions'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Selected actions'),
+      '#title' => $this->t('Selected actions'),
       '#options' => $this->getBulkOptions(FALSE),
       '#default_value' => $this->options['selected_actions'],
     );
@@ -122,17 +203,11 @@ class BulkForm extends FieldPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function validateOptionsForm(&$form, &$form_state) {
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) {
     parent::validateOptionsForm($form, $form_state);
 
-    $form_state['values']['options']['selected_actions'] = array_filter($form_state['values']['options']['selected_actions']);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function render(ResultRow $values) {
-    return '<!--form-item-' . $this->options['id'] . '--' . $this->view->row_index . '-->';
+    $selected_actions = $form_state->getValue(array('options', 'selected_actions'));
+    $form_state->setValue(array('options', 'selected_actions'), array_values(array_filter($selected_actions)));
   }
 
   /**
@@ -151,36 +226,50 @@ class BulkForm extends FieldPluginBase {
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function getValue(ResultRow $row, $field = NULL) {
+    return '<!--form-item-' . $this->options['id'] . '--' . $row->index . '-->';
+  }
 
   /**
    * Form constructor for the bulk form.
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    */
-  public function viewsForm(&$form, &$form_state) {
+  public function viewsForm(&$form, FormStateInterface $form_state) {
+    // Make sure we do not accidentally cache this form.
+    // @todo Evaluate this again in https://www.drupal.org/node/2503009.
+    $form['#cache']['max-age'] = 0;
+
     // Add the tableselect javascript.
     $form['#attached']['library'][] = 'core/drupal.tableselect';
+    $use_revision = array_key_exists('revision', $this->view->getQuery()->getEntityTableInfo());
 
     // Only add the bulk form options and buttons if there are results.
     if (!empty($this->view->result)) {
       // Render checkboxes for all rows.
       $form[$this->options['id']]['#tree'] = TRUE;
       foreach ($this->view->result as $row_index => $row) {
+        $entity = $this->getEntityTranslation($this->getEntity($row), $row);
+
         $form[$this->options['id']][$row_index] = array(
           '#type' => 'checkbox',
           // We are not able to determine a main "title" for each row, so we can
           // only output a generic label.
-          '#title' => t('Update this item'),
+          '#title' => $this->t('Update this item'),
           '#title_display' => 'invisible',
-          '#default_value' => !empty($form_state['values'][$this->options['id']][$row_index]) ? 1 : NULL,
+          '#default_value' => !empty($form_state->getValue($this->options['id'])[$row_index]) ? 1 : NULL,
+          '#return_value' => $this->calculateEntityBulkFormKey($entity, $use_revision),
         );
       }
 
       // Replace the form submit button label.
-      $form['actions']['submit']['#value'] = t('Apply');
+      $form['actions']['submit']['#value'] = $this->t('Apply');
 
       // Ensure a consistent container for filters/operations in the view header.
       $form['header'] = array(
@@ -245,34 +334,57 @@ class BulkForm extends FieldPluginBase {
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   *
+   * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+   *   Thrown when the user tried to access an action without access to it.
    */
-  public function viewsFormSubmit(&$form, &$form_state) {
-    if ($form_state['step'] == 'views_form_views_form') {
+  public function viewsFormSubmit(&$form, FormStateInterface $form_state) {
+    if ($form_state->get('step') == 'views_form_views_form') {
       // Filter only selected checkboxes.
-      $selected = array_filter($form_state['values'][$this->options['id']]);
+      $selected = array_filter($form_state->getValue($this->options['id']));
       $entities = array();
-      foreach (array_intersect_key($this->view->result, $selected) as $row) {
-        $entity = $this->getEntity($row);
-        $entities[$entity->id()] = $entity;
+      $action = $this->actions[$form_state->getValue('action')];
+      $count = 0;
+
+      foreach ($selected as $bulk_form_key) {
+        $entity = $this->loadEntityFromBulkFormKey($bulk_form_key);
+
+        // Skip execution if the user did not have access.
+        if (!$action->getPlugin()->access($entity, $this->view->getUser())) {
+          $this->drupalSetMessage($this->t('No access to execute %action on the @entity_type_label %entity_label.', [
+            '%action' => $action->label(),
+            '@entity_type_label' => $entity->getEntityType()->getLabel(),
+            '%entity_label' => $entity->label()
+          ]), 'error');
+          continue;
+        }
+
+        $count++;
+
+        $entities[$bulk_form_key] = $entity;
       }
 
-      $action = $this->actions[$form_state['values']['action']];
       $action->execute($entities);
 
       $operation_definition = $action->getPluginDefinition();
-      if (!empty($operation_definition['confirm_form_path'])) {
-        $form_state['redirect'] = $operation_definition['confirm_form_path'];
+      if (!empty($operation_definition['confirm_form_route_name'])) {
+        $options = array(
+          'query' => $this->getDestinationArray(),
+        );
+        $form_state->setRedirect($operation_definition['confirm_form_route_name'], array(), $options);
       }
-
-      $count = count(array_filter($form_state['values'][$this->options['id']]));
-      if ($count) {
-        drupal_set_message($this->formatPlural($count, '%action was applied to @count item.', '%action was applied to @count items.', array(
-          '%action' => $action->label(),
-        )));
+      else {
+        // Don't display the message unless there are some elements affected and
+        // there is no confirmation form.
+        $count = count(array_filter($form_state->getValue($this->options['id'])));
+        if ($count) {
+          drupal_set_message($this->formatPlural($count, '%action was applied to @count item.', '%action was applied to @count items.', array(
+            '%action' => $action->label(),
+          )));
+        }
       }
-
     }
   }
 
@@ -283,23 +395,26 @@ class BulkForm extends FieldPluginBase {
    *  Message displayed when no items are selected.
    */
   protected function emptySelectedMessage() {
-    return t('No items selected.');
+    return $this->t('No items selected.');
   }
 
   /**
    * {@inheritdoc}
    */
-  public function viewsFormValidate(&$form, &$form_state) {
-    $selected = array_filter($form_state['values'][$this->options['id']]);
+  public function viewsFormValidate(&$form, FormStateInterface $form_state) {
+    $selected = array_filter($form_state->getValue($this->options['id']));
     if (empty($selected)) {
-      form_set_error('', $form_state, $this->emptySelectedMessage());
+      $form_state->setErrorByName('', $this->emptySelectedMessage());
     }
   }
 
   /**
-   * Overrides \Drupal\views\Plugin\views\Plugin\field\FieldPluginBase::query().
+   * {@inheritdoc}
    */
   public function query() {
+    if ($this->languageManager->isMultilingual()) {
+      $this->getEntityTranslationRenderer()->query($this->query, $this->relationship);
+    }
   }
 
   /**
@@ -307,6 +422,77 @@ class BulkForm extends FieldPluginBase {
    */
   public function clickSortable() {
     return FALSE;
+  }
+
+  /**
+   * Wraps drupal_set_message().
+   */
+  protected function drupalSetMessage($message = NULL, $type = 'status', $repeat = FALSE) {
+    drupal_set_message($message, $type, $repeat);
+  }
+
+  /**
+   * Calculates a bulk form key.
+   *
+   * This generates a key that is used as the checkbox return value when
+   * submitting a bulk form. This key allows the entity for the row to be loaded
+   * totally independently of the executed view row.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity to calculate a bulk form key for.
+   * @param bool $use_revision
+   *   Whether the revision id should be added to the bulk form key. This should
+   *   be set to TRUE only if the view is listing entity revisions.
+   *
+   * @return string
+   *   The bulk form key representing the entity's id, language and revision (if
+   *   applicable) as one string.
+   *
+   * @see self::loadEntityFromBulkFormKey()
+   */
+  protected function calculateEntityBulkFormKey(EntityInterface $entity, $use_revision) {
+    $key_parts = [$entity->language()->getId(), $entity->id()];
+
+    if ($entity instanceof RevisionableInterface && $use_revision) {
+      $key_parts[] = $entity->getRevisionId();
+    }
+
+    return implode('-', $key_parts);
+  }
+
+  /**
+   * Loads an entity based on a bulk form key.
+   *
+   * @param string $bulk_form_key
+   *   The bulk form key representing the entity's id, language and revision (if
+   *   applicable) as one string.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface
+   *   The entity loaded in the state (language, optionally revision) specified
+   *   as part of the bulk form key.
+   */
+  protected function loadEntityFromBulkFormKey($bulk_form_key) {
+    $key_parts = explode('-', $bulk_form_key);
+    $revision_id = NULL;
+
+    // If there are 3 items, vid will be last.
+    if (count($key_parts) === 3) {
+      $revision_id = array_pop($key_parts);
+    }
+
+    // The first two items will always be langcode and ID.
+    $id = array_pop($key_parts);
+    $langcode = array_pop($key_parts);
+
+    // Load the entity or a specific revision depending on the given key.
+    $storage = $this->entityManager->getStorage($this->getEntityType());
+    $entity = $revision_id ? $storage->loadRevision($revision_id) : $storage->load($id);
+
+    if ($entity instanceof TranslatableInterface) {
+      $entity = $entity->getTranslation($langcode);
+    }
+
+    return $entity;
   }
 
 }

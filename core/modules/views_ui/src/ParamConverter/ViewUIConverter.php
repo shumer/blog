@@ -9,10 +9,9 @@ namespace Drupal\views_ui\ParamConverter;
 
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\ParamConverter\EntityConverter;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Route;
 use Drupal\Core\ParamConverter\ParamConverterInterface;
-use Drupal\user\TempStoreFactory;
+use Drupal\user\SharedTempStoreFactory;
 use Drupal\views_ui\ViewUI;
 
 /**
@@ -36,17 +35,17 @@ class ViewUIConverter extends EntityConverter implements ParamConverterInterface
   /**
    * Stores the tempstore factory.
    *
-   * @var \Drupal\user\TempStoreFactory
+   * @var \Drupal\user\SharedTempStoreFactory
    */
   protected $tempStoreFactory;
 
   /**
    * Constructs a new ViewUIConverter.
    *
-   * @param \Drupal\user\TempStoreFactory $temp_store_factory
+   * @param \Drupal\user\SharedTempStoreFactory $temp_store_factory
    *   The factory for the temp store object.
    */
-  public function __construct(EntityManagerInterface $entity_manager, TempStoreFactory $temp_store_factory) {
+  public function __construct(EntityManagerInterface $entity_manager, SharedTempStoreFactory $temp_store_factory) {
     parent::__construct($entity_manager);
 
     $this->tempStoreFactory = $temp_store_factory;
@@ -55,8 +54,8 @@ class ViewUIConverter extends EntityConverter implements ParamConverterInterface
   /**
    * {@inheritdoc}
    */
-  public function convert($value, $definition, $name, array $defaults, Request $request) {
-    if (!$entity = parent::convert($value, $definition, $name, $defaults, $request)) {
+  public function convert($value, $definition, $name, array $defaults) {
+    if (!$entity = parent::convert($value, $definition, $name, $defaults)) {
       return;
     }
 

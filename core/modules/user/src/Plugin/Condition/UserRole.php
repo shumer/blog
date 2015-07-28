@@ -8,6 +8,7 @@
 namespace Drupal\user\Plugin\Condition;
 
 use Drupal\Core\Condition\ConditionPluginBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\Context\ContextDefinition;
 
 /**
@@ -27,12 +28,12 @@ class UserRole extends ConditionPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form['roles'] = array(
       '#type' => 'checkboxes',
       '#title' => $this->t('When the user has the following roles'),
       '#default_value' => $this->configuration['roles'],
-      '#options' => array_map('\Drupal\Component\Utility\String::checkPlain', user_role_names()),
+      '#options' => array_map('\Drupal\Component\Utility\SafeMarkup::checkPlain', user_role_names()),
       '#description' => $this->t('If you select no roles, the condition will evaluate to TRUE for all users.'),
     );
     return parent::buildConfigurationForm($form, $form_state);
@@ -50,8 +51,8 @@ class UserRole extends ConditionPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, array &$form_state) {
-    $this->configuration['roles'] = array_filter($form_state['values']['roles']);
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->configuration['roles'] = array_filter($form_state->getValue('roles'));
     parent::submitConfigurationForm($form, $form_state);
   }
 

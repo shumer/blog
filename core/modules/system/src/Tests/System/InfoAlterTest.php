@@ -2,19 +2,19 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\System\InfoAlterTest.
+ * Contains \Drupal\system\Tests\System\InfoAlterTest.
  */
 
 namespace Drupal\system\Tests\System;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests the effectiveness of hook_system_info_alter().
  *
  * @group system
  */
-class InfoAlterTest extends DrupalUnitTestBase {
+class InfoAlterTest extends KernelTestBase {
 
   public static $modules = array('system');
 
@@ -26,15 +26,15 @@ class InfoAlterTest extends DrupalUnitTestBase {
    * return freshly altered info.
    */
   function testSystemInfoAlter() {
-    \Drupal::state()->set('module_test.hook_system_info_alter', TRUE);
+    \Drupal::state()->set('module_required_test.hook_system_info_alter', TRUE);
     $info = system_rebuild_module_data();
-    $this->assertFalse(isset($info['node']->info['required']), 'Before the module_test is installed the node module is not required.');
+    $this->assertFalse(isset($info['node']->info['required']), 'Before the module_required_test is installed the node module is not required.');
 
     // Enable the test module.
-    \Drupal::moduleHandler()->install(array('module_test'), FALSE);
-    $this->assertTrue(\Drupal::moduleHandler()->moduleExists('module_test'), 'Test module is enabled.');
+    \Drupal::service('module_installer')->install(array('module_required_test'), FALSE);
+    $this->assertTrue(\Drupal::moduleHandler()->moduleExists('module_required_test'), 'Test required module is enabled.');
 
     $info = system_rebuild_module_data();
-    $this->assertTrue($info['node']->info['required'], 'After the module_test is installed the node module is required.');
+    $this->assertTrue($info['node']->info['required'], 'After the module_required_test is installed the node module is required.');
   }
 }

@@ -9,6 +9,7 @@ namespace Drupal\user;
 
 use Drupal\Core\Config\Entity\DraggableListBuilder;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Defines a class to build a listing of user role entities.
@@ -50,7 +51,8 @@ class RoleListBuilder extends DraggableListBuilder {
       $operations['permissions'] = array(
         'title' => t('Edit permissions'),
         'weight' => 20,
-      ) + $entity->urlInfo('edit-permissions-form')->toArray();
+        'url' => $entity->urlInfo('edit-permissions-form'),
+      );
     }
     return $operations;
   }
@@ -58,7 +60,7 @@ class RoleListBuilder extends DraggableListBuilder {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     parent::submitForm($form, $form_state);
 
     drupal_set_message(t('The role settings have been updated.'));

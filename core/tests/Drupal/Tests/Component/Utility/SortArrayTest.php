@@ -11,8 +11,11 @@ use Drupal\Tests\UnitTestCase;
 use Drupal\Component\Utility\SortArray;
 
 /**
- * @coversDefaultClass \Drupal\Component\Utility\SortArray
+ * Tests the SortArray component.
+ *
  * @group Utility
+ *
+ * @coversDefaultClass \Drupal\Component\Utility\SortArray
  */
 class SortArrayTest extends UnitTestCase {
 
@@ -20,6 +23,8 @@ class SortArrayTest extends UnitTestCase {
    * Tests SortArray::sortByWeightElement() input against expected output.
    *
    * @dataProvider providerSortByWeightElement
+   * @covers ::sortByWeightElement
+   * @covers ::sortByKeyInt
    *
    * @param array $a
    *   The first input array for the SortArray::sortByWeightElement() method.
@@ -27,13 +32,10 @@ class SortArrayTest extends UnitTestCase {
    *   The second input array for the SortArray::sortByWeightElement().
    * @param integer $expected
    *   The expected output from calling the method.
-   *
-   * @see \Drupal\Component\Utility\SortArray::sortByWeightElement()
-   * @see \Drupal\Tests\Component\Utility\SortArrayTest::providersortByWeightElement()
    */
   public function testSortByWeightElement($a, $b, $expected) {
     $result = SortArray::sortByWeightElement($a, $b);
-    $this->assertEquals($expected, $result);
+    $this->assertBothNegativePositiveOrZero($expected, $result);
   }
 
   /**
@@ -43,7 +45,6 @@ class SortArrayTest extends UnitTestCase {
    *   An array of tests, matching the parameter inputs for
    *   testSortByWeightElement.
    *
-   * @see \Drupal\Component\Utility\SortArray::sortByWeightElement()
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByWeightElement()
    */
   public function providerSortByWeightElement() {
@@ -98,6 +99,8 @@ class SortArrayTest extends UnitTestCase {
    * Tests SortArray::sortByWeightProperty() input against expected output.
    *
    * @dataProvider providerSortByWeightProperty
+   * @covers ::sortByWeightProperty
+   * @covers ::sortByKeyInt
    *
    * @param array $a
    *   The first input array for the SortArray::sortByWeightProperty() method.
@@ -105,13 +108,10 @@ class SortArrayTest extends UnitTestCase {
    *   The second input array for the SortArray::sortByWeightProperty().
    * @param integer $expected
    *   The expected output from calling the method.
-   *
-   * @see \Drupal\Component\Utility\SortArray::sortByWeightProperty()
-   * @see \Drupal\Tests\Component\Utility\SortArrayTest::SortByWeightProperty()
    */
   public function testSortByWeightProperty($a, $b, $expected) {
     $result = SortArray::sortByWeightProperty($a, $b);
-    $this->assertEquals($expected, $result);
+    $this->assertBothNegativePositiveOrZero($expected, $result);
   }
 
   /**
@@ -121,7 +121,6 @@ class SortArrayTest extends UnitTestCase {
    *   An array of tests, matching the parameter inputs for
    *   testSortByWeightProperty.
    *
-   * @see \Drupal\Component\Utility\SortArray::sortByWeightProperty()
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByWeightProperty()
    */
   public function providerSortByWeightProperty() {
@@ -176,6 +175,8 @@ class SortArrayTest extends UnitTestCase {
    * Tests SortArray::sortByTitleElement() input against expected output.
    *
    * @dataProvider providerSortByTitleElement
+   * @covers ::sortByTitleElement
+   * @covers ::sortByKeyString
    *
    * @param array $a
    *   The first input item for comparison.
@@ -183,13 +184,10 @@ class SortArrayTest extends UnitTestCase {
    *   The second item for comparison.
    * @param integer $expected
    *   The expected output from calling the method.
-   *
-   * @see \Drupal\Component\Utility\SortArray::sortByTitleElement()
-   * @see \Drupal\Tests\Component\Utility\SortArrayTest::providerSortByTitleElement()
    */
   public function testSortByTitleElement($a, $b, $expected) {
     $result = SortArray::sortByTitleElement($a, $b);
-    $this->assertEquals($expected, $result);
+    $this->assertBothNegativePositiveOrZero($expected, $result);
   }
 
   /**
@@ -199,7 +197,6 @@ class SortArrayTest extends UnitTestCase {
    *   An array of tests, matching the parameter inputs for
    *   testSortByTitleElement.
    *
-   * @see \Drupal\Component\Utility\SortArray::sortByTitleElement()
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByTitleElement()
    */
   public function providerSortByTitleElement() {
@@ -247,6 +244,8 @@ class SortArrayTest extends UnitTestCase {
    * Tests SortArray::sortByTitleProperty() input against expected output.
    *
    * @dataProvider providerSortByTitleProperty
+   * @covers ::sortByTitleProperty
+   * @covers ::sortByKeyString
    *
    * @param array $a
    *   The first input item for comparison.
@@ -254,13 +253,10 @@ class SortArrayTest extends UnitTestCase {
    *   The second item for comparison.
    * @param integer $expected
    *   The expected output from calling the method.
-   *
-   * @see \Drupal\Component\Utility\SortArray::sortByTitleProperty()
-   * @see \Drupal\Tests\Component\Utility\SortArrayTest::SortByTitleProperty()
    */
   public function testSortByTitleProperty($a, $b, $expected) {
     $result = SortArray::sortByTitleProperty($a, $b);
-    $this->assertEquals($expected, $result);
+    $this->assertBothNegativePositiveOrZero($expected, $result);
   }
 
   /**
@@ -270,7 +266,6 @@ class SortArrayTest extends UnitTestCase {
    *   An array of tests, matching the parameter inputs for
    *   testSortByTitleProperty.
    *
-   * @see \Drupal\Component\Utility\SortArray::sortByTitleProperty()
    * @see \Drupal\Tests\Component\Utility\SortArrayTest::testSortByTitleProperty()
    */
   public function providerSortByTitleProperty() {
@@ -315,105 +310,19 @@ class SortArrayTest extends UnitTestCase {
   }
 
   /**
-   * Tests SortArray::sortByWeightAndTitleKey() input against expected output.
+   * Asserts that numbers are either both negative, both positive or both zero.
    *
-   * @dataProvider providerTestSortByWeightAndTitleKey
+   * The exact values returned by comparison functions differ between PHP
+   * versions and are considered an "implementation detail".
    *
-   * @param array $a
-   *   The first input item for comparison.
-   * @param array $b
-   *   The second item for comparison.
-   * @param integer $expected
-   *   The expected output from calling the method.
+   * @param int $expected
+   *   Expected comparison function return value.
+   * @param int $result
+   *   Actual comparison function return value.
    */
-  public function testSortByWeightAndTitleKey($a, $b, $expected) {
-    $result = SortArray::sortByWeightAndTitleKey($a, $b);
-    $this->assertEquals($expected, $result);
-  }
-
-  /**
-   * Data provider for testSortByWeightAndTitleKey.
-   *
-   * @return array
-   *   An array of test data.
-   */
-  public function providerTestSortByWeightAndTitleKey() {
-    $stdclass_title_1 = new \stdClass();
-    $stdclass_title_1->title = 'a';
-
-    $stdclass_title_2 = new \stdClass();
-    $stdclass_title_2->title = 'b';
-
-    $stdclass_weight_1 = new \stdClass();
-    $stdclass_weight_1->weight = 1;
-
-    $stdclass_weight_2 = new \stdClass();
-    $stdclass_weight_2->weight = 2;
-
-    $stdclass_weight_3 = clone $stdclass_weight_1;
-
-    return array(
-      array(
-        array(),
-        array(),
-        0
-      ),
-      array(
-        array('weight' => 1),
-        array('weight' => 2),
-        -1
-      ),
-      array(
-        array('weight' => 2),
-        array('weight' => 1),
-        1
-      ),
-      array(
-        array('title' => 'b', 'weight' => 1),
-        array('title' => 'a', 'weight' => 2),
-        -1
-      ),
-      array(
-        array('title' => 'a', 'weight' => 2),
-        array('title' => 'b', 'weight' => 1),
-        1
-      ),
-      array(
-        array('title' => 'a', 'weight' => 1),
-        array('title' => 'b', 'weight' => 1),
-        -1
-      ),
-      array(
-        array('title' => 'b', 'weight' => 1),
-        array('title' => 'a', 'weight' => 1),
-        1
-      ),
-      array(
-        array('title' => 'a'),
-        array('title' => 'b'),
-        -1
-      ),
-      array(
-        array('title' => 'A'),
-        array('title' => 'a'),
-        0
-      ),
-      array(
-        $stdclass_title_1,
-        $stdclass_title_2,
-        -1
-      ),
-      array(
-        $stdclass_weight_1,
-        $stdclass_weight_2,
-        -1
-      ),
-      array(
-        $stdclass_weight_1,
-        $stdclass_weight_3,
-        0
-      ),
-    );
+  protected function assertBothNegativePositiveOrZero($expected, $result) {
+    $this->assertTrue(is_numeric($expected) && is_numeric($result), 'Parameters are numeric.');
+    $this->assertTrue(($expected < 0 && $result < 0) || ($expected > 0 && $result > 0) || ($expected === 0 && $result === 0), 'Numbers are either both negative, both positive or both zero.');
   }
 
 }

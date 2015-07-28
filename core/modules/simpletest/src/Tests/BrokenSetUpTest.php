@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of \Drupal\simpletest\Tests\BrokenSetUpTest.
+ * Contains \Drupal\simpletest\Tests\BrokenSetUpTest.
  */
 
 namespace Drupal\simpletest\Tests;
@@ -36,12 +36,12 @@ class BrokenSetUpTest extends WebTestBase {
    */
   protected $sharedTriggerFile;
 
-  function setUp() {
+  protected function setUp() {
     // If the test is being run from the main site, set up normally.
     if (!$this->isInChildSite()) {
       parent::setUp();
 
-      $this->sharedTriggerFile = $this->public_files_directory . '/trigger';
+      $this->sharedTriggerFile = $this->publicFilesDirectory . '/trigger';
 
       // Create and log in user.
       $admin_user = $this->drupalCreateUser(array('administer unit tests'));
@@ -58,7 +58,7 @@ class BrokenSetUpTest extends WebTestBase {
     }
   }
 
-  function tearDown() {
+  protected function tearDown() {
     // If the test is being run from the main site, tear down normally.
     if (!$this->isInChildSite()) {
       unlink($this->sharedTriggerFile);

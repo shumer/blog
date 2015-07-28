@@ -2,17 +2,18 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Form\StateValuesCleanTest.
+ * Contains \Drupal\system\Tests\Form\StateValuesCleanTest.
  */
 
 namespace Drupal\system\Tests\Form;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\simpletest\WebTestBase;
 
 /**
  * Tests proper removal of submitted form values using
- * form_state_values_clean().
+ * \Drupal\Core\Form\FormState::cleanValues().
  *
  * @group Form
  */
@@ -26,7 +27,7 @@ class StateValuesCleanTest extends WebTestBase {
   public static $modules = array('form_test');
 
   /**
-   * Tests form_state_values_clean().
+   * Tests \Drupal\Core\Form\FormState::cleanValues().
    */
   function testFormStateValuesClean() {
     $values = Json::decode($this->drupalPostForm('form_test/form-state-values-clean', array(), t('Submit')));
@@ -48,6 +49,9 @@ class StateValuesCleanTest extends WebTestBase {
     $this->assertFalse(isset($values['bar']), format_string('%element was removed.', array('%element' => 'bar')));
     $this->assertFalse(isset($values['baz']['foo']), format_string('%element was removed.', array('%element' => 'foo')));
     $this->assertFalse(isset($values['baz']['baz']), format_string('%element was removed.', array('%element' => 'baz')));
+
+    // Verify values manually added for cleaning were removed.
+    $this->assertFalse(isset($values['wine']), SafeMarkup::format('%element was removed.', ['%element' => 'wine']));
 
     // Verify that nested form value still exists.
     $this->assertTrue(isset($values['baz']['beer']), 'Nested form value still exists.');

@@ -7,6 +7,7 @@
 
 namespace Drupal\comment\Tests\Views;
 
+use Drupal\comment\Tests\CommentTestTrait;
 use Drupal\views\Views;
 use Drupal\views\Tests\Wizard\WizardTestBase;
 
@@ -18,8 +19,10 @@ use Drupal\views\Tests\Wizard\WizardTestBase;
  */
 class WizardTest extends WizardTestBase {
 
+  use CommentTestTrait;
+
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
@@ -29,11 +32,11 @@ class WizardTest extends WizardTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->drupalCreateContentType(array('type' => 'page', 'name' => t('Basic page')));
     // Add comment field to page node type.
-    $this->container->get('comment.manager')->addDefaultField('node', 'page');
+    $this->addDefaultCommentField('node', 'page');
   }
 
   /**
@@ -41,11 +44,11 @@ class WizardTest extends WizardTestBase {
    */
   public function testCommentWizard() {
     $view = array();
-    $view['label'] = $this->randomName(16);
-    $view['id'] = strtolower($this->randomName(16));
+    $view['label'] = $this->randomMachineName(16);
+    $view['id'] = strtolower($this->randomMachineName(16));
     $view['show[wizard_key]'] = 'comment';
     $view['page[create]'] = TRUE;
-    $view['page[path]'] = $this->randomName(16);
+    $view['page[path]'] = $this->randomMachineName(16);
 
     // Just triggering the saving should automatically choose a proper row
     // plugin.
@@ -68,12 +71,15 @@ class WizardTest extends WizardTestBase {
         $options[] = $item->attributes()->value;
       }
     }
-    $expected_options = array('comment', 'fields');
+    $expected_options = array('entity:comment', 'fields');
     $this->assertEqual($options, $expected_options);
 
-    $view['id'] = strtolower($this->randomName(16));
+    $view['id'] = strtolower($this->randomMachineName(16));
     $this->drupalPostForm(NULL, $view, t('Save and edit'));
     $this->assertUrl('admin/structure/views/view/' . $view['id'], array(), 'Make sure the view saving was successful and the browser got redirected to the edit page.');
+
+    $user = $this->drupalCreateUser(['access comments']);
+    $this->drupalLogin($user);
 
     $view = Views::getView($view['id']);
     $view->initHandlers();

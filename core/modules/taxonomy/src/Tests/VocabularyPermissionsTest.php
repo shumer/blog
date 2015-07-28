@@ -32,7 +32,7 @@ class VocabularyPermissionsTest extends TaxonomyTestBase {
 
     // Submit the term.
     $edit = array();
-    $edit['name[0][value]'] = $this->randomName();
+    $edit['name[0][value]'] = $this->randomMachineName();
 
     $this->drupalPostForm(NULL, $edit, t('Save'));
     $this->assertRaw(t('Created new term %name.', array('%name' => $edit['name[0][value]'])), 'Term created successfully.');
@@ -45,13 +45,13 @@ class VocabularyPermissionsTest extends TaxonomyTestBase {
     $this->assertResponse(200);
     $this->assertText($edit['name[0][value]'], 'Edit taxonomy term form opened successfully.');
 
-    $edit['name[0][value]'] = $this->randomName();
+    $edit['name[0][value]'] = $this->randomMachineName();
     $this->drupalPostForm(NULL, $edit, t('Save'));
     $this->assertRaw(t('Updated term %name.', array('%name' => $edit['name[0][value]'])), 'Term updated successfully.');
 
     // Delete the vocabulary.
     $this->drupalGet('taxonomy/term/' . $term->id() . '/delete');
-    $this->assertRaw(t('Are you sure you want to delete the term %name?', array('%name' => $edit['name[0][value]'])), 'Delete taxonomy term form opened successfully.');
+    $this->assertRaw(t('Are you sure you want to delete the @entity-type %label?', array('@entity-type' => 'taxonomy term', '%label' => $edit['name[0][value]'])), 'Delete taxonomy term form opened successfully.');
 
     // Confirm deletion.
     $this->drupalPostForm(NULL, NULL, t('Delete'));
@@ -73,7 +73,7 @@ class VocabularyPermissionsTest extends TaxonomyTestBase {
     $this->assertResponse(200);
     $this->assertText($term->getName(), 'Edit taxonomy term form opened successfully.');
 
-    $edit['name[0][value]'] = $this->randomName();
+    $edit['name[0][value]'] = $this->randomMachineName();
     $this->drupalPostForm(NULL, $edit, t('Save'));
     $this->assertRaw(t('Updated term %name.', array('%name' => $edit['name[0][value]'])), 'Term updated successfully.');
 
@@ -98,7 +98,7 @@ class VocabularyPermissionsTest extends TaxonomyTestBase {
 
     // Delete the vocabulary.
     $this->drupalGet('taxonomy/term/' . $term->id() . '/delete');
-    $this->assertRaw(t('Are you sure you want to delete the term %name?', array('%name' => $term->getName())), 'Delete taxonomy term form opened successfully.');
+    $this->assertRaw(t('Are you sure you want to delete the @entity-type %label?', array('@entity-type' => 'taxonomy term', '%label' => $term->getName())), 'Delete taxonomy term form opened successfully.');
 
     // Confirm deletion.
     $this->drupalPostForm(NULL, NULL, t('Delete'));

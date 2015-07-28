@@ -7,7 +7,7 @@
 
 namespace Drupal\Core\Entity\Display;
 
-use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 
 /**
  * Provides a common interface for entity view displays.
@@ -15,11 +15,11 @@ use Drupal\Core\Entity\ContentEntityInterface;
 interface EntityViewDisplayInterface extends EntityDisplayInterface {
 
   /**
-   * Returns a renderable array for the components of an entity.
+   * Builds a renderable array for the components of an entity.
    *
    * See the buildMultiple() method for details.
    *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   * @param \Drupal\Core\Entity\FieldableEntityInterface $entity
    *   The entity being displayed.
    *
    * @return array
@@ -27,10 +27,10 @@ interface EntityViewDisplayInterface extends EntityDisplayInterface {
    *
    * @see \Drupal\Core\Entity\Display\EntityViewDisplayInterface::buildMultiple()
    */
-  public function build(ContentEntityInterface $entity);
+  public function build(FieldableEntityInterface $entity);
 
   /**
-   * Returns a renderable array for the components of a set of entities.
+   * Builds a renderable array for the components of a set of entities.
    *
    * This only includes the components handled by the Display object, but
    * excludes 'extra fields', that are typically rendered through specific,
@@ -40,7 +40,7 @@ interface EntityViewDisplayInterface extends EntityDisplayInterface {
    * hook_entity_display_build_alter() is invoked on each entity, allowing 3rd
    * party code to alter the render array.
    *
-   * @param \Drupal\Core\Entity\ContentEntityInterface[] $entities
+   * @param \Drupal\Core\Entity\FieldableEntityInterface[] $entities
    *   The entities being displayed.
    *
    * @return array

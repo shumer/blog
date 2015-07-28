@@ -7,7 +7,7 @@
 
 namespace Drupal\system\Plugin\Block;
 
-use Drupal\block\BlockBase;
+use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -79,9 +79,18 @@ class SystemBreadcrumbBlock extends BlockBase implements ContainerFactoryPluginI
       // $breadcrumb is expected to be an array of rendered breadcrumb links.
       return array(
         '#theme' => 'breadcrumb',
-        '#breadcrumb' => $breadcrumb,
+        '#links' => $breadcrumb,
       );
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * @todo Make cacheable in https://www.drupal.org/node/2483183
+   */
+  public function getCacheMaxAge() {
+    return 0;
   }
 
 }

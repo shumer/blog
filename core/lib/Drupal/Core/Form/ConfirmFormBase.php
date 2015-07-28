@@ -43,7 +43,7 @@ abstract class ConfirmFormBase extends FormBase implements ConfirmFormInterface 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form['#title'] = $this->getQuestion();
 
     $form['#attributes']['class'][] = 'confirmation';
@@ -54,6 +54,7 @@ abstract class ConfirmFormBase extends FormBase implements ConfirmFormInterface 
     $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->getConfirmText(),
+      '#button_type' => 'primary',
     );
 
     $form['actions']['cancel'] = ConfirmFormHelper::buildCancelLink($this, $this->getRequest());

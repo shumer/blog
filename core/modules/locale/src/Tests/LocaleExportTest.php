@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\locale\Tests\LocaleExportTest.
+ * Contains \Drupal\locale\Tests\LocaleExportTest.
  */
 
 namespace Drupal\locale\Tests;
@@ -31,7 +31,7 @@ class LocaleExportTest extends WebTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->adminUser = $this->drupalCreateUser(array('administer languages', 'translate interface', 'access administration pages'));

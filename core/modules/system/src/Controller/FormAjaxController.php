@@ -2,19 +2,109 @@
 
 /**
  * @file
- * Contains \Drupal\system\FormAjaxController.
+ * Contains \Drupal\system\Controller\FormAjaxController.
  */
 
 namespace Drupal\system\Controller;
 
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
+use Drupal\Core\Form\FormAjaxResponseBuilderInterface;
+use Drupal\Core\Form\FormState;
+use Drupal\Core\Form\FormBuilderInterface;
+use Drupal\Core\Render\MainContent\MainContentRendererInterface;
+use Drupal\Core\Render\RendererInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\system\FileAjaxForm;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Defines a controller to respond to form Ajax requests.
  */
-class FormAjaxController {
+class FormAjaxController implements ContainerInjectionInterface {
+
+  /**
+   * A logger instance.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
+
+  /**
+   * The form builder.
+   *
+   * @var \Drupal\Core\Form\FormBuilderInterface|\Drupal\Core\Form\FormCacheInterface
+   */
+  protected $formBuilder;
+
+  /**
+   * The renderer.
+   *
+   * @var \Drupal\Core\Render\RendererInterface
+   */
+  protected $renderer;
+
+  /**
+   * The main content to AJAX Response renderer.
+   *
+   * @var \Drupal\Core\Render\MainContent\MainContentRendererInterface
+   */
+  protected $ajaxRenderer;
+
+  /**
+   * The current route match.
+   *
+   * @var \Drupal\Core\Routing\RouteMatchInterface
+   */
+  protected $routeMatch;
+
+  /**
+   * The form AJAX response builder.
+   *
+   * @var \Drupal\Core\Form\FormAjaxResponseBuilderInterface
+   */
+  protected $formAjaxResponseBuilder;
+
+  /**
+   * Constructs a FormAjaxController object.
+   *
+   * @param \Psr\Log\LoggerInterface $logger
+   *   A logger instance.
+   * @param \Drupal\Core\Form\FormBuilderInterface $form_builder
+   *   The form builder.
+   * @param \Drupal\Core\Render\RendererInterface $renderer
+   *   The renderer.
+   * @param \Drupal\Core\Render\MainContent\MainContentRendererInterface $ajax_renderer
+   *   The main content to AJAX Response renderer.
+   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+   *   The current route match.
+   * @param \Drupal\Core\Form\FormAjaxResponseBuilderInterface $form_ajax_response_builder
+   *   The form AJAX response builder.
+   */
+  public function __construct(LoggerInterface $logger, FormBuilderInterface $form_builder, RendererInterface $renderer, MainContentRendererInterface $ajax_renderer, RouteMatchInterface $route_match, FormAjaxResponseBuilderInterface $form_ajax_response_builder) {
+    $this->logger = $logger;
+    $this->formBuilder = $form_builder;
+    $this->renderer = $renderer;
+    $this->ajaxRenderer = $ajax_renderer;
+    $this->routeMatch = $route_match;
+    $this->formAjaxResponseBuilder = $form_ajax_response_builder;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('logger.factory')->get('ajax'),
+      $container->get('form_builder'),
+      $container->get('renderer'),
+      $container->get('main_content_renderer.ajax'),
+      $container->get('current_route_match'),
+      $container->get('form_ajax_response_builder')
+    );
+  }
 
   /**
    * Processes an Ajax form submission.
@@ -33,22 +123,14 @@ class FormAjaxController {
    * @throws \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
    */
   public function content(Request $request) {
-    list($form, $form_state) = $this->getForm($request);
-    drupal_process_form($form['#form_id'], $form, $form_state);
+    $ajax_form = $this->getForm($request);
+    $form = $ajax_form->getForm();
+    $form_state = $ajax_form->getFormState();
+    $commands = $ajax_form->getCommands();
 
-    // We need to return the part of the form (or some other content) that needs
-    // to be re-rendered so the browser can update the page with changed content.
-    // Since this is the generic menu callback used by many Ajax elements, it is
-    // up to the #ajax['callback'] function of the element (may or may not be a
-    // button) that triggered the Ajax request to determine what needs to be
-    // rendered.
-    if (!empty($form_state['triggering_element'])) {
-      $callback = $form_state['triggering_element']['#ajax']['callback'];
-    }
-    if (empty($callback) || !is_callable($callback)) {
-      throw new HttpException(500, t('Internal Server Error'));
-    }
-    return call_user_func_array($callback, array(&$form, &$form_state));
+    $this->formBuilder->processForm($form['#form_id'], $form, $form_state);
+
+    return $this->formAjaxResponseBuilder->buildResponse($request, $form, $form_state, $commands);
   }
 
   /**
@@ -60,46 +142,45 @@ class FormAjaxController {
    * @param \Symfony\Component\HttpFoundation\Request $request
    *   The current request object.
    *
-   * @return array
-   *   An array containing the $form and $form_state. Use the list() function
-   *   to break these apart:
-   *   @code
-   *     list($form, $form_state, $form_id, $form_build_id) = $this->getForm();
-   *   @endcode
+   * @return \Drupal\system\FileAjaxForm
+   *   A wrapper object containing the $form, $form_state, $form_id,
+   *   $form_build_id and an initial list of Ajax $commands.
    *
-   * @throws Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+   * @throws \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
    */
   protected function getForm(Request $request) {
-    $form_state = \Drupal::formBuilder()->getFormStateDefaults();
+    $form_state = new FormState();
     $form_build_id = $request->request->get('form_build_id');
 
     // Get the form from the cache.
-    $form = form_get_cache($form_build_id, $form_state);
+    $form = $this->formBuilder->getCache($form_build_id, $form_state);
     if (!$form) {
       // If $form cannot be loaded from the cache, the form_build_id must be
       // invalid, which means that someone performed a POST request onto
       // system/ajax without actually viewing the concerned form in the browser.
       // This is likely a hacking attempt as it never happens under normal
       // circumstances.
-      watchdog('ajax', 'Invalid form POST data.', array(), WATCHDOG_WARNING);
+      $this->logger->warning('Invalid form POST data.');
       throw new BadRequestHttpException();
     }
 
     // Since some of the submit handlers are run, redirects need to be disabled.
-    $form_state['no_redirect'] = TRUE;
+    $form_state->disableRedirect();
 
     // When a form is rebuilt after Ajax processing, its #build_id and #action
     // should not change.
     // @see \Drupal\Core\Form\FormBuilderInterface::rebuildForm()
-    $form_state['rebuild_info']['copy']['#build_id'] = TRUE;
-    $form_state['rebuild_info']['copy']['#action'] = TRUE;
+    $form_state->addRebuildInfo('copy', [
+      '#build_id' => TRUE,
+      '#action' => TRUE,
+    ]);
 
-    // The form needs to be processed; prepare for that by setting a few internal
-    // variables.
-    $form_state['input'] = $request->request->all();
+    // The form needs to be processed; prepare for that by setting a few
+    // internal variables.
+    $form_state->setUserInput($request->request->all());
     $form_id = $form['#form_id'];
 
-    return array($form, $form_state, $form_id, $form_build_id);
+    return new FileAjaxForm($form, $form_state, $form_id, $form['#build_id'], []);
   }
 
 }

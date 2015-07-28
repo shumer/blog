@@ -7,6 +7,7 @@
 
 namespace Drupal\dblog\Form;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfirmFormBase;
@@ -67,11 +68,11 @@ class DblogClearLogConfirmForm extends ConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $_SESSION['dblog_overview_filter'] = array();
     $this->connection->delete('watchdog')->execute();
     drupal_set_message($this->t('Database log cleared.'));
-    $form_state['redirect_route'] = $this->getCancelUrl();
+    $form_state->setRedirectUrl($this->getCancelUrl());
   }
 
 }

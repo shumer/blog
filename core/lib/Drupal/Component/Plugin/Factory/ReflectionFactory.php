@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Definition of Drupal\Component\Plugin\Factory\ReflectionFactory.
+ * Contains \Drupal\Component\Plugin\Factory\ReflectionFactory.
  */
 
 namespace Drupal\Component\Plugin\Factory;
@@ -19,7 +19,7 @@ class ReflectionFactory extends DefaultFactory {
    */
   public function createInstance($plugin_id, array $configuration = array()) {
     $plugin_definition = $this->discovery->getDefinition($plugin_id);
-    $plugin_class = static::getPluginClass($plugin_id, $plugin_definition);
+    $plugin_class = static::getPluginClass($plugin_id, $plugin_definition, $this->interface);
 
     // Lets figure out of there's a constructor for this class and pull
     // arguments from the $options array if so to populate it.

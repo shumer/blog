@@ -7,10 +7,14 @@
 
 namespace Drupal\Tests\Core\Utility {
 
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\GeneratedUrl;
 use Drupal\Core\Language\Language;
+use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\Core\Utility\LinkGenerator;
 use Drupal\Tests\UnitTestCase;
+use Drupal\Core\DependencyInjection\ContainerBuilder;
 
 /**
  * @coversDefaultClass \Drupal\Core\Utility\LinkGenerator
@@ -40,11 +44,17 @@ class LinkGeneratorTest extends UnitTestCase {
   protected $moduleHandler;
 
   /**
+   * The mocked URL Assembler service.
+   *
+   * @var \PHPUnit_Framework_MockObject_MockObject|\Drupal\Core\Utility\UnroutedUrlAssemblerInterface
+   */
+  protected $urlAssembler;
+
+  /**
    * Contains the LinkGenerator default options.
    */
   protected $defaultOptions = array(
     'query' => array(),
-    'html' => FALSE,
     'language' => NULL,
     'set_active_class' => FALSE,
     'absolute' => FALSE,
@@ -60,6 +70,7 @@ class LinkGeneratorTest extends UnitTestCase {
     $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
 
     $this->linkGenerator = new LinkGenerator($this->urlGenerator, $this->moduleHandler);
+    $this->urlAssembler = $this->getMock('\Drupal\Core\Utility\UnroutedUrlAssemblerInterface');
   }
 
   /**
@@ -89,28 +100,29 @@ class LinkGeneratorTest extends UnitTestCase {
    *
    * @dataProvider providerTestGenerateHrefs
    */
-  public function testGenerateHrefs($route_name, array $parameters, $absolute, $url) {
+  public function testGenerateHrefs($route_name, array $parameters, $absolute, $expected_url) {
     $this->urlGenerator->expects($this->once())
       ->method('generateFromRoute')
       ->with($route_name, $parameters, array('absolute' => $absolute) + $this->defaultOptions)
-      ->will($this->returnValue($url));
+      ->will($this->returnValue($expected_url));
 
     $this->moduleHandler->expects($this->once())
       ->method('alter');
 
-    $result = $this->linkGenerator->generate('Test', $route_name, $parameters, array('absolute' => $absolute));
-    $this->assertTag(array(
-      'tag' => 'a',
-      'attributes' => array('href' => $url),
+    $url = new Url($route_name, $parameters, array('absolute' => $absolute));
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
+      'attributes' => array('href' => $expected_url),
       ), $result);
   }
 
   /**
-   * Tests the generateFromUrl() method with a route.
+   * Tests the generate() method with a route.
    *
-   * @covers ::generateFromUrl()
+   * @covers ::generate
    */
-  public function testGenerateFromUrl() {
+  public function testGenerate() {
     $this->urlGenerator->expects($this->once())
       ->method('generateFromRoute')
       ->with('test_route_1', array(), array('fragment' => 'the-fragment') + $this->defaultOptions)
@@ -123,9 +135,8 @@ class LinkGeneratorTest extends UnitTestCase {
     $url = new Url('test_route_1', array(), array('fragment' => 'the-fragment'));
     $url->setUrlGenerator($this->urlGenerator);
 
-    $result = $this->linkGenerator->generateFromUrl('Test', $url);
-    $this->assertTag(array(
-      'tag' => 'a',
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'href' => '/test-route-1#the-fragment',
       ),
@@ -134,35 +145,71 @@ class LinkGeneratorTest extends UnitTestCase {
   }
 
   /**
-   * Tests the generateFromUrl() method with an external URL.
+   * Tests the generate() method with an external URL.
    *
    * The set_active_class option is set to TRUE to ensure this does not cause
    * an error together with an external URL.
    *
-   * @covers ::generateFromUrl()
+   * @covers ::generate
    */
-  public function testGenerateFromUrlExternal() {
-    $this->urlGenerator->expects($this->once())
-      ->method('generateFromPath')
-      ->with('http://drupal.org', array('set_active_class' => TRUE, 'external' => TRUE) + $this->defaultOptions)
+  public function testGenerateExternal() {
+    $this->urlAssembler->expects($this->once())
+      ->method('assemble')
+      ->with('https://www.drupal.org', array('set_active_class' => TRUE, 'external' => TRUE) + $this->defaultOptions)
       ->will($this->returnArgument(0));
 
     $this->moduleHandler->expects($this->once())
       ->method('alter')
       ->with('link', $this->isType('array'));
 
-    $url = Url::createFromPath('http://drupal.org');
+    $this->urlAssembler->expects($this->once())
+      ->method('assemble')
+      ->with('https://www.drupal.org', array('set_active_class' => TRUE, 'external' => TRUE) + $this->defaultOptions)
+      ->willReturnArgument(0);
+
+    $url = Url::fromUri('https://www.drupal.org');
     $url->setUrlGenerator($this->urlGenerator);
+    $url->setUnroutedUrlAssembler($this->urlAssembler);
     $url->setOption('set_active_class', TRUE);
 
-    $result = $this->linkGenerator->generateFromUrl('Drupal', $url);
-    $this->assertTag(array(
-      'tag' => 'a',
+    $result = $this->linkGenerator->generate('Drupal', $url);
+    $this->assertLink(array(
       'attributes' => array(
-        'href' => 'http://drupal.org',
+        'href' => 'https://www.drupal.org',
       ),
       'content' => 'Drupal',
     ), $result);
+  }
+
+  /**
+   * Tests the generate() method with a url containing double quotes.
+   *
+   * @covers ::generate
+   */
+  public function testGenerateUrlWithQuotes() {
+    $this->urlAssembler->expects($this->once())
+      ->method('assemble')
+      ->with('base:example', array('query' => array('foo' => '"bar"', 'zoo' => 'baz')) + $this->defaultOptions)
+      ->will($this->returnValue('/example?foo=%22bar%22&zoo=baz'));
+
+    $path_validator = $this->getMock('Drupal\Core\Path\PathValidatorInterface');
+    $container_builder = new ContainerBuilder();
+    $container_builder->set('path.validator', $path_validator);
+    \Drupal::setContainer($container_builder);
+
+    $path = '/example?foo="bar"&zoo=baz';
+    $url = Url::fromUserInput($path);
+    $url->setUrlGenerator($this->urlGenerator);
+    $url->setUnroutedUrlAssembler($this->urlAssembler);
+
+    $result = $this->linkGenerator->generate('Drupal', $url);
+
+    $this->assertLink(array(
+      'attributes' => array(
+        'href' => '/example?foo=%22bar%22&zoo=baz',
+      ),
+      'content' => 'Drupal',
+    ), $result, 1);
   }
 
   /**
@@ -179,11 +226,12 @@ class LinkGeneratorTest extends UnitTestCase {
       ));
 
     // Test that HTML attributes are added to the anchor.
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array(
+    $url = new Url('test_route_1', array(), array(
       'attributes' => array('title' => 'Tooltip'),
     ));
-    $this->assertTag(array(
-      'tag' => 'a',
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'href' => '/test-route-1',
         'title' => 'Tooltip',
@@ -204,11 +252,12 @@ class LinkGeneratorTest extends UnitTestCase {
         '/test-route-1?test=value'
       ));
 
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array(
+    $url = new Url('test_route_1', array(), array(
       'query' => array('test' => 'value'),
     ));
-    $this->assertTag(array(
-      'tag' => 'a',
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'href' => '/test-route-1?test=value',
       ),
@@ -228,9 +277,10 @@ class LinkGeneratorTest extends UnitTestCase {
         '/test-route-1?test=value'
       ));
 
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array('test' => 'value'), array());
-    $this->assertTag(array(
-      'tag' => 'a',
+    $url = new Url('test_route_1', array('test' => 'value'), array());
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'href' => '/test-route-1?test=value',
       ),
@@ -250,11 +300,12 @@ class LinkGeneratorTest extends UnitTestCase {
         '/test-route-1?test=value'
       ));
 
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array(
+    $url = new Url('test_route_1', array(), array(
       'key' => 'value',
     ));
-    $this->assertTag(array(
-      'tag' => 'a',
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'href' => '/test-route-1?test=value',
       ),
@@ -275,14 +326,10 @@ class LinkGeneratorTest extends UnitTestCase {
       ));
 
     // Test that HTML link text is escaped by default.
-    $result = $this->linkGenerator->generate("<script>alert('XSS!')</script>", 'test_route_4');
-    $this->assertNotTag(array(
-      'tag' => 'a',
-      'attributes' => array('href' => '/test-route-4'),
-      'child' => array(
-        'tag' => 'script',
-      ),
-    ), $result);
+    $url = new Url('test_route_4');
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate("<script>alert('XSS!')</script>", $url);
+    $this->assertNoXPathResults('//a[@href="/test-route-4"]/script', $result);
   }
 
   /**
@@ -299,45 +346,46 @@ class LinkGeneratorTest extends UnitTestCase {
       ));
     $this->urlGenerator->expects($this->at(1))
       ->method('generateFromRoute')
-      ->with('test_route_5', array(), array('html' => TRUE) + $this->defaultOptions)
+      ->with('test_route_5', array(), $this->defaultOptions)
       ->will($this->returnValue(
         '/test-route-5'
       ));
 
     // Test that HTML tags are stripped from the 'title' attribute.
-    $result = $this->linkGenerator->generate('Test', 'test_route_5', array(), array(
+    $url = new Url('test_route_5', array(), array(
       'attributes' => array('title' => '<em>HTML Tooltip</em>'),
     ));
-    $this->assertTag(array(
-      'tag' => 'a',
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'href' => '/test-route-5',
         'title' => 'HTML Tooltip',
       ),
     ), $result);
 
-    // Test that the 'html' option allows unsanitized HTML link text.
-    $result = $this->linkGenerator->generate('<em>HTML output</em>', 'test_route_5', array(), array('html' => TRUE));
-    $this->assertTag(array(
-      'tag' => 'a',
+    // Test that safe HTML is output inside the anchor tag unescaped. The
+    // SafeMarkup::set() call is an intentional unit test for the interaction
+    // between SafeMarkup and the LinkGenerator.
+    $url = new Url('test_route_5', array());
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate(SafeMarkup::set('<em>HTML output</em>'), $url);
+    $this->assertLink(array(
       'attributes' => array('href' => '/test-route-5'),
       'child' => array(
         'tag' => 'em',
       ),
     ), $result);
+    $this->assertTrue(strpos($result, '<em>HTML output</em>') !== FALSE);
   }
 
   /**
    * Tests the active class on the link method.
    *
    * @see \Drupal\Core\Utility\LinkGenerator::generate()
-   *
-   * @todo Test that the active class is added on the front page when generating
-   *   links to the front page when drupal_is_front_page() is converted to a
-   *   service.
    */
   public function testGenerateActive() {
-    $this->urlGenerator->expects($this->exactly(8))
+    $this->urlGenerator->expects($this->exactly(5))
       ->method('generateFromRoute')
       ->will($this->returnValueMap(array(
         array('test_route_1', array(), FALSE, '/test-route-1'),
@@ -345,7 +393,7 @@ class LinkGeneratorTest extends UnitTestCase {
         array('test_route_4', array('object' => '1'), FALSE, '/test-route-4/1'),
       )));
 
-    $this->urlGenerator->expects($this->exactly(7))
+    $this->urlGenerator->expects($this->exactly(4))
       ->method('getPathFromRoute')
       ->will($this->returnValueMap(array(
         array('test_route_1', array(), 'test-route-1'),
@@ -353,121 +401,157 @@ class LinkGeneratorTest extends UnitTestCase {
         array('test_route_4', array('object' => '1'), 'test-route-4/1'),
       )));
 
-    $this->moduleHandler->expects($this->exactly(8))
+    $this->moduleHandler->expects($this->exactly(5))
       ->method('alter');
 
-    // Render a link with a path different from the current path.
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array('set_active_class' => TRUE));
-    $this->assertTag(array(
-      'tag' => 'a',
+    // Render a link.
+    $url = new Url('test_route_1', array(), array('set_active_class' => TRUE));
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array('data-drupal-link-system-path' => 'test-route-1'),
     ), $result);
 
-    // Render a link with the same path as the current path.
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array('set_active_class' => TRUE));
-    $this->assertTag(array(
-      'tag' => 'a',
-      'attributes' => array('data-drupal-link-system-path' => 'test-route-1'),
-    ), $result);
+    // Render a link with the set_active_class option disabled.
+    $url = new Url('test_route_1', array(), array('set_active_class' => FALSE));
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertNoXPathResults('//a[@data-drupal-link-system-path="test-route-1"]', $result);
 
-    // Render a link with the same path as the current path, but with the
-    // set_active_class option disabled.
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array('set_active_class' => FALSE));
-    $this->assertNotTag(array(
-      'tag' => 'a',
-      'attributes' => array('data-drupal-link-system-path' => 'test-route-1'),
-    ), $result);
-
-    // Render a link with the same path and language as the current path.
-    $result = $this->linkGenerator->generate('Test', 'test_route_1', array(), array('set_active_class' => TRUE));
-    $this->assertTag(array(
-      'tag' => 'a',
-      'attributes' => array('data-drupal-link-system-path' => 'test-route-1'),
-    ), $result);
-
-    // Render a link with the same path but a different language than the current
-    // path.
-    $result = $this->linkGenerator->generate(
-      'Test',
-      'test_route_1',
-      array(),
-      array(
-        'language' => new Language(array('id' => 'de')),
-        'set_active_class' => TRUE,
-      )
-    );
-    $this->assertTag(array(
-      'tag' => 'a',
+    // Render a link with an associated language.
+    $url = new Url('test_route_1', array(), array(
+      'language' => new Language(array('id' => 'de')),
+      'set_active_class' => TRUE,
+    ));
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'data-drupal-link-system-path' => 'test-route-1',
         'hreflang' => 'de',
       ),
     ), $result);
 
-    // Render a link with the same path and query parameter as the current path.
-    $result = $this->linkGenerator->generate(
-      'Test',
-      'test_route_3',
-      array(),
-      array(
-        'query' => array('value' => 'example_1'),
-        'set_active_class' => TRUE,
-      )
-    );
-    $this->assertTag(array(
-      'tag' => 'a',
+    // Render a link with a query parameter.
+    $url = new Url('test_route_3', array(), array(
+      'query' => array('value' => 'example_1'),
+      'set_active_class' => TRUE,
+    ));
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'data-drupal-link-system-path' => 'test-route-3',
-        'data-drupal-link-query' => 'regexp:/.*value.*example_1.*/',
+        'data-drupal-link-query' => '{"value":"example_1"}',
       ),
     ), $result);
 
-    // Render a link with the same path but a different query parameter than the
-    // current path.
-    $result = $this->linkGenerator->generate(
-      'Test',
-      'test_route_3',
-      array(),
-      array(
-        'query' => array('value' => 'example_2'),
-        'set_active_class' => TRUE,
-      )
-    );
-    $this->assertTag(array(
-      'tag' => 'a',
-      'attributes' => array(
-        'data-drupal-link-system-path' => 'test-route-3',
-        'data-drupal-link-query' => 'regexp:/.*value.*example_2.*/',
-      ),
-    ), $result);
-
-    // Render a link with the same path and query parameter as the current path.
-    $result = $this->linkGenerator->generate(
-      'Test',
-      'test_route_4',
-      array('object' => '1'),
-      array(
-        'query' => array('value' => 'example_1'),
-        'set_active_class' => TRUE,
-      )
-    );
-    $this->assertTag(array(
-      'tag' => 'a',
+    // Render a link with route parameters and a query parameter.
+    $url = new Url('test_route_4', array('object' => '1'), array(
+      'query' => array('value' => 'example_1'),
+      'set_active_class' => TRUE,
+    ));
+    $url->setUrlGenerator($this->urlGenerator);
+    $result = $this->linkGenerator->generate('Test', $url);
+    $this->assertLink(array(
       'attributes' => array(
         'data-drupal-link-system-path' => 'test-route-4/1',
-        'data-drupal-link-query' => 'regexp:/.*value.*example_1.*/',
+        'data-drupal-link-query' => '{"value":"example_1"}',
       ),
     ), $result);
   }
 
-}
+  /**
+   * Tests the LinkGenerator's support for collecting cacheability metadata.
+   *
+   * @see \Drupal\Core\Utility\LinkGenerator::generate()
+   * @see \Drupal\Core\Utility\LinkGenerator::generateFromLink()
+   */
+  public function testGenerateCacheability() {
+    $options = ['query' => [], 'language' => NULL, 'set_active_class' => FALSE, 'absolute' => FALSE];
+    $this->urlGenerator->expects($this->any())
+      ->method('generateFromRoute')
+      ->will($this->returnValueMap([
+        ['test_route_1', [], $options, FALSE, '/test-route-1'],
+        ['test_route_1', [], $options, TRUE, (new GeneratedUrl())->setGeneratedUrl('/test-route-1')],
+      ]));
+
+    $url = new Url('test_route_1');
+    $url->setUrlGenerator($this->urlGenerator);
+    $expected_link_markup = '<a href="/test-route-1">Test</a>';
+
+    // Test ::generate().
+    $this->assertSame($expected_link_markup, $this->linkGenerator->generate('Test', $url));
+    $generated_link = $this->linkGenerator->generate('Test', $url, TRUE);
+    $this->assertSame($expected_link_markup, $generated_link->getGeneratedLink());
+    $this->assertInstanceOf('\Drupal\Core\Cache\CacheableMetadata', $generated_link);
+
+    // Test ::generateFromLink().
+    $link = new Link('Test', $url);
+    $this->assertSame($expected_link_markup, $this->linkGenerator->generateFromLink($link));
+    $generated_link = $this->linkGenerator->generateFromLink($link, TRUE);
+    $this->assertSame($expected_link_markup, $generated_link->getGeneratedLink());
+    $this->assertInstanceOf('\Drupal\Core\Cache\CacheableMetadata', $generated_link);
+  }
+
+  /**
+   * Checks that a link with certain properties exists in a given HTML snippet.
+   *
+   * @param array $properties
+   *   An associative array of link properties, with the following keys:
+   *   - attributes: optional array of HTML attributes that should be present.
+   *   - content: optional link content.
+   * @param string $html
+   *   The HTML to check.
+   * @param int $count
+   *   How many times the link should be present in the HTML. Defaults to 1.
+   */
+  public static function assertLink(array $properties, $html, $count = 1) {
+    // Provide default values.
+    $properties += array('attributes' => array());
+
+    // Create an XPath query that selects a link element.
+    $query = '//a';
+
+    // Append XPath predicates for the attributes and content text.
+    $predicates = array();
+    foreach ($properties['attributes'] as $attribute => $value) {
+      $predicates[] = "@$attribute='$value'";
+    }
+    if (!empty($properties['content'])) {
+      $predicates[] = "contains(.,'{$properties['content']}')";
+    }
+    if (!empty($predicates)) {
+      $query .= '[' . implode(' and ', $predicates) . ']';
+    }
+
+    // Execute the query.
+    $document = new \DOMDocument;
+    $document->loadHTML($html);
+    $xpath = new \DOMXPath($document);
+
+    self::assertEquals($count, $xpath->query($query)->length);
+  }
+
+  /**
+   * Checks that the given XPath query has no results in a given HTML snippet.
+   *
+   * @param string $query
+   *   The XPath query to execute.
+   * @param string $html
+   *   The HTML snippet to check.
+   *
+   * @return int
+   *   The number of results that are found.
+   */
+  protected function assertNoXPathResults($query, $html) {
+    $document = new \DOMDocument;
+    $document->loadHTML($html);
+    $xpath = new \DOMXPath($document);
+
+    self::assertFalse((bool) $xpath->query($query)->length);
+  }
 
 }
-namespace {
-  // @todo Remove this once there is a service for drupal_is_front_page().
-  if (!function_exists('drupal_is_front_page')) {
-    function drupal_is_front_page() {
-      return FALSE;
-    }
-  }
+
 }

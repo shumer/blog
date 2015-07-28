@@ -7,8 +7,12 @@
 
 namespace Drupal\system\Plugin\ImageToolkit;
 
+use Drupal\Component\Utility\Color;
 use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\ImageToolkit\ImageToolkitBase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\StreamWrapper\StreamWrapperInterface;
 
 /**
  * Defines the GD2 toolkit for image manipulation within Drupal.
@@ -23,9 +27,9 @@ class GDToolkit extends ImageToolkitBase {
   /**
    * A GD image resource.
    *
-   * @var resource
+   * @var resource|null
    */
-  protected $resource;
+  protected $resource = NULL;
 
   /**
    * Image type represented by a PHP IMAGETYPE_* constant (e.g. IMAGETYPE_JPEG).
@@ -33,6 +37,35 @@ class GDToolkit extends ImageToolkitBase {
    * @var int
    */
   protected $type;
+
+  /**
+   * Image information from a file, available prior to loading the GD resource.
+   *
+   * This contains a copy of the array returned by executing getimagesize()
+   * on the image file when the image object is instantiated. It gets reset
+   * to NULL as soon as the GD resource is loaded.
+   *
+   * @var array|null
+   *
+   * @see \Drupal\system\Plugin\ImageToolkit\GDToolkit::parseFile()
+   * @see \Drupal\system\Plugin\ImageToolkit\GDToolkit::setResource()
+   * @see http://php.net/manual/en/function.getimagesize.php
+   */
+  protected $preLoadInfo = NULL;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $container->get('image.toolkit.operation.manager'),
+      $container->get('logger.channel.image'),
+      $container->get('config.factory')
+    );
+  }
 
   /**
    * Sets the GD image resource.
@@ -43,6 +76,7 @@ class GDToolkit extends ImageToolkitBase {
    * @return $this
    */
   public function setResource($resource) {
+    $this->preLoadInfo = NULL;
     $this->resource = $resource;
     return $this;
   }
@@ -50,24 +84,27 @@ class GDToolkit extends ImageToolkitBase {
   /**
    * Retrieves the GD image resource.
    *
-   * @return resource
-   *   The GD image resource.
+   * @return resource|null
+   *   The GD image resource, or NULL if not available.
    */
   public function getResource() {
+    if (!$this->resource) {
+      $this->load();
+    }
     return $this->resource;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function settingsForm() {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form['image_jpeg_quality'] = array(
       '#type' => 'number',
       '#title' => t('JPEG quality'),
       '#description' => t('Define the image quality for JPEG manipulations. Ranges from 0 to 100. Higher values mean better image quality but bigger files.'),
       '#min' => 0,
       '#max' => 100,
-      '#default_value' => \Drupal::config('system.image.gd')->get('jpeg_quality'),
+      '#default_value' => $this->configFactory->getEditable('system.image.gd')->get('jpeg_quality', FALSE),
       '#field_suffix' => t('%'),
     );
     return $form;
@@ -76,9 +113,9 @@ class GDToolkit extends ImageToolkitBase {
   /**
    * {@inheritdoc}
    */
-  public function settingsFormSubmit($form, &$form_state) {
-    \Drupal::config('system.image.gd')
-      ->set('jpeg_quality', $form_state['values']['gd']['image_jpeg_quality'])
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->configFactory->getEditable('system.image.gd')
+      ->set('jpeg_quality', $form_state->getValue(array('gd', 'image_jpeg_quality')))
       ->save();
   }
 
@@ -89,20 +126,42 @@ class GDToolkit extends ImageToolkitBase {
    *   TRUE or FALSE, based on success.
    */
   protected function load() {
+    // Return immediately if the image file is not valid.
+    if (!$this->isValid()) {
+      return FALSE;
+    }
+
     $function = 'imagecreatefrom' . image_type_to_extension($this->getType(), FALSE);
     if (function_exists($function) && $resource = $function($this->getImage()->getSource())) {
       $this->setResource($resource);
-      if (!imageistruecolor($resource)) {
-        // Convert indexed images to true color, so that filters work
-        // correctly and don't result in unnecessary dither.
-        $new_image = $this->createTmp($this->getType(), imagesx($resource), imagesy($resource));
-        imagecopy($new_image, $resource, 0, 0, 0, 0, imagesx($resource), imagesy($resource));
-        imagedestroy($resource);
-        $this->setResource($new_image);
+      if (imageistruecolor($resource)) {
+        return TRUE;
+      }
+      else {
+        // Convert indexed images to truecolor, copying the image to a new
+        // truecolor resource, so that filters work correctly and don't result
+        // in unnecessary dither.
+        $data = array(
+          'width' => imagesx($resource),
+          'height' => imagesy($resource),
+          'extension' => image_type_to_extension($this->getType(), FALSE),
+          'transparent_color' => $this->getTransparentColor(),
+        );
+        if ($this->apply('create_new', $data)) {
+          imagecopy($this->getResource(), $resource, 0, 0, 0, 0, imagesx($resource), imagesy($resource));
+          imagedestroy($resource);
+        }
       }
       return (bool) $this->getResource();
     }
     return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isValid() {
+    return ((bool) $this->preLoadInfo || (bool) $this->resource);
   }
 
   /**
@@ -113,7 +172,7 @@ class GDToolkit extends ImageToolkitBase {
     // Work around lack of stream wrapper support in imagejpeg() and imagepng().
     if ($scheme && file_stream_wrapper_valid_scheme($scheme)) {
       // If destination is not local, save image to temporary local file.
-      $local_wrappers = file_get_stream_wrappers(STREAM_WRAPPERS_LOCAL);
+      $local_wrappers = file_get_stream_wrappers(StreamWrapperInterface::LOCAL);
       if (!isset($local_wrappers[$scheme])) {
         $permanent_destination = $destination;
         $destination = drupal_tempnam('temporary://', 'gd_');
@@ -127,7 +186,7 @@ class GDToolkit extends ImageToolkitBase {
       return FALSE;
     }
     if ($this->getType() == IMAGETYPE_JPEG) {
-      $success = $function($this->getResource(), $destination, \Drupal::config('system.image.gd')->get('jpeg_quality'));
+      $success = $function($this->getResource(), $destination, $this->configFactory->get('system.image.gd')->get('jpeg_quality'));
     }
     else {
       // Always save PNG images with full transparency.
@@ -151,78 +210,72 @@ class GDToolkit extends ImageToolkitBase {
     $data = @getimagesize($this->getImage()->getSource());
     if ($data && in_array($data[2], static::supportedTypes())) {
       $this->setType($data[2]);
-      $this->load();
-      return (bool) $this->getResource();
+      $this->preLoadInfo = $data;
+      return TRUE;
     }
     return FALSE;
   }
 
   /**
-   * Creates a truecolor image preserving transparency from a provided image.
+   * Gets the color set for transparency in GIF images.
    *
-   * @param int $type
-   *   An image type represented by a PHP IMAGETYPE_* constant (e.g.
-   *   IMAGETYPE_JPEG, IMAGETYPE_PNG, etc.).
-   * @param int $width
-   *   The new width of the new image, in pixels.
-   * @param int $height
-   *   The new height of the new image, in pixels.
-   *
-   * @return resource
-   *   A GD image handle.
+   * @return string|null
+   *   A color string like '#rrggbb', or NULL if not set or not relevant.
    */
-  public function createTmp($type, $width, $height) {
-    $res = imagecreatetruecolor($width, $height);
-
-    if ($type == IMAGETYPE_GIF) {
-      // Find out if a transparent color is set, will return -1 if no
-      // transparent color has been defined in the image.
-      $transparent = imagecolortransparent($this->getResource());
-      if ($transparent >= 0) {
-        // Find out the number of colors in the image palette. It will be 0 for
-        // truecolor images.
-        $palette_size = imagecolorstotal($this->getResource());
-        if ($palette_size == 0 || $transparent < $palette_size) {
-          // Set the transparent color in the new resource, either if it is a
-          // truecolor image or if the transparent color is part of the palette.
-          // Since the index of the transparency color is a property of the
-          // image rather than of the palette, it is possible that an image
-          // could be created with this index set outside the palette size.
-          $transparent_color = imagecolorsforindex($this->getResource(), $transparent);
-          $transparent = imagecolorallocate($res, $transparent_color['red'], $transparent_color['green'], $transparent_color['blue']);
-
-          // Flood with our new transparent color.
-          imagefill($res, 0, 0, $transparent);
-          imagecolortransparent($res, $transparent);
-        }
+  public function getTransparentColor() {
+    if (!$this->getResource() || $this->getType() != IMAGETYPE_GIF) {
+      return NULL;
+    }
+    // Find out if a transparent color is set, will return -1 if no
+    // transparent color has been defined in the image.
+    $transparent = imagecolortransparent($this->getResource());
+    if ($transparent >= 0) {
+      // Find out the number of colors in the image palette. It will be 0 for
+      // truecolor images.
+      $palette_size = imagecolorstotal($this->getResource());
+      if ($palette_size == 0 || $transparent < $palette_size) {
+        // Return the transparent color, either if it is a truecolor image
+        // or if the transparent color is part of the palette.
+        // Since the index of the transparent color is a property of the
+        // image rather than of the palette, it is possible that an image
+        // could be created with this index set outside the palette size.
+        // (see http://stackoverflow.com/a/3898007).
+        $rgb = imagecolorsforindex($this->getResource(), $transparent);
+        unset($rgb['alpha']);
+        return Color::rgbToHex($rgb);
       }
     }
-    elseif ($type == IMAGETYPE_PNG) {
-      imagealphablending($res, FALSE);
-      $transparency = imagecolorallocatealpha($res, 0, 0, 0, 127);
-      imagefill($res, 0, 0, $transparency);
-      imagealphablending($res, TRUE);
-      imagesavealpha($res, TRUE);
-    }
-    else {
-      imagefill($res, 0, 0, imagecolorallocate($res, 255, 255, 255));
-    }
-
-    return $res;
+    return NULL;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getWidth() {
-    return $this->getResource() ? imagesx($this->getResource()) : NULL;
+    if ($this->preLoadInfo) {
+      return $this->preLoadInfo[0];
+    }
+    elseif ($res = $this->getResource()) {
+      return imagesx($res);
+    }
+    else {
+      return NULL;
+    }
   }
 
   /**
    * {@inheritdoc}
    */
   public function getHeight() {
-    return $this->getResource() ? imagesy($this->getResource()) : NULL;
+    if ($this->preLoadInfo) {
+      return $this->preLoadInfo[1];
+    }
+    elseif ($res = $this->getResource()) {
+      return imagesy($res);
+    }
+    else {
+      return NULL;
+    }
   }
 
   /**
@@ -297,6 +350,29 @@ class GDToolkit extends ImageToolkitBase {
       $extensions[] = Unicode::strtolower(image_type_to_extension($image_type, FALSE));
     }
     return $extensions;
+  }
+
+  /**
+   * Returns the IMAGETYPE_xxx constant for the given extension.
+   *
+   * This is the reverse of the image_type_to_extension() function.
+   *
+   * @param string $extension
+   *   The extension to get the IMAGETYPE_xxx constant for.
+   *
+   * @return int
+   *   The IMAGETYPE_xxx constant for the given extension, or IMAGETYPE_UNKNOWN
+   *   for unsupported extensions.
+   *
+   * @see image_type_to_extension()
+   */
+  public function extensionToImageType($extension) {
+    foreach ($this->supportedTypes() as $type) {
+      if (image_type_to_extension($type, FALSE) === $extension) {
+        return $type;
+      }
+    }
+    return IMAGETYPE_UNKNOWN;
   }
 
   /**

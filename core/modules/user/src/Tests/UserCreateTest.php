@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\user\Tests\UserCreateTest.
+ * Contains \Drupal\user\Tests\UserCreateTest.
  */
 
 namespace Drupal\user\Tests;
@@ -27,14 +27,17 @@ class UserCreateTest extends WebTestBase {
    * Create a user through the administration interface and ensure that it
    * displays in the user list.
    */
-  protected function testUserAdd() {
+  public function testUserAdd() {
     $user = $this->drupalCreateUser(array('administer users'));
     $this->drupalLogin($user);
 
-    // Create a field and an instance.
+    $this->assertEqual($user->getCreatedTime(), REQUEST_TIME, 'Creating a user sets default "created" timestamp.');
+    $this->assertEqual($user->getChangedTime(), REQUEST_TIME, 'Creating a user sets default "changed" timestamp.');
+
+    // Create a field.
     $field_name = 'test_field';
     entity_create('field_storage_config', array(
-      'name' => $field_name,
+      'field_name' => $field_name,
       'entity_type' => 'user',
       'module' => 'image',
       'type' => 'image',
@@ -46,7 +49,7 @@ class UserCreateTest extends WebTestBase {
       ),
     ))->save();
 
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'field_name' => $field_name,
       'entity_type' => 'user',
       'label' => 'Picture',
@@ -70,8 +73,11 @@ class UserCreateTest extends WebTestBase {
     $this->assertFieldbyId('edit-status-1', 1, 'The user status option Active exists.', 'User login');
     $this->assertFieldByXPath('//input[@type="radio" and @id="edit-status-1" and @checked="checked"]', NULL, 'Default setting for user status is active.');
 
+    // Test that browser autocomplete behavior does not occur.
+    $this->assertNoRaw('data-user-info-from-browser', 'Ensure form attribute, data-user-info-from-browser, does not exist.');
+
     // Test that the password strength indicator displays.
-    $config = \Drupal::config('user.settings');
+    $config = $this->config('user.settings');
 
     $config->set('password_strength', TRUE)->save();
     $this->drupalGet('admin/people/create');
@@ -84,10 +90,10 @@ class UserCreateTest extends WebTestBase {
     // We create two users, notifying one and not notifying the other, to
     // ensure that the tests work in both cases.
     foreach (array(FALSE, TRUE) as $notify) {
-      $name = $this->randomName();
+      $name = $this->randomMachineName();
       $edit = array(
         'name' => $name,
-        'mail' => $this->randomName() . '@example.com',
+        'mail' => $this->randomMachineName() . '@example.com',
         'pass[pass1]' => $pass = $this->randomString(),
         'pass[pass2]' => $pass,
         'notify' => $notify,

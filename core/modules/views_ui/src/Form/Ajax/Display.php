@@ -7,7 +7,8 @@
 
 namespace Drupal\views_ui\Form\Ajax;
 
-use Drupal\views\ViewStorageInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\ViewEntityInterface;
 
 /**
  * Provides a form for editing the Views display.
@@ -15,7 +16,7 @@ use Drupal\views\ViewStorageInterface;
 class Display extends ViewsFormBase {
 
   /**
-   * Constucts a new Display object.
+   * Constructs a new Display object.
    */
   public function __construct($type = NULL) {
     $this->setType($type);
@@ -31,19 +32,19 @@ class Display extends ViewsFormBase {
   /**
    * {@inheritdoc}
    *
-   * @todo Remove this and switch all usage of $form_state['section'] to
-   *   $form_state['type'].
+   * @todo Remove this and switch all usage of $form_state->get('section') to
+   *   $form_state->get('type').
    */
-  public function getFormState(ViewStorageInterface $view, $display_id, $js) {
-    return array(
-      'section' => $this->type,
-    ) + parent::getFormState($view, $display_id, $js);
+  public function getFormState(ViewEntityInterface $view, $display_id, $js) {
+    $form_state = parent::getFormState($view, $display_id, $js);
+    $form_state->set('section', $this->type);
+    return $form_state;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getForm(ViewStorageInterface $view, $display_id, $js, $type = NULL) {
+  public function getForm(ViewEntityInterface $view, $display_id, $js, $type = NULL) {
     $this->setType($type);
     return parent::getForm($view, $display_id, $js);
   }
@@ -58,12 +59,15 @@ class Display extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
-    $view = $form_state['view'];
-    $display_id = $form_state['display_id'];
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
 
     $executable = $view->getExecutable();
-    $executable->setDisplay($display_id);
+    if (!$executable->setDisplay($display_id)) {
+      $form['markup'] = array('#markup' => $this->t('Invalid display id @display', array('@display' => $display_id)));
+      return $form;
+    }
 
     // Get form from the handler.
     $form['options'] = array(
@@ -83,11 +87,7 @@ class Display extends ViewsFormBase {
       unset($form['options']['override']);
     }
 
-    $name = NULL;
-    if (isset($form_state['update_name'])) {
-      $name = $form_state['update_name'];
-    }
-
+    $name = $form_state->get('update_name');
     $view->getStandardButtons($form, $form_state, 'views_ui_edit_display_form', $name);
     return $form;
   }
@@ -95,21 +95,25 @@ class Display extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
-    $form_state['view']->getExecutable()->displayHandlers->get($form_state['display_id'])->validateOptionsForm($form['options'], $form_state);
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
+    $view->getExecutable()->displayHandlers->get($display_id)->validateOptionsForm($form['options'], $form_state);
 
-    if (form_get_errors($form_state)) {
-      $form_state['rerender'] = TRUE;
+    if ($form_state->getErrors()) {
+      $form_state->set('rerender', TRUE);
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $form_state['view']->getExecutable()->displayHandlers->get($form_state['display_id'])->submitOptionsForm($form['options'], $form_state);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
+    $view->getExecutable()->displayHandlers->get($display_id)->submitOptionsForm($form['options'], $form_state);
 
-    $form_state['view']->cacheSet();
+    $view->cacheSet();
   }
 
 }

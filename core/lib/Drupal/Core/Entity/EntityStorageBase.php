@@ -7,13 +7,13 @@
 
 namespace Drupal\Core\Entity;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\Query\QueryInterface;
 
 /**
  * A base entity storage class.
  */
-abstract class EntityStorageBase extends EntityControllerBase implements EntityStorageInterface, EntityControllerInterface {
+abstract class EntityStorageBase extends EntityHandlerBase implements EntityStorageInterface, EntityHandlerInterface {
 
   /**
    * Static cache of entities, keyed by entity ID.
@@ -23,7 +23,7 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
   protected $entities = array();
 
   /**
-   * Entity type ID for this controller instance.
+   * Entity type ID for this storage.
    *
    * @var string
    */
@@ -31,6 +31,11 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
 
   /**
    * Information about the entity type.
+   *
+   * The following code returns the same object:
+   * @code
+   * \Drupal::entityManager()->getDefinition($this->entityTypeId)
+   * @endcode
    *
    * @var \Drupal\Core\Entity\EntityTypeInterface
    */
@@ -51,6 +56,13 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
    * @var string
    */
   protected $uuidKey;
+
+  /**
+   * The name of the entity langcode property.
+   *
+   * @var string
+   */
+  protected $langcodeKey;
 
   /**
    * The UUID service.
@@ -77,6 +89,7 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
     $this->entityType = $entity_type;
     $this->idKey = $this->entityType->getKey('id');
     $this->uuidKey = $this->entityType->getKey('uuid');
+    $this->langcodeKey = $this->entityType->getKey('langcode');
     $this->entityClass = $this->entityType->getClass();
   }
 
@@ -335,18 +348,22 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
    */
   public function delete(array $entities) {
     if (!$entities) {
-      // If no IDs or invalid IDs were passed, do nothing.
+      // If no entities were passed, do nothing.
       return;
     }
 
+    // Allow code to run before deleting.
     $entity_class = $this->entityClass;
     $entity_class::preDelete($this, $entities);
     foreach ($entities as $entity) {
       $this->invokeHook('predelete', $entity);
     }
 
+    // Perform the delete and reset the static cache for the deleted entities.
     $this->doDelete($entities);
+    $this->resetCache(array_keys($entities));
 
+    // Allow code to run after deleting.
     $entity_class::postDelete($this, $entities);
     foreach ($entities as $entity) {
       $this->invokeHook('delete', $entity);
@@ -379,7 +396,7 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
 
     // A new entity should not already exist.
     if ($id_exists && $is_new) {
-      throw new EntityStorageException(String::format('@type entity with ID @id already exists.', array('@type' => $this->entityTypeId, '@id' => $id)));
+      throw new EntityStorageException(SafeMarkup::format('@type entity with ID @id already exists.', array('@type' => $this->entityTypeId, '@id' => $id)));
     }
 
     // Load the original entity, if any.
@@ -391,8 +408,9 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
     $entity->preSave($this);
     $this->invokeHook('presave', $entity);
 
-    // Perform the save.
+    // Perform the save and reset the static cache for the changed entity.
     $return = $this->doSave($id, $entity);
+    $this->resetCache(array($id));
 
     // The entity is no longer new.
     $entity->enforceIsNew(FALSE);
@@ -436,7 +454,8 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
    */
   protected function buildPropertyQuery(QueryInterface $entity_query, array $values) {
     foreach ($values as $name => $value) {
-      $entity_query->condition($name, $value);
+      // Cast scalars to array so we can consistently use an IN condition.
+      $entity_query->condition($name, (array) $value, 'IN');
     }
   }
 
@@ -455,7 +474,26 @@ abstract class EntityStorageBase extends EntityControllerBase implements EntityS
    * {@inheritdoc}
    */
   public function getQuery($conjunction = 'AND') {
-    return \Drupal::entityQuery($this->getEntityTypeId(), $conjunction);
+    // Access the service directly rather than entity.query factory so the
+    // storage's current entity type is used.
+    return \Drupal::service($this->getQueryServiceName())->get($this->entityType, $conjunction);
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getAggregateQuery($conjunction = 'AND') {
+    // Access the service directly rather than entity.query factory so the
+    // storage's current entity type is used.
+    return \Drupal::service($this->getQueryServiceName())->getAggregate($this->entityType, $conjunction);
+  }
+
+  /**
+   * Gets the name of the service for the query for this entity storage.
+   *
+   * @return string
+   *   The name of the service for the query for this entity storage.
+   */
+  abstract protected function getQueryServiceName();
 
 }

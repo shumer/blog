@@ -18,14 +18,11 @@ use Drupal\Core\Site\Settings;
  * setting a "maintenance_theme" key in the $settings variable in settings.php.
  */
 function _drupal_maintenance_theme() {
-  global $theme, $theme_key;
-
-  // If $theme is already set, assume the others are set too, and do nothing.
-  if (isset($theme)) {
+  // If the theme is already set, assume the others are set too, and do nothing.
+  if (\Drupal::theme()->hasActiveTheme()) {
     return;
   }
 
-  require_once DRUPAL_ROOT . '/' . Settings::get('path_inc', 'core/includes/path.inc');
   require_once __DIR__ . '/theme.inc';
   require_once __DIR__ . '/common.inc';
   require_once __DIR__ . '/unicode.inc';
@@ -65,83 +62,41 @@ function _drupal_maintenance_theme() {
     }
   }
 
-  // Ensure that system.module is loaded.
-  if (!function_exists('system_rebuild_theme_data')) {
-    $module_handler = \Drupal::moduleHandler();
-    $module_handler->addModule('system', 'core/modules/system');
-    $module_handler->load('system');
-  }
-
-  $themes = list_themes();
+  $themes = \Drupal::service('theme_handler')->listInfo();
 
   // If no themes are installed yet, or if the requested custom theme is not
   // installed, retrieve all available themes.
+  /** @var \Drupal\Core\Theme\ThemeInitialization $theme_init */
+  $theme_init = \Drupal::service('theme.initialization');
+  $theme_handler = \Drupal::service('theme_handler');
   if (empty($themes) || !isset($themes[$custom_theme])) {
-    $theme_handler = \Drupal::service('theme_handler');
     $themes = $theme_handler->rebuildThemeData();
     $theme_handler->addTheme($themes[$custom_theme]);
   }
 
-  // list_themes() triggers a \Drupal\Core\Extension\ModuleHandler::alter() in
-  // maintenance mode, but we can't let themes alter the .info.yml data until
-  // we know a theme's base themes. So don't set global $theme until after
-  // list_themes() builds its cache.
+  // \Drupal\Core\Extension\ThemeHandlerInterface::listInfo() triggers a
+  // \Drupal\Core\Extension\ModuleHandler::alter() in maintenance mode, but we
+  // can't let themes alter the .info.yml data until we know a theme's base
+  // themes. So don't set active theme until after
+  // \Drupal\Core\Extension\ThemeHandlerInterface::listInfo() builds its cache.
   $theme = $custom_theme;
-
-  // Store the identifier for retrieving theme settings with.
-  $theme_key = $theme;
 
   // Find all our ancestor themes and put them in an array.
   $base_theme = array();
   $ancestor = $theme;
   while ($ancestor && isset($themes[$ancestor]->base_theme)) {
-    $base_theme[] = $new_base_theme = $themes[$themes[$ancestor]->base_theme];
+    $base_theme[] = $themes[$themes[$ancestor]->base_theme];
     $ancestor = $themes[$ancestor]->base_theme;
+    if ($ancestor) {
+      // Ensure that the base theme is added.
+      $theme_handler->addTheme($themes[$ancestor]);
+    }
   }
-  _drupal_theme_initialize($themes[$theme], array_reverse($base_theme));
+  // @todo This is just a workaround. Find a better way how to handle themes
+  //   on maintenance pages, see https://www.drupal.org/node/2322619.
+  \Drupal::theme()->setActiveTheme($theme_init->getActiveTheme($themes[$custom_theme], array_reverse($base_theme)));
   // Prime the theme registry.
-  // @todo Remove global theme variables.
   Drupal::service('theme.registry');
-}
-
-/**
- * Returns HTML for a list of maintenance tasks to perform.
- *
- * @param $variables
- *   An associative array containing:
- *   - items: An associative array of maintenance tasks.
- *     It's the caller's responsibility to ensure this array's items contain no
- *     dangerous HTML such as SCRIPT tags.
- *   - active: The key for the currently active maintenance task.
- *
- * @ingroup themeable
- */
-function theme_task_list($variables) {
-  $items = $variables['items'];
-  $active = $variables['active'];
-
-  $done = isset($items[$active]) || $active == NULL;
-  $output = '<h2 class="visually-hidden">Installation tasks</h2>';
-  $output .= '<ol class="task-list">';
-
-  foreach ($items as $k => $item) {
-    if ($active == $k) {
-      $class = 'active';
-      $status = '(' . t('active') . ')';
-      $done = FALSE;
-    }
-    else {
-      $class = $done ? 'done' : '';
-      $status = $done ? '(' . t('done') . ')' : '';
-    }
-    $output .= '<li';
-    $output .= ($class ? ' class="' . $class . '"' : '') . '>';
-    $output .= $item;
-    $output .= ($status ? '<span class="visually-hidden"> ' . $status . '</span>' : '');
-    $output .= '</li>';
-  }
-  $output .= '</ol>';
-  return $output;
 }
 
 /**
@@ -157,7 +112,7 @@ function theme_authorize_report($variables) {
   $messages = $variables['messages'];
   $output = '';
   if (!empty($messages)) {
-    $output .= '<div id="authorize-results">';
+    $output .= '<div class="authorize-results">';
     foreach ($messages as $heading => $logs) {
       $items = array();
       foreach ($logs as $number => $log_message) {
@@ -199,10 +154,10 @@ function theme_authorize_message($variables) {
   $message = $variables['message'];
   $success = $variables['success'];
   if ($success) {
-    $item = array('data' => $message, 'class' => array('success'));
+    $item = array('data' => array('#markup' => $message), 'class' => array('authorize-results__success'));
   }
   else {
-    $item = array('data' => '<strong>' . $message . '</strong>', 'class' => array('failure'));
+    $item = array('data' => array('#markup' => $message), 'class' => array('authorize-results__failure'));
   }
   return $item;
 }

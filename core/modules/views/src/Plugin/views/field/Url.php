@@ -2,11 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\field\Url.
+ * Contains \Drupal\views\Plugin\views\field\Url.
  */
 
 namespace Drupal\views\Plugin\views\field;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url as CoreUrl;
 use Drupal\views\ResultRow;
 
 /**
@@ -18,10 +20,13 @@ use Drupal\views\ResultRow;
  */
 class Url extends FieldPluginBase {
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['display_as_link'] = array('default' => TRUE, 'bool' => TRUE);
+    $options['display_as_link'] = array('default' => TRUE);
 
     return $options;
   }
@@ -29,9 +34,9 @@ class Url extends FieldPluginBase {
   /**
    * Provide link to the page being visited.
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     $form['display_as_link'] = array(
-      '#title' => t('Display as link'),
+      '#title' => $this->t('Display as link'),
       '#type' => 'checkbox',
       '#default_value' => !empty($this->options['display_as_link']),
     );
@@ -44,7 +49,9 @@ class Url extends FieldPluginBase {
   public function render(ResultRow $values) {
     $value = $this->getValue($values);
     if (!empty($this->options['display_as_link'])) {
-      return l($this->sanitizeValue($value), $value, array('html' => TRUE));
+      // @todo Views should expect and store a leading /. See:
+      //   https://www.drupal.org/node/2423913
+      return \Drupal::l($this->sanitizeValue($value), CoreUrl::fromUserInput('/' . $value));
     }
     else {
       return $this->sanitizeValue($value, 'url');

@@ -2,12 +2,14 @@
 
 /**
  * @file
- * Contains \Drupal\language\Form\NegotiationConfigureBrowserDeleteForm.
+ * Contains \Drupal\language\Form\NegotiationBrowserDeleteForm.
  */
 
 namespace Drupal\language\Form;
 
+use Drupal\Core\Form\ConfigFormBaseTrait;
 use Drupal\Core\Form\ConfirmFormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -15,6 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
  * Defines a confirmation form for deleting a browser language negotiation mapping.
  */
 class NegotiationBrowserDeleteForm extends ConfirmFormBase {
+  use ConfigFormBaseTrait;
 
   /**
    * The browser language code to be deleted.
@@ -22,6 +25,14 @@ class NegotiationBrowserDeleteForm extends ConfirmFormBase {
    * @var string
    */
   protected $browserLangcode;
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getEditableConfigNames() {
+    return ['language.mappings'];
+  }
+
 
   /**
    * {@inheritdoc}
@@ -47,7 +58,7 @@ class NegotiationBrowserDeleteForm extends ConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state, $browser_langcode = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, $browser_langcode = NULL) {
     $this->browserLangcode = $browser_langcode;
 
     $form = parent::buildForm($form, $form_state);
@@ -58,15 +69,20 @@ class NegotiationBrowserDeleteForm extends ConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $mappings = language_get_browser_drupal_langcode_mappings();
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $this->config('language.mappings')
+      ->clear('map.' . $this->browserLangcode)
+      ->save();
 
-    if (array_key_exists($this->browserLangcode, $mappings)) {
-      unset($mappings[$this->browserLangcode]);
-      language_set_browser_drupal_langcode_mappings($mappings);
-    }
+    $args = array(
+      '%browser' => $this->browserLangcode,
+    );
 
-    $form_state['redirect_route']['route_name'] = 'language.negotiation_browser';
+    $this->logger('language')->notice('The browser language detection mapping for the %browser browser language code has been deleted.', $args);
+
+    drupal_set_message($this->t('The mapping for the %browser browser language code has been deleted.', $args));
+
+    $form_state->setRedirect('language.negotiation_browser');
   }
 
 }

@@ -7,7 +7,7 @@
 
 namespace Drupal\node\Access;
 
-use Drupal\Core\Database\Connection;
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -16,29 +16,24 @@ use Symfony\Component\Routing\Route;
 
 /**
  * Provides an access checker for node revisions.
+ *
+ * @ingroup node_access
  */
 class NodeRevisionAccessCheck implements AccessInterface {
 
   /**
    * The node storage.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
+   * @var \Drupal\node\NodeStorageInterface
    */
   protected $nodeStorage;
 
   /**
-   * The node access controller.
+   * The node access control handler.
    *
-   * @var \Drupal\Core\Entity\EntityAccessControllerInterface
+   * @var \Drupal\Core\Entity\EntityAccessControlHandlerInterface
    */
   protected $nodeAccess;
-
-  /**
-   * The database connection.
-   *
-   * @var \Drupal\Core\Database\Connection
-   */
-  protected $connection;
 
   /**
    * A static cache of access checks.
@@ -55,10 +50,9 @@ class NodeRevisionAccessCheck implements AccessInterface {
    * @param \Drupal\Core\Database\Connection $connection
    *   The database connection.
    */
-  public function __construct(EntityManagerInterface $entity_manager, Connection $connection) {
+  public function __construct(EntityManagerInterface $entity_manager) {
     $this->nodeStorage = $entity_manager->getStorage('node');
-    $this->nodeAccess = $entity_manager->getAccessController('node');
-    $this->connection = $connection;
+    $this->nodeAccess = $entity_manager->getAccessControlHandler('node');
   }
 
   /**
@@ -77,15 +71,15 @@ class NodeRevisionAccessCheck implements AccessInterface {
    *   is specified. If neither $node_revision nor $node are specified, then
    *   access is denied.
    *
-   * @return string
-   *   A \Drupal\Core\Access\AccessInterface constant value.
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result.
    */
   public function access(Route $route, AccountInterface $account, $node_revision = NULL, NodeInterface $node = NULL) {
     if ($node_revision) {
       $node = $this->nodeStorage->loadRevision($node_revision);
     }
     $operation = $route->getRequirement('_access_node_revision');
-    return ($node && $this->checkAccess($node, $account, $operation)) ? static::ALLOW : static::DENY;
+    return AccessResult::allowedIf($node && $this->checkAccess($node, $account, $operation))->cachePerPermissions();
   }
 
   /**
@@ -127,7 +121,7 @@ class NodeRevisionAccessCheck implements AccessInterface {
 
     // If no language code was provided, default to the node revision's langcode.
     if (empty($langcode)) {
-      $langcode = $node->language()->id;
+      $langcode = $node->language()->getId();
     }
 
     // Statically cache access by revision ID, language code, user account ID,
@@ -146,7 +140,7 @@ class NodeRevisionAccessCheck implements AccessInterface {
       // different revisions so there is no need for a separate database check.
       // Also, if you try to revert to or delete the default revision, that's
       // not good.
-      if ($node->isDefaultRevision() && ($this->connection->query('SELECT COUNT(*) FROM {node_field_revision} WHERE nid = :nid AND default_langcode = 1', array(':nid' => $node->id()))->fetchField() == 1 || $op == 'update' || $op == 'delete')) {
+      if ($node->isDefaultRevision() && ($this->nodeStorage->countDefaultLanguageRevisions($node) == 1 || $op == 'update' || $op == 'delete')) {
         $this->access[$cid] = FALSE;
       }
       elseif ($account->hasPermission('administer nodes')) {

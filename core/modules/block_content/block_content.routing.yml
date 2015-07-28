@@ -1,15 +1,15 @@
-block_content.type_list:
+entity.block_content_type.collection:
   path: '/admin/structure/block/block-content/types'
   defaults:
     _entity_list: 'block_content_type'
-    _title: 'Edit'
+    _title: 'Custom block library'
   requirements:
     _permission: 'administer blocks'
 
 block_content.add_page:
   path: '/block/add'
   defaults:
-    _content: '\Drupal\block_content\Controller\BlockContentController::add'
+    _controller: '\Drupal\block_content\Controller\BlockContentController::add'
     _title: 'Add custom block'
   options:
     _admin_route: TRUE
@@ -19,14 +19,14 @@ block_content.add_page:
 block_content.add_form:
   path: '/block/add/{block_content_type}'
   defaults:
-    _content: '\Drupal\block_content\Controller\BlockContentController::addForm'
+    _controller: '\Drupal\block_content\Controller\BlockContentController::addForm'
     _title_callback: 'Drupal\block_content\Controller\BlockContentController::getAddFormTitle'
   options:
     _admin_route: TRUE
   requirements:
     _permission: 'administer blocks'
 
-block_content.type_delete:
+entity.block_content_type.delete_form:
   path: '/admin/structure/block/block-content/manage/{block_content_type}/delete'
   defaults:
     _entity_form: 'block_content_type.delete'
@@ -36,7 +36,7 @@ block_content.type_delete:
   options:
     _admin_route: TRUE
 
-block_content.edit:
+entity.block_content.canonical:
   path: '/block/{block_content}'
   defaults:
     _entity_form: 'block_content.edit'
@@ -45,7 +45,16 @@ block_content.edit:
   requirements:
     _entity_access: 'block_content.update'
 
-block_content.delete:
+entity.block_content.edit_form:
+  path: '/block/{block_content}'
+  defaults:
+    _entity_form: 'block_content.edit'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _entity_access: 'block_content.update'
+
+entity.block_content.delete_form:
   path: '/block/{block_content}/delete'
   defaults:
     _entity_form: 'block_content.delete'
@@ -63,7 +72,7 @@ block_content.type_add:
   requirements:
     _permission: 'administer blocks'
 
-block_content.type_edit:
+entity.block_content_type.edit_form:
   path: '/admin/structure/block/block-content/manage/{block_content_type}'
   defaults:
     _entity_form: 'block_content_type.edit'
@@ -71,7 +80,7 @@ block_content.type_edit:
   requirements:
     _entity_access: 'block_content_type.update'
 
-block_content.list:
+entity.block_content.collection:
   path: '/admin/structure/block/block-content'
   defaults:
     _title: 'Custom block library'

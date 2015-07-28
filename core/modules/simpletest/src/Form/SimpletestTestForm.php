@@ -8,13 +8,42 @@
 namespace Drupal\simpletest\Form;
 
 use Drupal\Component\Utility\SortArray;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\RendererInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * List tests arranged in groups that can be selected and run.
  */
 class SimpletestTestForm extends FormBase {
+
+  /**
+   * The renderer.
+   *
+   * @var \Drupal\Core\Render\RendererInterface
+   */
+  protected $renderer;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('renderer')
+    );
+  }
+
+  /**
+   * Constructs a new SimpletestTestForm.
+   *
+   * @param \Drupal\Core\Render\RendererInterface $renderer
+   *   The renderer.
+   */
+  public function __construct(RendererInterface $renderer) {
+    $this->renderer = $renderer;
+  }
 
   /**
    * {@inheritdoc}
@@ -26,7 +55,7 @@ class SimpletestTestForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form['actions'] = array('#type' => 'actions');
     $form['actions']['submit'] = array(
       '#type' => 'submit',
@@ -37,7 +66,8 @@ class SimpletestTestForm extends FormBase {
 
     // Do not needlessly re-execute a full test discovery if the user input
     // already contains an explicit list of test classes to run.
-    if (!empty($form_state['input']['tests'])) {
+    $user_input = $form_state->getUserInput();
+    if (!empty($user_input['tests'])) {
       return $form;
     }
 
@@ -96,17 +126,10 @@ class SimpletestTestForm extends FormBase {
       '#title' => $this->t('Collapse'),
       '#suffix' => '<a href="#" class="simpletest-collapse">(' . $this->t('Collapse') . ')</a>',
     );
-    $form['tests']['#attached']['js'][] = array(
-      'type' => 'setting',
-      'data' => array(
-        'simpleTest' => array(
-          'images' => array(
-            drupal_render($image_collapsed),
-            drupal_render($image_extended),
-          ),
-        ),
-      ),
-    );
+    $form['tests']['#attached']['drupalSettings']['simpleTest']['images'] = [
+      $this->renderer->renderPlain($image_collapsed),
+      $this->renderer->renderPlain($image_extended),
+    ];
 
     // Generate the list of tests arranged by group.
     $groups = simpletest_test_get_all();
@@ -149,14 +172,14 @@ class SimpletestTestForm extends FormBase {
         );
         $form['tests'][$class]['title'] = array(
           '#type' => 'label',
-          '#title' => $info['name'],
+          '#title' => '\\' . $info['name'],
           '#wrapper_attributes' => array(
             'class' => array('simpletest-test-label', 'table-filter-text-source'),
           ),
         );
         $form['tests'][$class]['description'] = array(
           '#prefix' => '<div class="description">',
-          '#markup' => String::checkPlain($info['description']),
+          '#markup' => SafeMarkup::checkPlain($info['description']),
           '#suffix' => '</div>',
           '#wrapper_attributes' => array(
             'class' => array('simpletest-test-description', 'table-filter-text-source'),
@@ -183,7 +206,8 @@ class SimpletestTestForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    global $base_url;
     // Test discovery does not run upon form submission.
     simpletest_classloader_register();
 
@@ -196,12 +220,13 @@ class SimpletestTestForm extends FormBase {
     //   entire form more easily, BUT retaining routing access security and
     //   retaining Form API CSRF #token security validation, and without having
     //   to rely on form caching.
-    if (empty($form_state['values']['tests']) && !empty($form_state['input']['tests'])) {
-      $form_state['values']['tests'] = $form_state['input']['tests'];
+    $user_input = $form_state->getUserInput();
+    if ($form_state->isValueEmpty('tests') && !empty($user_input['tests'])) {
+      $form_state->setValue('tests', $user_input['tests']);
     }
 
     $tests_list = array();
-    foreach ($form_state['values']['tests'] as $class_name => $value) {
+    foreach ($form_state->getValue('tests') as $class_name => $value) {
       if ($value === $class_name) {
         if (is_subclass_of($class_name, 'PHPUnit_Framework_TestCase')) {
           $test_type = 'phpunit';
@@ -213,12 +238,11 @@ class SimpletestTestForm extends FormBase {
       }
     }
     if (!empty($tests_list)) {
+      putenv('SIMPLETEST_BASE_URL=' . $base_url);
       $test_id = simpletest_run_tests($tests_list, 'drupal');
-      $form_state['redirect_route'] = array(
-        'route_name' => 'simpletest.result_form',
-        'route_parameters' => array(
-          'test_id' => $test_id,
-        ),
+      $form_state->setRedirect(
+        'simpletest.result_form',
+        array('test_id' => $test_id)
       );
     }
   }

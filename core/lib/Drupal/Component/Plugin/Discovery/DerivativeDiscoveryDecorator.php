@@ -192,7 +192,7 @@ class DerivativeDiscoveryDecorator implements DiscoveryInterface {
   }
 
   /**
-   * Get the deriver class name from the base plugin definition.
+   * Gets the deriver class name from the base plugin definition.
    *
    * @param array $base_definition
    *   The base plugin definition to build derivatives.
@@ -209,8 +209,11 @@ class DerivativeDiscoveryDecorator implements DiscoveryInterface {
   protected function getDeriverClass($base_definition) {
     $class = NULL;
     if ((is_array($base_definition) || ($base_definition = (array) $base_definition)) && (isset($base_definition['deriver']) && $class = $base_definition['deriver'])) {
+      if (!class_exists($class)) {
+        throw new InvalidDeriverException(sprintf('Plugin (%s) deriver "%s" does not exist.', $base_definition['id'], $class));
+      }
       if (!is_subclass_of($class, '\Drupal\Component\Plugin\Derivative\DeriverInterface')) {
-        throw new InvalidDeriverException(sprintf('Plugin (%s) deriver "%s" must implement \Drupal\Component\Plugin\Derivative\DeriverInterface', $base_definition['id'], $class));
+        throw new InvalidDeriverException(sprintf('Plugin (%s) deriver "%s" must implement \Drupal\Component\Plugin\Derivative\DeriverInterface.', $base_definition['id'], $class));
       }
     }
     return $class;

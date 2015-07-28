@@ -7,10 +7,12 @@
 
 namespace Drupal\update\Form;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\State\StateInterface;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -48,7 +50,7 @@ class UpdateManagerUpdate extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function getFormID() {
+  public function getFormId() {
     return 'update_manager_update_form';
   }
 
@@ -65,7 +67,7 @@ class UpdateManagerUpdate extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $this->moduleHandler->loadInclude('update', 'inc', 'update.manager');
 
     $last_markup = array(
@@ -110,17 +112,17 @@ class UpdateManagerUpdate extends FormBase {
       // The project name to display can vary based on the info we have.
       if (!empty($project['title'])) {
         if (!empty($project['link'])) {
-          $project_name = l($project['title'], $project['link']);
+          $project_name = $this->l($project['title'], Url::fromUri($project['link']));
         }
         else {
-          $project_name = String::checkPlain($project['title']);
+          $project_name = SafeMarkup::checkPlain($project['title']);
         }
       }
       elseif (!empty($project['info']['name'])) {
-        $project_name = String::checkPlain($project['info']['name']);
+        $project_name = SafeMarkup::checkPlain($project['info']['name']);
       }
       else {
-        $project_name = String::checkPlain($name);
+        $project_name = SafeMarkup::checkPlain($name);
       }
       if ($project['project_type'] == 'theme' || $project['project_type'] == 'theme-disabled') {
         $project_name .= ' ' . $this->t('(Theme)');
@@ -133,16 +135,29 @@ class UpdateManagerUpdate extends FormBase {
       }
 
       $recommended_release = $project['releases'][$project['recommended']];
-      $recommended_version = $recommended_release['version'] . ' ' . l($this->t('(Release notes)'), $recommended_release['release_link'], array('attributes' => array('title' => $this->t('Release notes for @project_title', array('@project_title' => $project['title'])))));
+      $recommended_version = '{{ release_version }} (<a href="{{ release_link }}" title="{{ project_title }}">{{ release_notes }}</a>)';
       if ($recommended_release['version_major'] != $project['existing_major']) {
-        $recommended_version .= '<div title="Major upgrade warning" class="update-major-version-warning">' . $this->t('This update is a major version update which means that it may not be backwards compatible with your currently running version.  It is recommended that you read the release notes and proceed at your own risk.') . '</div>';
+        $recommended_version .= '<div title="{{ major_update_warning_title }}" class="update-major-version-warning">{{ major_update_warning_text }}</div>';
       }
+
+      $recommended_version = array(
+        '#type' => 'inline_template',
+        '#template' => $recommended_version,
+        '#context' => array(
+          'release_version' => $recommended_release['version'],
+          'release_link' => $recommended_release['release_link'],
+          'project_title' => $this->t('Release notes for @project_title', array('@project_title' => $project['title'])),
+          'major_update_warning_title' => $this->t('Major upgrade warning'),
+          'major_update_warning_text' => $this->t('This update is a major version update which means that it may not be backwards compatible with your currently running version. It is recommended that you read the release notes and proceed at your own risk.'),
+          'release_notes' => $this->t('Release notes'),
+        ),
+      );
 
       // Create an entry for this project.
       $entry = array(
         'title' => $project_name,
         'installed_version' => $project['existing_version'],
-        'recommended_version' => $recommended_version,
+        'recommended_version' => array('data' => $recommended_version),
       );
 
       switch ($project['status']) {
@@ -285,27 +300,27 @@ class UpdateManagerUpdate extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
-    if (!empty($form_state['values']['projects'])) {
-      $enabled = array_filter($form_state['values']['projects']);
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    if (!$form_state->isValueEmpty('projects')) {
+      $enabled = array_filter($form_state->getValue('projects'));
     }
-    if (!empty($form_state['values']['disabled_projects'])) {
-      $disabled = array_filter($form_state['values']['disabled_projects']);
+    if (!$form_state->isValueEmpty('disabled_projects')) {
+      $disabled = array_filter($form_state->getValue('disabled_projects'));
     }
     if (empty($enabled) && empty($disabled)) {
-      $this->setFormError('projects', $form_state, $this->t('You must select at least one project to update.'));
+      $form_state->setErrorByName('projects', $this->t('You must select at least one project to update.'));
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->moduleHandler->loadInclude('update', 'inc', 'update.manager');
     $projects = array();
     foreach (array('projects', 'disabled_projects') as $type) {
-      if (!empty($form_state['values'][$type])) {
-        $projects = array_merge($projects, array_keys(array_filter($form_state['values'][$type])));
+      if (!$form_state->isValueEmpty($type)) {
+        $projects = array_merge($projects, array_keys(array_filter($form_state->getValue($type))));
       }
     }
     $operations = array();
@@ -314,7 +329,7 @@ class UpdateManagerUpdate extends FormBase {
         'update_manager_batch_project_get',
         array(
           $project,
-          $form_state['values']['project_downloads'][$project],
+          $form_state->getValue(array('project_downloads', $project)),
         ),
       );
     }

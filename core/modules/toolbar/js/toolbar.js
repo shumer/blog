@@ -1,8 +1,8 @@
 /**
- * @file toolbar.js
- *
+ * @file
  * Defines the behavior of the Drupal administration toolbar.
  */
+
 (function ($, Drupal, drupalSettings) {
 
   "use strict";
@@ -11,9 +11,9 @@
   var options = $.extend(
     {
       breakpoints: {
-        'module.toolbar.narrow': '',
-        'module.toolbar.standard': '',
-        'module.toolbar.wide': ''
+        'toolbar.narrow': '',
+        'toolbar.standard': '',
+        'toolbar.wide': ''
       }
     },
     drupalSettings.toolbar,
@@ -29,13 +29,14 @@
   /**
    * Registers tabs with the toolbar.
    *
-   * The Drupal toolbar allows modules to register top-level tabs. These may point
-   * directly to a resource or toggle the visibility of a tray.
+   * The Drupal toolbar allows modules to register top-level tabs. These may
+   * point directly to a resource or toggle the visibility of a tray.
    *
    * Modules register tabs with hook_toolbar().
+   *
+   * @type {Drupal~behavior}
    */
   Drupal.behaviors.toolbar = {
-
     attach: function (context) {
       // Verify that the user agent understands media queries. Complex admin
       // toolbar layouts require media query support.
@@ -43,7 +44,7 @@
         return;
       }
       // Process the administrative toolbar.
-      $(context).find('#toolbar-administration').once('toolbar', function () {
+      $(context).find('#toolbar-administration').once('toolbar').each(function () {
 
         // Establish the toolbar models and views.
         var model = Drupal.toolbar.models.toolbarModel = new Drupal.toolbar.ToolbarModel({
@@ -88,8 +89,8 @@
           if (options.breakpoints.hasOwnProperty(label)) {
             var mq = options.breakpoints[label];
             var mql = Drupal.toolbar.mql[label] = window.matchMedia(mq);
-            // Curry the model and the label of the media query breakpoint to the
-            // mediaQueryChangeHandler function.
+            // Curry the model and the label of the media query breakpoint to
+            // the mediaQueryChangeHandler function.
             mql.addListener(Drupal.toolbar.mediaQueryChangeHandler.bind(null, model, label));
             // Fire the mediaQueryChangeHandler for each configured breakpoint
             // so that they process once.
@@ -102,8 +103,8 @@
         // process. The toolbar starts in the vertical orientation by default,
         // unless the viewport is wide enough to accommodate a horizontal
         // orientation. Thus we give the Toolbar a chance to determine if it
-        // should be set to horizontal orientation before attempting to load menu
-        // subtrees.
+        // should be set to horizontal orientation before attempting to load
+        // menu subtrees.
         Drupal.toolbar.views.toolbarVisualView.loadSubtrees();
 
         $(document)
@@ -123,22 +124,45 @@
           .on('change:activeTray', function (model, tray) {
             $(document).trigger('drupalToolbarTrayChange', tray);
           });
+
+        // If the toolbar's orientation is horizontal and no active tab is
+        // defined then show the tray of the first toolbar tab by default (but
+        // not the first 'Home' toolbar tab).
+        if (Drupal.toolbar.models.toolbarModel.get('orientation') === 'horizontal' && Drupal.toolbar.models.toolbarModel.get('activeTab') === null) {
+          Drupal.toolbar.models.toolbarModel.set({
+            'activeTab': $('.toolbar-bar .toolbar-tab:not(.home-toolbar-tab) a').get(0)
+          });
+        }
       });
     }
   };
 
   /**
    * Toolbar methods of Backbone objects.
+   *
+   * @namespace
    */
   Drupal.toolbar = {
 
-    // A hash of View instances.
+    /**
+     * A hash of View instances.
+     *
+     * @type {object.<string, Backbone.View>}
+     */
     views: {},
 
-    // A hash of Model instances.
+    /**
+     * A hash of Model instances.
+     *
+     * @type {object.<string, Backbone.Model>}
+     */
     models: {},
 
-    // A hash of MediaQueryList objects tracked by the toolbar.
+    /**
+     * A hash of MediaQueryList objects tracked by the toolbar.
+     *
+     * @type {object.<string, object>}
+     */
     mql: {},
 
     /**
@@ -146,17 +170,22 @@
      *
      * A deferred object that is resolved by an inlined JavaScript callback.
      *
-     * JSONP callback.
+     * @type {jQuery.Deferred}
+     *
      * @see toolbar_subtrees_jsonp().
      */
     setSubtrees: new $.Deferred(),
 
     /**
      * Respond to configured narrow media query changes.
+     *
+     * @param {Drupal.toolbar.ToolbarModel} model
+     * @param {string} label
+     * @param {object} mql
      */
     mediaQueryChangeHandler: function (model, label, mql) {
       switch (label) {
-        case 'module.toolbar.narrow':
+        case 'toolbar.narrow':
           model.set({
             'isOriented': mql.matches,
             'isTrayToggleVisible': false
@@ -168,20 +197,24 @@
             model.set({'orientation': 'vertical'}, {validate: true});
           }
           break;
-        case 'module.toolbar.standard':
+
+        case 'toolbar.standard':
           model.set({
             'isFixed': mql.matches
           });
           break;
-        case 'module.toolbar.wide':
+
+        case 'toolbar.wide':
           model.set({
             'orientation': ((mql.matches) ? 'horizontal' : 'vertical')
           }, {validate: true});
-          // The tray orientation toggle visibility does not need to be validated.
+          // The tray orientation toggle visibility does not need to be
+          // validated.
           model.set({
             'isTrayToggleVisible': mql.matches
           });
           break;
+
         default:
           break;
       }
@@ -191,7 +224,7 @@
   /**
    * A toggle is an interactive element often bound to a click handler.
    *
-   * @return {String}
+   * @return {string}
    *   A string representing a DOM fragment.
    */
   Drupal.theme.toolbarOrientationToggle = function () {

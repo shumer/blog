@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Tests\Handler\FieldUrlTest.
+ * Contains \Drupal\views\Tests\Handler\FieldUrlTest.
  */
 
 namespace Drupal\views\Tests\Handler;
 
+use Drupal\Core\Url;
 use Drupal\views\Tests\ViewUnitTestBase;
 use Drupal\views\Views;
 
@@ -26,7 +27,7 @@ class FieldUrlTest extends ViewUnitTestBase {
    */
   public static $testViews = array('test_view');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->installSchema('system', 'url_alias');
   }
@@ -70,7 +71,7 @@ class FieldUrlTest extends ViewUnitTestBase {
 
     $this->executeView($view);
 
-    $this->assertEqual(l('John', 'John'), $view->field['name']->advancedRender($view->result[0]));
+    $this->assertEqual(\Drupal::l('John', Url::fromUri('base:John')), $view->field['name']->advancedRender($view->result[0]));
   }
 
 }

@@ -49,7 +49,7 @@ class Role extends DrupalSqlBase {
   /**
    * {@inheritdoc}
    */
-  protected function runQuery() {
+  protected function initializeIterator() {
     $filter_roles = $this->select('filter_formats', 'f')
       ->fields('f', array('format', 'roles'))
       ->execute()
@@ -61,13 +61,13 @@ class Role extends DrupalSqlBase {
         $this->filterPermissions[$rid][] = $format;
       }
     }
-    return parent::runQuery();
+    return parent::initializeIterator();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function prepareRow(Row $row, $keep = TRUE) {
+  public function prepareRow(Row $row) {
     $rid = $row->getSourceProperty('rid');
     $permissions = $this->select('permission', 'p')
       ->fields('p', array('perm'))

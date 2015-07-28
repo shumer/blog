@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\node\Tests\PageViewTest.
+ * Contains \Drupal\node\Tests\PageViewTest.
  */
 
 namespace Drupal\node\Tests;
+
+use Drupal\node\Entity\Node;
 
 /**
  * Create a node and test edit permissions.
@@ -19,7 +21,7 @@ class PageViewTest extends NodeTestBase {
   function testPageView() {
     // Create a node to view.
     $node = $this->drupalCreateNode();
-    $this->assertTrue(node_load($node->id()), 'Node created.');
+    $this->assertTrue(Node::load($node->id()), 'Node created.');
 
     // Try to edit with anonymous user.
     $this->drupalGet("node/" . $node->id() . "/edit");

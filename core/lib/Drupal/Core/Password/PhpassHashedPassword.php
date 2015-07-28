@@ -2,13 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Password\PhpassHashedPassword
+ * Contains \Drupal\Core\Password\PhpassHashedPassword.
  */
 
 namespace Drupal\Core\Password;
 
 use Drupal\Component\Utility\Crypt;
-use Drupal\user\UserInterface;
 
 /**
  * Secure password hashing functions based on the Portable PHP password
@@ -148,7 +147,8 @@ class PhpassHashedPassword implements PasswordInterface {
    * @param String $algo
    *   The string name of a hashing algorithm usable by hash(), like 'sha256'.
    * @param String $password
-   *   The plain-text password to hash.
+   *   Plain-text password up to 512 bytes (128 to 512 UTF-8 characters) to
+   *   hash.
    * @param String $setting
    *   An existing hash or the output of $this->generateSalt().  Must be
    *   at least 12 characters (the settings and salt).
@@ -158,6 +158,11 @@ class PhpassHashedPassword implements PasswordInterface {
    *   The return string will be truncated at HASH_LENGTH characters max.
    */
   protected function crypt($algo, $password, $setting) {
+    // Prevent DoS attacks by refusing to hash large passwords.
+    if (strlen($password) > PasswordInterface::PASSWORD_MAX_LENGTH) {
+      return FALSE;
+    }
+
     // The first 12 characters of an existing hash are its setting string.
     $setting = substr($setting, 0, 12);
 
@@ -206,57 +211,58 @@ class PhpassHashedPassword implements PasswordInterface {
   }
 
   /**
-   * Implements Drupal\Core\Password\PasswordInterface::hash().
+   * {@inheritdoc}
    */
   public function hash($password) {
     return $this->crypt('sha512', $password, $this->generateSalt());
   }
 
   /**
-   * Implements Drupal\Core\Password\PasswordInterface::checkPassword().
+   * {@inheritdoc}
    */
-  public function check($password, UserInterface $account) {
-    if (substr($account->getPassword(), 0, 2) == 'U$') {
+  public function check($password, $hash) {
+    if (substr($hash, 0, 2) == 'U$') {
       // This may be an updated password from user_update_7000(). Such hashes
       // have 'U' added as the first character and need an extra md5() (see the
       // Drupal 7 documentation).
-      $stored_hash = substr($account->getPassword(), 1);
+      $stored_hash = substr($hash, 1);
       $password = md5($password);
     }
     else {
-      $stored_hash = $account->getPassword();
+      $stored_hash = $hash;
     }
 
     $type = substr($stored_hash, 0, 3);
     switch ($type) {
       case '$S$':
         // A normal Drupal 7 password using sha512.
-        $hash = $this->crypt('sha512', $password, $stored_hash);
+        $computed_hash = $this->crypt('sha512', $password, $stored_hash);
         break;
       case '$H$':
         // phpBB3 uses "$H$" for the same thing as "$P$".
       case '$P$':
         // A phpass password generated using md5.  This is an
         // imported password or from an earlier Drupal version.
-        $hash = $this->crypt('md5', $password, $stored_hash);
+        $computed_hash = $this->crypt('md5', $password, $stored_hash);
         break;
       default:
         return FALSE;
     }
-    return ($hash && $stored_hash == $hash);
+    return ($computed_hash && $stored_hash === $computed_hash);
   }
 
   /**
-   * Implements Drupal\Core\Password\PasswordInterface::userNeedsNewHash().
+   * {@inheritdoc}
    */
-  public function userNeedsNewHash(UserInterface $account) {
+  public function needsRehash($hash) {
     // Check whether this was an updated password.
-    if ((substr($account->getPassword(), 0, 3) != '$S$') || (strlen($account->getPassword()) != static::HASH_LENGTH)) {
+    if ((substr($hash, 0, 3) != '$S$') || (strlen($hash) != static::HASH_LENGTH)) {
       return TRUE;
     }
     // Ensure that $count_log2 is within set bounds.
     $count_log2 = $this->enforceLog2Boundaries($this->countLog2);
     // Check whether the iteration count used differs from the standard number.
-    return ($this->getCountLog2($account->getPassword()) !== $count_log2);
+    return ($this->getCountLog2($hash) !== $count_log2);
   }
+
 }

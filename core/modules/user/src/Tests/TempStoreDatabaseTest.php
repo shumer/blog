@@ -2,14 +2,15 @@
 
 /**
  * @file
- * Definition of Drupal\user\Tests\TempStoreDatabaseTest.
+ * Contains \Drupal\user\Tests\TempStoreDatabaseTest.
  */
 
 namespace Drupal\user\Tests;
 
 use Drupal\Component\Serialization\PhpSerialize;
-use Drupal\simpletest\UnitTestBase;
-use Drupal\user\TempStoreFactory;
+use Drupal\Core\KeyValueStore\KeyValueExpirableFactory;
+use Drupal\simpletest\KernelTestBase;
+use Drupal\user\SharedTempStoreFactory;
 use Drupal\Core\Lock\DatabaseLockBackend;
 use Drupal\Core\Database\Database;
 
@@ -19,12 +20,19 @@ use Drupal\Core\Database\Database;
  * @group user
  * @see \Drupal\Core\TempStore\TempStore.
  */
-class TempStoreDatabaseTest extends UnitTestBase {
+class TempStoreDatabaseTest extends KernelTestBase {
+
+  /**
+   * Modules to enable.
+   *
+   * @var array
+   */
+  public static $modules = array('system', 'user');
 
   /**
    * A key/value store factory.
    *
-   * @var \Drupal\user\TempStoreFactory
+   * @var \Drupal\user\SharedTempStoreFactory
    */
   protected $storeFactory;
 
@@ -54,10 +62,7 @@ class TempStoreDatabaseTest extends UnitTestBase {
 
     // Install system tables to test the key/value storage without installing a
     // full Drupal environment.
-    module_load_install('system');
-    $schema = system_schema();
-    db_create_table('semaphore', $schema['semaphore']);
-    db_create_table('key_value_expire', $schema['key_value_expire']);
+    $this->installSchema('system', array('semaphore', 'key_value_expire'));
 
     // Create several objects for testing.
     for ($i = 0; $i <= 3; $i++) {
@@ -66,32 +71,26 @@ class TempStoreDatabaseTest extends UnitTestBase {
 
   }
 
-  protected function tearDown() {
-    db_drop_table('key_value_expire');
-    db_drop_table('semaphore');
-    parent::tearDown();
-  }
-
   /**
    * Tests the UserTempStore API.
    */
   public function testUserTempStore() {
     // Create a key/value collection.
-    $factory = new TempStoreFactory(new PhpSerialize(), Database::getConnection(), new DatabaseLockBackend(Database::getConnection()));
-    $collection = $this->randomName();
+    $factory = new SharedTempStoreFactory(new KeyValueExpirableFactory(\Drupal::getContainer()), new DatabaseLockBackend(Database::getConnection()), $this->container->get('request_stack'));
+    $collection = $this->randomMachineName();
 
     // Create two mock users.
     for ($i = 0; $i <= 1; $i++) {
       $users[$i] = mt_rand(500, 5000000);
 
-      // Storing the TempStore objects in a class member variable causes a
+      // Storing the SharedTempStore objects in a class member variable causes a
       // fatal exception, because in that situation garbage collection is not
       // triggered until the test class itself is destructed, after tearDown()
       // has deleted the database tables. Store the objects locally instead.
       $stores[$i] = $factory->get($collection, $users[$i]);
     }
 
-    $key = $this->randomName();
+    $key = $this->randomMachineName();
     // Test that setIfNotExists() succeeds only the first time.
     for ($i = 0; $i <= 1; $i++) {
       // setIfNotExists() should be TRUE the first time (when $i is 0) and
@@ -143,7 +142,7 @@ class TempStoreDatabaseTest extends UnitTestBase {
     // assert it is no longer accessible.
     db_update('key_value_expire')
       ->fields(array('expire' => REQUEST_TIME - 1))
-      ->condition('collection', $collection)
+      ->condition('collection', "user.shared_tempstore.$collection")
       ->condition('name', $key)
       ->execute();
     $this->assertFalse($stores[0]->get($key));

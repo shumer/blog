@@ -41,14 +41,14 @@ class FieldUITest extends FieldTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->account = $this->drupalCreateUser(array('administer views'));
     $this->drupalLogin($this->account);
 
+    $this->setUpFieldStorages(1, 'text');
     $this->setUpFields();
-    $this->setUpInstances();
   }
 
   /**
@@ -65,7 +65,7 @@ class FieldUITest extends FieldTestBase {
     }, $result);
     // @todo Replace this sort by assertArray once it's in.
     sort($options, SORT_STRING);
-    $this->assertEqual($options, array('string', 'text_default', 'text_trimmed'), 'The text formatters for a simple text field appear as expected.');
+    $this->assertEqual($options, array('text_default', 'text_trimmed'), 'The text formatters for a simple text field appear as expected.');
 
     $this->drupalPostForm(NULL, array('options[type]' => 'text_trimmed'), t('Apply'));
 
@@ -83,6 +83,10 @@ class FieldUITest extends FieldTestBase {
     $view->initHandlers();
     $this->assertEqual($view->field['field_name_0']->options['type'], 'text_trimmed');
     $this->assertEqual($view->field['field_name_0']->options['settings']['trim_length'], $random_number);
+
+    // Ensure that the view depends on the field storage.
+    $dependencies = \Drupal::service('config.manager')->findConfigEntityDependents('config', [$this->fieldStorages[0]->getConfigDependencyName()]);
+    $this->assertTrue(isset($dependencies['views.view.test_view_fieldapi']), 'The view is dependent on the field storage.');
   }
 
   /**

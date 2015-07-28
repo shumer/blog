@@ -7,7 +7,7 @@
 
 namespace Drupal\Core\Config;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\Schema\Ignore;
 use Drupal\Core\TypedData\PrimitiveInterface;
 use Drupal\Core\TypedData\Type\FloatInterface;
@@ -66,16 +66,25 @@ abstract class StorableConfigBase extends ConfigBase {
   /**
    * Saves the configuration object.
    *
-   * @return \Drupal\Core\Config\Config
-   *   The configuration object.
+   * @param bool $has_trusted_data
+   *   Set to TRUE if the configuration data has already been checked to ensure
+   *   it conforms to schema. Generally this is only used during module and
+   *   theme installation.
+   *
+   * Must invalidate the cache tags associated with the configuration object.
+   *
+   * @return $this
+   *
+   * @see \Drupal\Core\Config\ConfigInstaller::createConfiguration()
    */
-  abstract public function save();
+  abstract public function save($has_trusted_data = FALSE);
 
   /**
    * Deletes the configuration object.
    *
-   * @return \Drupal\Core\Config\Config
-   *   The configuration object.
+   * Must invalidate the cache tags associated with the configuration object.
+   *
+   * @return $this
    */
   abstract public function delete();
 
@@ -90,7 +99,7 @@ abstract class StorableConfigBase extends ConfigBase {
    */
   public function initWithData(array $data) {
     $this->isNew = FALSE;
-    $this->setData($data);
+    $this->setData($data, FALSE);
     $this->originalData = $this->data;
     return $this;
   }
@@ -154,7 +163,7 @@ abstract class StorableConfigBase extends ConfigBase {
       }
     }
     elseif ($value !== NULL && !is_scalar($value)) {
-      throw new UnsupportedDataTypeConfigException(String::format('Invalid data type for config element @name:@key', array(
+      throw new UnsupportedDataTypeConfigException(SafeMarkup::format('Invalid data type for config element @name:@key', array(
         '@name' => $this->getName(),
         '@key' => $key,
       )));
@@ -204,7 +213,7 @@ abstract class StorableConfigBase extends ConfigBase {
     else {
       // Throw exception on any non-scalar or non-array value.
       if (!is_array($value)) {
-        throw new UnsupportedDataTypeConfigException(String::format('Invalid data type for config element @name:@key', array(
+        throw new UnsupportedDataTypeConfigException(SafeMarkup::format('Invalid data type for config element @name:@key', array(
           '@name' => $this->getName(),
           '@key' => $key,
         )));

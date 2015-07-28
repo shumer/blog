@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\block\Tests\NewDefaultThemeBlocksTest.
+ * Contains \Drupal\block\Tests\NewDefaultThemeBlocksTest.
  */
 
 namespace Drupal\block\Tests;
@@ -17,7 +17,7 @@ use Drupal\simpletest\WebTestBase;
 class NewDefaultThemeBlocksTest extends WebTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
@@ -27,26 +27,26 @@ class NewDefaultThemeBlocksTest extends WebTestBase {
    * Check the enabled Bartik blocks are correctly copied over.
    */
   function testNewDefaultThemeBlocks() {
-    $default_theme = \Drupal::config('system.theme')->get('default');
+    $default_theme = $this->config('system.theme')->get('default');
 
     // Add two instances of the user login block.
     $this->drupalPlaceBlock('user_login_block', array(
-      'id' => $default_theme . '_' . strtolower($this->randomName(8)),
+      'id' => $default_theme . '_' . strtolower($this->randomMachineName(8)),
     ));
     $this->drupalPlaceBlock('user_login_block', array(
-      'id' => $default_theme . '_' . strtolower($this->randomName(8)),
+      'id' => $default_theme . '_' . strtolower($this->randomMachineName(8)),
     ));
 
     // Add an instance of a different block.
     $this->drupalPlaceBlock('system_powered_by_block', array(
-      'id' => $default_theme . '_' . strtolower($this->randomName(8)),
+      'id' => $default_theme . '_' . strtolower($this->randomMachineName(8)),
     ));
 
-    // Enable a different theme.
+    // Install a different theme.
     $new_theme = 'bartik';
     $this->assertFalse($new_theme == $default_theme, 'The new theme is different from the previous default theme.');
-    theme_enable(array($new_theme));
-    \Drupal::config('system.theme')
+    \Drupal::service('theme_handler')->install(array($new_theme));
+    $this->config('system.theme')
       ->set('default', $new_theme)
       ->save();
 

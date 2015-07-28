@@ -2,13 +2,15 @@
 
 /**
  * @file
- * Contains \Drupal\taxonomy\Form\OverviewTerms
+ * Contains \Drupal\taxonomy\Form\OverviewTerms.
  */
 
 namespace Drupal\taxonomy\Form;
 
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\taxonomy\VocabularyInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -25,13 +27,23 @@ class OverviewTerms extends FormBase {
   protected $moduleHandler;
 
   /**
+   * The term storage controller.
+   *
+   * @var \Drupal\taxonomy\TermStorageInterface
+   */
+  protected $storageController;
+
+  /**
    * Constructs an OverviewTerms object.
    *
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler service.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager service.
    */
-  public function __construct(ModuleHandlerInterface $module_handler) {
+  public function __construct(ModuleHandlerInterface $module_handler, EntityManagerInterface $entity_manager) {
     $this->moduleHandler = $module_handler;
+    $this->storageController = $entity_manager->getStorage('taxonomy_term');
   }
 
   /**
@@ -39,7 +51,8 @@ class OverviewTerms extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('module_handler')
+      $container->get('module_handler'),
+      $container->get('entity.manager')
     );
   }
 
@@ -58,19 +71,20 @@ class OverviewTerms extends FormBase {
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    * @param \Drupal\taxonomy\VocabularyInterface $taxonomy_vocabulary
    *   The vocabulary to display the overview form for.
    *
    * @return array
    *   The form structure.
    */
-  public function buildForm(array $form, array &$form_state, VocabularyInterface $taxonomy_vocabulary = NULL) {
-    // @todo Remove global variables when http://drupal.org/node/2044435 is in.
+  public function buildForm(array $form, FormStateInterface $form_state, VocabularyInterface $taxonomy_vocabulary = NULL) {
+    // @todo Remove global variables when https://www.drupal.org/node/2044435 is
+    //   in.
     global $pager_page_array, $pager_total, $pager_total_items;
 
-    $form_state['taxonomy']['vocabulary'] = $taxonomy_vocabulary;
+    $form_state->set(['taxonomy', 'vocabulary'], $taxonomy_vocabulary);
     $parent_fields = FALSE;
 
     $page = $this->getRequest()->query->get('page') ?: 0;
@@ -96,13 +110,11 @@ class OverviewTerms extends FormBase {
 
     $delta = 0;
     $term_deltas = array();
-    // @todo taxonomy_get_tree needs to be converted to a service and injected.
-    //   Will be fixed in http://drupal.org/node/1976298.
-    $tree = taxonomy_get_tree($taxonomy_vocabulary->id(), 0, NULL, TRUE);
-    $term = current($tree);
+    $tree = $this->storageController->loadTree($taxonomy_vocabulary->id(), 0, NULL, TRUE);
+    $tree_index = 0;
     do {
       // In case this tree is completely empty.
-      if (empty($term)) {
+      if (empty($tree[$tree_index])) {
         break;
       }
       $delta++;
@@ -118,13 +130,14 @@ class OverviewTerms extends FormBase {
       }
 
       // Do not let a term start the page that is not at the root.
+      $term = $tree[$tree_index];
       if (isset($term->depth) && ($term->depth > 0) && !isset($back_step)) {
         $back_step = 0;
-        while ($pterm = prev($tree)) {
+        while ($pterm = $tree[--$tree_index]) {
           $before_entries--;
           $back_step++;
           if ($pterm->depth == 0) {
-            prev($tree);
+            $tree_index--;
             // Jump back to the start of the root level parent.
             continue 2;
           }
@@ -158,7 +171,7 @@ class OverviewTerms extends FormBase {
         $root_entries++;
       }
       $current_page[$key] = $term;
-    } while ($term = next($tree));
+    } while (isset($tree[++$tree_index]));
 
     // Because we didn't use a pager query, set the necessary pager variables.
     $total_entries = $before_entries + $page_entries + $after_entries;
@@ -169,16 +182,17 @@ class OverviewTerms extends FormBase {
     // If this form was already submitted once, it's probably hit a validation
     // error. Ensure the form is rebuilt in the same order as the user
     // submitted.
-    if (!empty($form_state['input'])) {
+    $user_input = $form_state->getUserInput();
+    if (!empty($user_input)) {
       // Get the POST order.
-      $order = array_flip(array_keys($form_state['input']['terms']));
+      $order = array_flip(array_keys($user_input['terms']));
       // Update our form with the new order.
       $current_page = array_merge($order, $current_page);
       foreach ($current_page as $key => $term) {
         // Verify this is a term for the current page and set at the current
         // depth.
-        if (is_array($form_state['input']['terms'][$key]) && is_numeric($form_state['input']['terms'][$key]['term']['tid'])) {
-          $current_page[$key]->depth = $form_state['input']['terms'][$key]['term']['depth'];
+        if (is_array($user_input['terms'][$key]) && is_numeric($user_input['terms'][$key]['term']['tid'])) {
+          $current_page[$key]->depth = $user_input['terms'][$key]['term']['depth'];
         }
         else {
           unset($current_page[$key]);
@@ -186,14 +200,14 @@ class OverviewTerms extends FormBase {
       }
     }
 
-    $errors = form_get_errors($form_state);
-    $destination = drupal_get_destination();
+    $errors = $form_state->getErrors();
+    $destination = $this->getDestinationArray();
     $row_position = 0;
     // Build the actual form.
     $form['terms'] = array(
       '#type' => 'table',
       '#header' => array($this->t('Name'), $this->t('Weight'), $this->t('Operations')),
-      '#empty' => $this->t('No terms available. <a href="@link">Add term</a>.', array('@link' => url('admin/structure/taxonomy/manage/' . $taxonomy_vocabulary->id() . '/add'))),
+      '#empty' => $this->t('No terms available. <a href="@link">Add term</a>.', array('@link' => $this->url('entity.taxonomy_term.add_form', array('taxonomy_vocabulary' => $taxonomy_vocabulary->id())))),
       '#attributes' => array(
         'id' => 'taxonomy',
       ),
@@ -212,8 +226,9 @@ class OverviewTerms extends FormBase {
         '#prefix' => !empty($indentation) ? drupal_render($indentation) : '',
         '#type' => 'link',
         '#title' => $term->getName(),
-      ) + $term->urlInfo()->toRenderArray();
-      if ($taxonomy_vocabulary->hierarchy != TAXONOMY_HIERARCHY_MULTIPLE && count($tree) > 1) {
+        '#url' => $term->urlInfo(),
+      );
+      if ($taxonomy_vocabulary->getHierarchy() != TAXONOMY_HIERARCHY_MULTIPLE && count($tree) > 1) {
         $parent_fields = TRUE;
         $form['terms'][$key]['term']['tid'] = array(
           '#type' => 'hidden',
@@ -255,17 +270,20 @@ class OverviewTerms extends FormBase {
         'edit' => array(
           'title' => $this->t('Edit'),
           'query' => $destination,
-        ) + $term->urlInfo('edit-form')->toArray(),
+          'url' => $term->urlInfo('edit-form'),
+        ),
         'delete' => array(
           'title' => $this->t('Delete'),
           'query' => $destination,
-        ) + $term->urlInfo('delete-form')->toArray(),
+          'url' => $term->urlInfo('delete-form'),
+        ),
       );
-      if ($this->moduleHandler->moduleExists('content_translation') && content_translation_translate_access($term)) {
+      if ($this->moduleHandler->moduleExists('content_translation') && content_translation_translate_access($term)->isAllowed()) {
         $operations['translate'] = array(
           'title' => $this->t('Translate'),
           'query' => $destination,
-        ) + $term->urlInfo('drupal:content-translation-overview')->toArray();
+          'url' => $term->urlInfo('drupal:content-translation-overview'),
+        );
       }
       $form['terms'][$key]['operations'] = array(
         '#type' => 'operations',
@@ -316,10 +334,10 @@ class OverviewTerms extends FormBase {
         'hidden' => FALSE,
       );
       $form['terms']['#attached']['library'][] = 'taxonomy/drupal.taxonomy';
-      $form['terms']['#attached']['js'][] = array(
-        'data' => array('taxonomy' => array('backStep' => $back_step, 'forwardStep' => $forward_step)),
-        'type' => 'setting',
-      );
+      $form['terms']['#attached']['drupalSettings']['taxonomy'] = [
+        'backStep' => $back_step,
+        'forwardStep' => $forward_step,
+      ];
     }
     $form['terms']['#tabledrag'][] = array(
       'action' => 'order',
@@ -327,7 +345,7 @@ class OverviewTerms extends FormBase {
       'group' => 'term-weight',
     );
 
-    if ($taxonomy_vocabulary->hierarchy != TAXONOMY_HIERARCHY_MULTIPLE && count($tree) > 1) {
+    if ($taxonomy_vocabulary->getHierarchy() != TAXONOMY_HIERARCHY_MULTIPLE && count($tree) > 1) {
       $form['actions'] = array('#type' => 'actions', '#tree' => FALSE);
       $form['actions']['submit'] = array(
         '#type' => 'submit',
@@ -336,12 +354,12 @@ class OverviewTerms extends FormBase {
       );
       $form['actions']['reset_alphabetical'] = array(
         '#type' => 'submit',
-        '#submit' => array(array($this, 'submitReset')),
+        '#submit' => array('::submitReset'),
         '#value' => $this->t('Reset to alphabetical'),
       );
-      $form_state['redirect'] = array(current_path(), ($page ? array('query' => array('page' => $page)) : array()));
     }
 
+    $form['pager_pager'] = ['#type' => 'pager'];
     return $form;
   }
 
@@ -360,21 +378,19 @@ class OverviewTerms extends FormBase {
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     // Sort term order based on weight.
-    uasort($form_state['values']['terms'], array('Drupal\Component\Utility\SortArray', 'sortByWeightElement'));
+    uasort($form_state->getValue('terms'), array('Drupal\Component\Utility\SortArray', 'sortByWeightElement'));
 
-    $vocabulary = $form_state['taxonomy']['vocabulary'];
+    $vocabulary = $form_state->get(['taxonomy', 'vocabulary']);
     // Update the current hierarchy type as we go.
     $hierarchy = TAXONOMY_HIERARCHY_DISABLED;
 
     $changed_terms = array();
-    // @todo taxonomy_get_tree needs to be converted to a service and injected.
-    //   Will be fixed in http://drupal.org/node/1976298.
-    $tree = taxonomy_get_tree($vocabulary->id(), 0, NULL, TRUE);
+    $tree = $this->storageController->loadTree($vocabulary->id(), 0, NULL, TRUE);
 
     if (empty($tree)) {
       return;
@@ -395,7 +411,7 @@ class OverviewTerms extends FormBase {
 
     // Renumber the current page weights and assign any new parents.
     $level_weights = array();
-    foreach ($form_state['values']['terms'] as $tid => $values) {
+    foreach ($form_state->getValue('terms') as $tid => $values) {
       if (isset($form['terms'][$tid]['#term'])) {
         $term = $form['terms'][$tid]['#term'];
         // Give terms at the root level a weight in sequence with terms on previous pages.
@@ -413,7 +429,7 @@ class OverviewTerms extends FormBase {
         }
         // Update any changed parents.
         if ($values['term']['parent'] != $term->parents[0]) {
-          $term->parent->value = $values['term']['parent'];
+          $term->parent->target_id = $values['term']['parent'];
           $changed_terms[$term->id()] = $term;
         }
         $hierarchy = $term->parents[0] != 0 ? TAXONOMY_HIERARCHY_SINGLE : $hierarchy;
@@ -425,7 +441,7 @@ class OverviewTerms extends FormBase {
     for ($weight; $weight < count($tree); $weight++) {
       $term = $tree[$weight];
       if ($term->parents[0] == 0 && $term->getWeight() != $weight) {
-        $term->parent->value = $term->parents[0];
+        $term->parent->target_id = $term->parents[0];
         $term->setWeight($weight);
         $changed_terms[$term->id()] = $term;
       }
@@ -438,8 +454,8 @@ class OverviewTerms extends FormBase {
     }
 
     // Update the vocabulary hierarchy to flat or single hierarchy.
-    if ($vocabulary->hierarchy != $hierarchy) {
-      $vocabulary->hierarchy = $hierarchy;
+    if ($vocabulary->getHierarchy() != $hierarchy) {
+      $vocabulary->setHierarchy($hierarchy);
       $vocabulary->save();
     }
     drupal_set_message($this->t('The configuration options have been saved.'));
@@ -448,10 +464,10 @@ class OverviewTerms extends FormBase {
   /**
    * Redirects to confirmation form for the reset action.
    */
-  public function submitReset(array &$form, array &$form_state) {
+  public function submitReset(array &$form, FormStateInterface $form_state) {
     /** @var $vocabulary \Drupal\taxonomy\VocabularyInterface */
-    $vocabulary = $form_state['taxonomy']['vocabulary'];
-    $form_state['redirect_route'] = $vocabulary->urlInfo('reset');
+    $vocabulary = $form_state->get(['taxonomy', 'vocabulary']);
+    $form_state->setRedirectUrl($vocabulary->urlInfo('reset-form'));
   }
 
 }

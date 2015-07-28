@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\PrependCommand.
+ * Contains \Drupal\Core\Ajax\PrependCommand.
  */
 
 namespace Drupal\Core\Ajax;
@@ -20,6 +20,8 @@ use Drupal\Core\Ajax\InsertCommand;
  * defined in misc/ajax.js.
  *
  * @see http://docs.jquery.com/Manipulation/prepend#content
+ *
+ * @ingroup ajax
  */
 class PrependCommand extends InsertCommand {
 
@@ -32,7 +34,7 @@ class PrependCommand extends InsertCommand {
       'command' => 'insert',
       'method' => 'prepend',
       'selector' => $this->selector,
-      'data' => $this->html,
+      'data' => $this->getRenderedContent(),
       'settings' => $this->settings,
     );
   }

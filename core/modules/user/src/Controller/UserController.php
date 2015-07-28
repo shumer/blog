@@ -9,12 +9,12 @@ namespace Drupal\user\Controller;
 
 use Drupal\Component\Utility\Xss;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Datetime\DateFormatter;
+use Drupal\user\UserDataInterface;
 use Drupal\user\UserInterface;
-use Symfony\Component\HttpFoundation\Request;
+use Drupal\user\UserStorageInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Drupal\Core\Datetime\Date as DateFormatter;
-use Drupal\user\UserStorageInterface;
 
 /**
  * Controller routines for user routes.
@@ -24,7 +24,7 @@ class UserController extends ControllerBase {
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
@@ -36,16 +36,26 @@ class UserController extends ControllerBase {
   protected $userStorage;
 
   /**
+   * The user data service.
+   *
+   * @var \Drupal\user\UserDataInterface
+   */
+  protected $userData;
+
+  /**
    * Constructs a UserController object.
    *
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
    * @param \Drupal\user\UserStorageInterface $user_storage
    *   The user storage.
+   * @param \Drupal\user\UserDataInterface $user_data
+   *   The user data service.
    */
-  public function __construct(DateFormatter $date_formatter, UserStorageInterface $user_storage) {
+  public function __construct(DateFormatter $date_formatter, UserStorageInterface $user_storage, UserDataInterface $user_data) {
     $this->dateFormatter = $date_formatter;
     $this->userStorage = $user_storage;
+    $this->userData = $user_data;
   }
 
   /**
@@ -53,8 +63,9 @@ class UserController extends ControllerBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('date'),
-      $container->get('entity.manager')->getStorage('user')
+      $container->get('date.formatter'),
+      $container->get('entity.manager')->getStorage('user'),
+      $container->get('user.data')
     );
   }
 
@@ -82,43 +93,43 @@ class UserController extends ControllerBase {
     if ($account->isAuthenticated()) {
       // The current user is already logged in.
       if ($account->id() == $uid) {
-        drupal_set_message($this->t('You are logged in as %user. <a href="!user_edit">Change your password.</a>', array('%user' => $account->getUsername(), '!user_edit' => $this->url('user.edit', array('user' => $account->id())))));
+        user_logout();
       }
       // A different user is already logged in on the computer.
       else {
         if ($reset_link_user = $this->userStorage->load($uid)) {
-          drupal_set_message($this->t('Another user (%other_user) is already logged into the site on this computer, but you tried to use a one-time link for user %resetting_user. Please <a href="!logout">logout</a> and try using the link again.',
-            array('%other_user' => $account->getUsername(), '%resetting_user' => $reset_link_user->getUsername(), '!logout' => $this->url('user.logout'))));
+          drupal_set_message($this->t('Another user (%other_user) is already logged into the site on this computer, but you tried to use a one-time link for user %resetting_user. Please <a href="@logout">logout</a> and try using the link again.',
+            array('%other_user' => $account->getUsername(), '%resetting_user' => $reset_link_user->getUsername(), '@logout' => $this->url('user.logout'))), 'warning');
         }
         else {
           // Invalid one-time link specifies an unknown user.
           drupal_set_message($this->t('The one-time login link you clicked is invalid.'));
         }
+        return $this->redirect('<front>');
       }
-      return $this->redirect('<front>');
     }
-    else {
-      // The current user is not logged in, so check the parameters.
-      // Time out, in seconds, until login URL expires.
-      $timeout = $config->get('password_reset_timeout');
-      $current = REQUEST_TIME;
-      /* @var \Drupal\user\UserInterface $user */
-      $user = $this->userStorage->load($uid);
-      // Verify that the user exists and is active.
-      if ($user && $user->isActive()) {
-        // No time out for first time login.
-        if ($user->getLastLoginTime() && $current - $timestamp > $timeout) {
-          drupal_set_message($this->t('You have tried to use a one-time login link that has expired. Please request a new one using the form below.'));
-          return $this->redirect('user.pass');
-        }
-        elseif ($user->isAuthenticated() && ($timestamp >= $user->getLastLoginTime()) && ($timestamp <= $current) && ($hash === user_pass_rehash($user->getPassword(), $timestamp, $user->getLastLoginTime()))) {
-          $expiration_date = $user->getLastLoginTime() ? $this->dateFormatter->format($timestamp + $timeout) : NULL;
-          return $this->formBuilder()->getForm('Drupal\user\Form\UserPasswordResetForm', $user, $expiration_date, $timestamp, $hash);
-        }
-        else {
-          drupal_set_message($this->t('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.'));
-          return $this->redirect('user.pass');
-        }
+    // The current user is not logged in, so check the parameters.
+    // Time out, in seconds, until login URL expires.
+    $timeout = $config->get('password_reset_timeout');
+    $current = REQUEST_TIME;
+
+    /* @var \Drupal\user\UserInterface $user */
+    $user = $this->userStorage->load($uid);
+
+    // Verify that the user exists and is active.
+    if ($user && $user->isActive()) {
+      // No time out for first time login.
+      if ($user->getLastLoginTime() && $current - $timestamp > $timeout) {
+        drupal_set_message($this->t('You have tried to use a one-time login link that has expired. Please request a new one using the form below.'), 'error');
+        return $this->redirect('user.pass');
+      }
+      elseif ($user->isAuthenticated() && ($timestamp >= $user->getLastLoginTime()) && ($timestamp <= $current) && ($hash === user_pass_rehash($user->getPassword(), $timestamp, $user->getLastLoginTime(), $user->id()))) {
+        $expiration_date = $user->getLastLoginTime() ? $this->dateFormatter->format($timestamp + $timeout) : NULL;
+        return $this->formBuilder()->getForm('Drupal\user\Form\UserPasswordResetForm', $user, $expiration_date, $timestamp, $hash);
+      }
+      else {
+        drupal_set_message($this->t('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.'), 'error');
+        return $this->redirect('user.pass');
       }
     }
     // Blocked or invalid user ID, so deny access. The parameters will be in the
@@ -127,28 +138,17 @@ class UserController extends ControllerBase {
   }
 
   /**
-   * Returns the user page.
+   * Redirects users to their profile page.
    *
-   * Displays user profile if user is logged in, or login form for anonymous
-   * users.
+   * This controller assumes that it is only invoked for authenticated users.
+   * This is enforced for the 'user.page' route with the '_user_is_logged_in'
+   * requirement.
    *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current request.
-   *
-   * @return \Symfony\Component\HttpFoundation\RedirectResponse|array
-   *   Returns either a redirect to the user page or the render
-   *   array of the login form.
+   * @return \Symfony\Component\HttpFoundation\RedirectResponse
+   *   Returns a redirect to the profile of the currently logged in user.
    */
-  public function userPage(Request $request) {
-    $user = $this->currentUser();
-    if ($user->id()) {
-      $response = $this->redirect('user.view', array('user' => $user->id()));
-    }
-    else {
-      $form_builder = $this->formBuilder();
-      $response = $form_builder->getForm('Drupal\user\Form\UserLoginForm');
-    }
-    return $response;
+  public function userPage() {
+    return $this->redirect('entity.user.canonical', array('user' => $this->currentUser()->id()));
   }
 
   /**
@@ -176,11 +176,43 @@ class UserController extends ControllerBase {
   }
 
   /**
-   * @todo Remove user_cancel_confirm().
+   * Confirms cancelling a user account via an email link.
+   *
+   * @param \Drupal\user\UserInterface $user
+   *   The user account.
+   * @param int $timestamp
+   *   The timestamp.
+   * @param string $hashed_pass
+   *   The hashed password.
+   *
+   * @return \Symfony\Component\HttpFoundation\RedirectResponse
+   *   A redirect response.
    */
   public function confirmCancel(UserInterface $user, $timestamp = 0, $hashed_pass = '') {
-    module_load_include('pages.inc', 'user');
-    return user_cancel_confirm($user, $timestamp, $hashed_pass);
+    // Time out in seconds until cancel URL expires; 24 hours = 86400 seconds.
+    $timeout = 86400;
+    $current = REQUEST_TIME;
+
+    // Basic validation of arguments.
+    $account_data = $this->userData->get('user', $user->id());
+    if (isset($account_data['cancel_method']) && !empty($timestamp) && !empty($hashed_pass)) {
+      // Validate expiration and hashed password/login.
+      if ($timestamp <= $current && $current - $timestamp < $timeout && $user->id() && $timestamp >= $user->getLastLoginTime() && $hashed_pass == user_pass_rehash($user->getPassword(), $timestamp, $user->getLastLoginTime(), $user->id())) {
+        $edit = array(
+          'user_cancel_notify' => isset($account_data['cancel_notify']) ? $account_data['cancel_notify'] : $this->config('user.settings')->get('notify.status_canceled'),
+        );
+        user_cancel($edit, $user->id(), $account_data['cancel_method']);
+        // Since user_cancel() is not invoked via Form API, batch processing
+        // needs to be invoked manually and should redirect to the front page
+        // after completion.
+        return batch_process('');
+      }
+      else {
+        drupal_set_message(t('You have tried to use an account cancellation link that has expired. Please request a new one using the form below.'));
+        return $this->redirect('entity.user.cancel_form', ['user' => $user->id()], ['absolute' => TRUE]);
+      }
+    }
+    throw new AccessDeniedHttpException();
   }
 
 }

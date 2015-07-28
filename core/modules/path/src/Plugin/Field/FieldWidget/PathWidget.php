@@ -9,6 +9,7 @@ namespace Drupal\path\Plugin\Field\FieldWidget;
 
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 
@@ -28,11 +29,11 @@ class PathWidget extends WidgetBase {
   /**
    * {@inheritdoc}
    */
-  public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, array &$form_state) {
+  public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, FormStateInterface $form_state) {
     $entity = $items->getEntity();
     $path = array();
     if (!$entity->isNew()) {
-      $conditions = array('source' => $entity->getSystemPath());
+      $conditions = array('source' => '/' . $entity->urlInfo()->getInternalPath());
       if ($items->getLangcode() != LanguageInterface::LANGCODE_NOT_SPECIFIED) {
         $conditions['langcode'] = $items->getLangcode();
       }
@@ -43,7 +44,7 @@ class PathWidget extends WidgetBase {
     }
     $path += array(
       'pid' => NULL,
-      'source' => !$entity->isNew() ? $entity->getSystemPath() : NULL,
+      'source' => !$entity->isNew() ? '/' . $entity->urlInfo()->getInternalPath() : NULL,
       'alias' => '',
       'langcode' => $items->getLangcode(),
     );
@@ -57,7 +58,7 @@ class PathWidget extends WidgetBase {
       '#default_value' => $path['alias'],
       '#required' => $element['#required'],
       '#maxlength' => 255,
-      '#description' => $this->t('The alternative URL for this content. Use a relative path without a trailing slash. For example, enter "about" for the about page.'),
+      '#description' => $this->t('The alternative URL for this content. Use a relative path. For example, enter "/about" for the about page.'),
     );
     $element['pid'] = array(
       '#type' => 'value',
@@ -79,28 +80,31 @@ class PathWidget extends WidgetBase {
    *
    * @param array $element
    *   The form element.
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state.
    */
-  public static function validateFormElement(array &$element, array &$form_state) {
-    // Trim the submitted value.
-    $alias = trim($element['alias']['#value']);
+  public static function validateFormElement(array &$element, FormStateInterface $form_state) {
+    // Trim the submitted value of whitespace and slashes.
+    $alias = rtrim(trim($element['alias']['#value']), " \\/");
     if (!empty($alias)) {
-      $form_builder = \Drupal::formBuilder();
-      $form_builder->setValue($element['alias'], $alias, $form_state);
+      $form_state->setValueForElement($element['alias'], $alias);
 
       // Validate that the submitted alias does not exist yet.
       $is_exists = \Drupal::service('path.alias_storage')->aliasExists($alias, $element['langcode']['#value'], $element['source']['#value']);
       if ($is_exists) {
-        $form_builder->setError($element, $form_state, t('The alias is already in use.'));
+        $form_state->setError($element, t('The alias is already in use.'));
       }
+    }
+
+    if ($alias && $alias[0] !== '/') {
+      $form_state->setError($element, t('The alias needs to start with a slash.'));
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function errorElement(array $element, ConstraintViolationInterface $violation, array $form, array &$form_state) {
+  public function errorElement(array $element, ConstraintViolationInterface $violation, array $form, FormStateInterface $form_state) {
     return $element['alias'];
   }
 

@@ -17,13 +17,6 @@ use Drupal\Tests\UnitTestCase;
 class LogMessageParserTest extends UnitTestCase {
 
   /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
-    $this->parser = new LogMessageParser();
-  }
-
-  /**
    * Test for LogMessageParserTrait::parseMessagePlaceholders()
    *
    * @param array $value
@@ -39,7 +32,8 @@ class LogMessageParserTest extends UnitTestCase {
    * @covers ::parseMessagePlaceholders
    */
   public function testParseMessagePlaceholders(array $value, array $expected) {
-    $message_placeholders = $this->parser->parseMessagePlaceholders($value['message'], $value['context']);
+    $parser = new LogMessageParser();
+    $message_placeholders = $parser->parseMessagePlaceholders($value['message'], $value['context']);
     $this->assertEquals($expected['message'], $value['message']);
     $this->assertEquals($expected['context'], $message_placeholders);
   }
@@ -64,12 +58,12 @@ class LogMessageParserTest extends UnitTestCase {
         array('message' => 'User @username created', 'context' => array('@username' => 'Dries')),
         array('message' => 'User @username created', 'context' => array('@username' => 'Dries')),
       ),
-      // Messsage without placeholders but wildcard characters.
+      // Message without placeholders but wildcard characters.
       array(
         array('message' => 'User W-\\};~{&! created @', 'context' => array('' => '')),
         array('message' => 'User W-\\};~{&! created @', 'context' => array()),
       ),
-      // Messsage with double PSR3 style messages.
+      // Message with double PSR3 style messages.
       array(
         array('message' => 'Test {with} two {encapsuled} strings', 'context' => array('with' => 'together', 'encapsuled' => 'awesome')),
         array('message' => 'Test @with two @encapsuled strings', 'context' => array('@with' => 'together', '@encapsuled' => 'awesome')),

@@ -7,8 +7,8 @@
 
 namespace Drupal\block\Controller;
 
-use Drupal\block\BlockManagerInterface;
-use Drupal\Component\Utility\String;
+use Drupal\Core\Block\BlockManagerInterface;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,14 +22,14 @@ class CategoryAutocompleteController implements ContainerInjectionInterface {
   /**
    * The block manager.
    *
-   * @var \Drupal\block\BlockManagerInterface
+   * @var \Drupal\Core\Block\BlockManagerInterface
    */
   protected $blockManager;
 
   /**
    * Constructs a new CategoryAutocompleteController.
    *
-   * @param \Drupal\block\BlockManagerInterface $block_manager
+   * @param \Drupal\Core\Block\BlockManagerInterface $block_manager
    *   The block manager.
    */
   public function __construct(BlockManagerInterface $block_manager) {
@@ -59,7 +59,7 @@ class CategoryAutocompleteController implements ContainerInjectionInterface {
     $matches = array();
     foreach ($this->blockManager->getCategories() as $category) {
       if (stripos($category, $typed_category) === 0) {
-        $matches[] = array('value' => $category, 'label' => String::checkPlain($category));
+        $matches[] = array('value' => $category, 'label' => SafeMarkup::checkPlain($category));
       }
     }
     return new JsonResponse($matches);

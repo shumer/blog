@@ -7,18 +7,18 @@
 
 namespace Drupal\config\Tests;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\ConfigImporter;
 use Drupal\Core\Config\ConfigImporterException;
 use Drupal\Core\Config\StorageComparer;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests importing configuration from files into active configuration.
  *
  * @group config
  */
-class ConfigImporterTest extends DrupalUnitTestBase {
+class ConfigImporterTest extends KernelTestBase {
 
   /**
    * Config Importer object used for testing.
@@ -34,7 +34,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
    */
   public static $modules = array('config_test', 'system', 'config_import_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->installConfig(array('config_test'));
@@ -58,6 +58,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       $this->container->get('lock'),
       $this->container->get('config.typed'),
       $this->container->get('module_handler'),
+      $this->container->get('module_installer'),
       $this->container->get('theme_handler'),
       $this->container->get('string_translation')
     );
@@ -70,10 +71,10 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     $dynamic_name = 'config_test.dynamic.dotted.default';
 
     // Verify the default configuration values exist.
-    $config = \Drupal::config($dynamic_name);
+    $config = $this->config($dynamic_name);
     $this->assertIdentical($config->get('id'), 'dotted.default');
 
-    // Verify that a bare \Drupal::config() does not involve module APIs.
+    // Verify that a bare $this->config() does not involve module APIs.
     $this->assertFalse(isset($GLOBALS['hook_config_test']));
   }
 
@@ -98,13 +99,13 @@ class ConfigImporterTest extends DrupalUnitTestBase {
   function testSiteUuidValidate() {
     $staging = \Drupal::service('config.storage.staging');
     // Create updated configuration object.
-    $config_data = \Drupal::config('system.site')->get();
+    $config_data = $this->config('system.site')->get();
     // Generate a new site UUID.
     $config_data['uuid'] = \Drupal::service('uuid')->generate();
     $staging->write('system.site', $config_data);
     try {
       $this->configImporter->reset()->import();
-      $this->assertFalse(FALSE, 'ConfigImporterException not thrown, invalid import was not stopped due to mis-matching site UUID.');
+      $this->fail('ConfigImporterException not thrown, invalid import was not stopped due to mis-matching site UUID.');
     }
     catch (ConfigImporterException $e) {
       $this->assertEqual($e->getMessage(), 'There were errors validating the config synchronization.');
@@ -123,7 +124,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     $staging = $this->container->get('config.storage.staging');
 
     // Verify the default configuration values exist.
-    $config = \Drupal::config($dynamic_name);
+    $config = $this->config($dynamic_name);
     $this->assertIdentical($config->get('id'), 'dotted.default');
 
     // Delete the file from the staging directory.
@@ -135,7 +136,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     // Verify the file has been removed.
     $this->assertIdentical($storage->read($dynamic_name), FALSE);
 
-    $config = \Drupal::config($dynamic_name);
+    $config = $this->config($dynamic_name);
     $this->assertIdentical($config->get('id'), NULL);
 
     // Verify that appropriate module API hooks have been invoked.
@@ -165,14 +166,15 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     // Create new config entity.
     $original_dynamic_data = array(
       'uuid' => '30df59bd-7b03-4cf7-bb35-d42fc49f0651',
-      'langcode' => \Drupal::languageManager()->getDefaultLanguage()->id,
+      'langcode' => \Drupal::languageManager()->getDefaultLanguage()->getId(),
       'status' => TRUE,
       'dependencies' => array(),
       'id' => 'new',
       'label' => 'New',
       'weight' => 0,
       'style' => '',
-      'test_dependencies' => array(),
+      'size' => '',
+      'size_value' => '',
       'protected_property' => '',
     );
     $staging->write($dynamic_name, $original_dynamic_data);
@@ -183,7 +185,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     $this->configImporter->reset()->import();
 
     // Verify the values appeared.
-    $config = \Drupal::config($dynamic_name);
+    $config = $this->config($dynamic_name);
     $this->assertIdentical($config->get('label'), $original_dynamic_data['label']);
 
     // Verify that appropriate module API hooks have been invoked.
@@ -227,7 +229,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       'uuid' => $uuid->generate(),
       // Add a dependency on primary, to ensure that is synced first.
       'dependencies' => array(
-        'entity' => array($name_primary),
+        'config' => array($name_primary),
       )
     );
     $staging->write($name_secondary, $values_secondary);
@@ -247,7 +249,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
 
     $logs = $this->configImporter->getErrors();
     $this->assertEqual(count($logs), 1);
-    $this->assertEqual($logs[0], String::format('Deleted and replaced configuration entity "@name"', array('@name' => $name_secondary)));
+    $this->assertEqual($logs[0], SafeMarkup::format('Deleted and replaced configuration entity "@name"', array('@name' => $name_secondary)));
   }
 
   /**
@@ -266,7 +268,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       'uuid' => $uuid->generate(),
       // Add a dependency on secondary, so that is synced first.
       'dependencies' => array(
-        'entity' => array($name_secondary),
+        'config' => array($name_secondary),
       )
     );
     $staging->write($name_primary, $values_primary);
@@ -293,8 +295,8 @@ class ConfigImporterTest extends DrupalUnitTestBase {
 
     $logs = $this->configImporter->getErrors();
     $this->assertEqual(count($logs), 1);
-    $message = String::format('config_test entity with ID @name already exists', array('@name' => 'secondary'));
-    $this->assertEqual($logs[0], String::format('Unexpected error during import with operation @op for @name: @message.', array('@op' => 'create', '@name' => $name_primary, '@message' => $message)));
+    $message = SafeMarkup::format('config_test entity with ID @name already exists', array('@name' => 'secondary'));
+    $this->assertEqual($logs[0], SafeMarkup::format('Unexpected error during import with operation @op for @name: @message.', array('@op' => 'create', '@name' => $name_primary, '@message' => $message)));
   }
 
   /**
@@ -324,7 +326,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       'uuid' => $uuid->generate(),
       // Add a dependency on deleter, to make sure that is synced first.
       'dependencies' => array(
-        'entity' => array($name_deleter),
+        'config' => array($name_deleter),
       )
     );
     $storage->write($name_deletee, $values_deletee);
@@ -340,7 +342,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       // Add a dependency on deleter, to make sure that is synced first. This
       // will also be synced after the deletee due to alphabetical ordering.
       'dependencies' => array(
-        'entity' => array($name_deleter),
+        'config' => array($name_deleter),
       )
     );
     $storage->write($name_other, $values_other);
@@ -376,11 +378,15 @@ class ConfigImporterTest extends DrupalUnitTestBase {
 
     $logs = $this->configImporter->getErrors();
     $this->assertEqual(count($logs), 1);
-    $this->assertEqual($logs[0], String::format('Update target "@name" is missing.', array('@name' => $name_deletee)));
+    $this->assertEqual($logs[0], SafeMarkup::format('Update target "@name" is missing.', array('@name' => $name_deletee)));
   }
 
   /**
    * Tests that secondary updates for deleted files work as expected.
+   *
+   * This test is completely hypothetical since we only support full
+   * configuration tree imports. Therefore, any configuration updates that cause
+   * secondary deletes should be reflected already in the staged configuration.
    */
   function testSecondaryUpdateDeletedDeleteeFirst() {
     $name_deleter = 'config_test.dynamic.deleter';
@@ -396,7 +402,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       'uuid' => $uuid->generate(),
       // Add a dependency on deletee, to make sure that is synced first.
       'dependencies' => array(
-        'entity' => array($name_deletee),
+        'config' => array($name_deletee),
       ),
     );
     $storage->write($name_deleter, $values_deleter);
@@ -416,13 +422,10 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     $this->configImporter->reset()->import();
 
     $entity_storage = \Drupal::entityManager()->getStorage('config_test');
-    $deleter = $entity_storage->load('deleter');
-    $this->assertEqual($deleter->id(), 'deleter');
-    $this->assertEqual($deleter->uuid(), $values_deleter['uuid']);
-    $this->assertEqual($deleter->label(), $values_deleter['label']);
-    // @todo The deletee entity does not exist as the update worked but the
-    //   entity was deleted after that. There is also no log message as this
-    //   happened outside of the config importer.
+    // Both entities are deleted. ConfigTest::postSave() causes updates of the
+    // deleter entity to delete the deletee entity. Since the deleter depends on
+    // the deletee, removing the deletee causes the deleter to be removed.
+    $this->assertFalse($entity_storage->load('deleter'));
     $this->assertFalse($entity_storage->load('deletee'));
     $logs = $this->configImporter->getErrors();
     $this->assertEqual(count($logs), 0);
@@ -445,7 +448,7 @@ class ConfigImporterTest extends DrupalUnitTestBase {
       'uuid' => $uuid->generate(),
       // Add a dependency on deletee, to make sure this delete is synced first.
       'dependencies' => array(
-        'entity' => array($name_deletee),
+        'config' => array($name_deletee),
       ),
     );
     $storage->write($name_deleter, $values_deleter);
@@ -494,9 +497,9 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     $staging->write($dynamic_name, $original_dynamic_data);
 
     // Verify the active configuration still returns the default values.
-    $config = \Drupal::config($name);
+    $config = $this->config($name);
     $this->assertIdentical($config->get('foo'), 'bar');
-    $config = \Drupal::config($dynamic_name);
+    $config = $this->config($dynamic_name);
     $this->assertIdentical($config->get('label'), 'Default');
 
     // Import.
@@ -504,9 +507,9 @@ class ConfigImporterTest extends DrupalUnitTestBase {
 
     // Verify the values were updated.
     \Drupal::configFactory()->reset($name);
-    $config = \Drupal::config($name);
+    $config = $this->config($name);
     $this->assertIdentical($config->get('foo'), 'beer');
-    $config = \Drupal::config($dynamic_name);
+    $config = $this->config($dynamic_name);
     $this->assertIdentical($config->get('label'), 'Updated');
 
     // Verify that the original file content is still the same.
@@ -526,5 +529,148 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     $logs = $this->configImporter->getErrors();
     $this->assertEqual(count($logs), 0);
   }
-}
 
+  /**
+   * Tests the isInstallable method()
+   */
+  function testIsInstallable() {
+    $config_name = 'config_test.dynamic.isinstallable';
+    $this->assertFalse($this->container->get('config.storage')->exists($config_name));
+    \Drupal::state()->set('config_test.isinstallable', TRUE);
+    $this->installConfig(array('config_test'));
+    $this->assertTrue($this->container->get('config.storage')->exists($config_name));
+  }
+
+  /**
+   * Tests dependency validation during configuration import.
+   *
+   * @see \Drupal\Core\EventSubscriber\ConfigImportSubscriber
+   * @see \Drupal\Core\Config\ConfigImporter::createExtensionChangelist()
+   */
+  public function testUnmetDependency() {
+    $storage = $this->container->get('config.storage');
+    $staging = $this->container->get('config.storage.staging');
+
+    // Test an unknown configuration owner.
+    $staging->write('unknown.config', ['test' => 'test']);
+
+    // Make a config entity have unmet dependencies.
+    $config_entity_data = $staging->read('config_test.dynamic.dotted.default');
+    $config_entity_data['dependencies'] = ['module' => ['unknown']];
+    $staging->write('config_test.dynamic.dotted.module', $config_entity_data);
+    $config_entity_data['dependencies'] = ['theme' => ['unknown']];
+    $staging->write('config_test.dynamic.dotted.theme', $config_entity_data);
+    $config_entity_data['dependencies'] = ['config' => ['unknown']];
+    $staging->write('config_test.dynamic.dotted.config', $config_entity_data);
+
+    // Make an active config depend on something that is missing in staging.
+    // The whole configuration needs to be consistent, not only the updated one.
+    $config_entity_data['dependencies'] = [];
+    $storage->write('config_test.dynamic.dotted.deleted', $config_entity_data);
+    $config_entity_data['dependencies'] = ['config' => ['config_test.dynamic.dotted.deleted']];
+    $storage->write('config_test.dynamic.dotted.existing', $config_entity_data);
+    $staging->write('config_test.dynamic.dotted.existing', $config_entity_data);
+
+    $extensions = $staging->read('core.extension');
+    // Add a module and a theme that do not exist.
+    $extensions['module']['unknown_module'] = 0;
+    $extensions['theme']['unknown_theme'] = 0;
+    // Add a module and a theme that depend on uninstalled extensions.
+    $extensions['module']['book'] = 0;
+    $extensions['theme']['bartik'] = 0;
+
+    $staging->write('core.extension', $extensions);
+    try {
+      $this->configImporter->reset()->import();
+      $this->fail('ConfigImporterException not thrown; an invalid import was not stopped due to missing dependencies.');
+    }
+    catch (ConfigImporterException $e) {
+      $this->assertEqual($e->getMessage(), 'There were errors validating the config synchronization.');
+      $error_log = $this->configImporter->getErrors();
+      $expected = [
+        'Unable to install the <em class="placeholder">unknown_module</em> module since it does not exist.',
+        'Unable to install the <em class="placeholder">Book</em> module since it requires the <em class="placeholder">Node, Text, Field, Filter, User, Entity Reference</em> modules.',
+        'Unable to install the <em class="placeholder">unknown_theme</em> theme since it does not exist.',
+        'Unable to install the <em class="placeholder">Bartik</em> theme since it requires the <em class="placeholder">Classy</em> theme.',
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.config</em> depends on the <em class="placeholder">unknown</em> configuration that will not exist after import.',
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.existing</em> depends on the <em class="placeholder">config_test.dynamic.dotted.deleted</em> configuration that will not exist after import.',
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.module</em> depends on the <em class="placeholder">unknown</em> module that will not be installed after import.',
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.theme</em> depends on the <em class="placeholder">unknown</em> theme that will not be installed after import.',
+        'Configuration <em class="placeholder">unknown.config</em> depends on the <em class="placeholder">unknown</em> extension that will not be installed after import.',
+      ];
+      foreach ($expected as $expected_message) {
+        $this->assertTrue(in_array($expected_message, $error_log), $expected_message);
+      }
+    }
+
+    // Make a config entity have mulitple unmet dependencies.
+    $config_entity_data = $staging->read('config_test.dynamic.dotted.default');
+    $config_entity_data['dependencies'] = ['module' => ['unknown', 'dblog']];
+    $staging->write('config_test.dynamic.dotted.module', $config_entity_data);
+    $config_entity_data['dependencies'] = ['theme' => ['unknown', 'seven']];
+    $staging->write('config_test.dynamic.dotted.theme', $config_entity_data);
+    $config_entity_data['dependencies'] = ['config' => ['unknown', 'unknown2']];
+    $staging->write('config_test.dynamic.dotted.config', $config_entity_data);
+    try {
+      $this->configImporter->reset()->import();
+      $this->fail('ConfigImporterException not thrown, invalid import was not stopped due to missing dependencies.');
+    }
+    catch (ConfigImporterException $e) {
+      $this->assertEqual($e->getMessage(), 'There were errors validating the config synchronization.');
+      $error_log = $this->configImporter->getErrors();
+      $expected = [
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.config</em> depends on configuration (<em class="placeholder">unknown, unknown2</em>) that will not exist after import.',
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.module</em> depends on modules (<em class="placeholder">unknown, Database Logging</em>) that will not be installed after import.',
+        'Configuration <em class="placeholder">config_test.dynamic.dotted.theme</em> depends on themes (<em class="placeholder">unknown, Seven</em>) that will not be installed after import.',
+      ];
+      foreach ($expected as $expected_message) {
+        $this->assertTrue(in_array($expected_message, $error_log), $expected_message);
+      }
+    }
+  }
+
+  /**
+   * Tests missing core.extension during configuration import.
+   *
+   * @see \Drupal\Core\EventSubscriber\ConfigImportSubscriber
+   */
+  public function testMissingCoreExtension() {
+    $staging = $this->container->get('config.storage.staging');
+    $staging->delete('core.extension');
+    try {
+      $this->configImporter->reset()->import();
+      $this->fail('ConfigImporterException not thrown, invalid import was not stopped due to missing dependencies.');
+    }
+    catch (ConfigImporterException $e) {
+      $this->assertEqual($e->getMessage(), 'There were errors validating the config synchronization.');
+      $error_log = $this->configImporter->getErrors();
+      $this->assertEqual(['The core.extension configuration does not exist.'], $error_log);
+    }
+  }
+
+  /**
+   * Tests install profile validation during configuration import.
+   *
+   * @see \Drupal\Core\EventSubscriber\ConfigImportSubscriber
+   */
+  public function testInstallProfile() {
+    $staging = $this->container->get('config.storage.staging');
+
+    $extensions = $staging->read('core.extension');
+    // Add an install profile.
+    $extensions['module']['standard'] = 0;
+
+    $staging->write('core.extension', $extensions);
+    try {
+      $this->configImporter->reset()->import();
+      $this->fail('ConfigImporterException not thrown; an invalid import was not stopped due to missing dependencies.');
+    }
+    catch (ConfigImporterException $e) {
+      $this->assertEqual($e->getMessage(), 'There were errors validating the config synchronization.');
+      $error_log = $this->configImporter->getErrors();
+      // Install profiles should not even be scanned at this point.
+      $this->assertEqual(['Unable to install the <em class="placeholder">standard</em> module since it does not exist.'], $error_log);
+    }
+  }
+
+}

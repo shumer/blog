@@ -71,6 +71,9 @@ interface MenuTreeStorageInterface {
    * @param array $properties
    *   The properties to filter by.
    *
+   * @throws \InvalidArgumentException
+   *   Thrown if an invalid property name is specified in $properties.
+   *
    * @return array
    *   An array of menu link definition arrays.
    */
@@ -128,9 +131,9 @@ interface MenuTreeStorageInterface {
    *
    * The tree order is maintained using an optimized algorithm, for example by
    * storing each parent in an individual field, see
-   * http://drupal.org/node/141866 for more details. However, any details of the
-   * storage should not be relied upon since it may be swapped with a different
-   * implementation.
+   * https://www.drupal.org/node/141866 for more details. However, any details
+   * of the storage should not be relied upon since it may be swapped with a
+   * different implementation.
    *
    * @param string $menu_name
    *   The name of the menu.
@@ -146,11 +149,11 @@ interface MenuTreeStorageInterface {
   public function loadTreeData($menu_name, MenuTreeParameters $parameters);
 
   /**
-   * Loads all the visible menu links that are below the given ID.
+   * Loads all the enabled menu links that are below the given ID.
    *
    * The returned links are not ordered, and visible children will be included
-   * even if they have a hidden parent or ancestor so would not normally appear
-   * in a rendered tree.
+   * even if they have parent that is not enabled or ancestor so would not
+   * normally appear in a rendered tree.
    *
    * @param string $id
    *   The parent menu link ID.
@@ -158,7 +161,7 @@ interface MenuTreeStorageInterface {
    *   The maximum relative depth of the children relative to the passed parent.
    *
    * @return array
-   *   An array of visible (not hidden) link definitions, keyed by ID.
+   *   An array of enabled link definitions, keyed by ID.
    */
   public function loadAllChildren($id, $max_relative_depth = NULL);
 

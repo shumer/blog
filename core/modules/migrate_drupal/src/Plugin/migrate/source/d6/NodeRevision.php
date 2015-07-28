@@ -1,9 +1,9 @@
 <?php
 
 /**
-* @file
-* Contains \Drupal\migrate_drupal\Plugin\migrate\source\d6\NodeRevision.
-*/
+ * @file
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\source\d6\NodeRevision.
+ */
 
 namespace Drupal\migrate_drupal\Plugin\migrate\source\d6;
 
@@ -26,7 +26,11 @@ class NodeRevision extends Node {
    */
   public function fields() {
     // Use all the node fields plus the vid that identifies the version.
-    return parent::fields() + array('vid' => t('The primary identifier for this version.'));
+    return parent::fields() + array(
+      'vid' => t('The primary identifier for this version.'),
+      'log' => $this->t('Revision Log message'),
+      'timestamp' => $this->t('Revision timestamp'),
+    );
   }
 
   /**

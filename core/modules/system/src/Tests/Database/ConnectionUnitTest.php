@@ -2,20 +2,22 @@
 
 /**
  * @file
- * Contains Drupal\system\Tests\Database\ConnectionUnitTest.
+ * Contains \Drupal\system\Tests\Database\ConnectionUnitTest.
  */
 
 namespace Drupal\system\Tests\Database;
 
+use Doctrine\Common\Reflection\StaticReflectionProperty;
 use Drupal\Core\Database\Database;
-use Drupal\simpletest\UnitTestBase;
+use Drupal\Core\Site\Settings;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests management of database connections.
  *
  * @group Database
  */
-class ConnectionUnitTest extends UnitTestBase {
+class ConnectionUnitTest extends KernelTestBase {
 
   protected $key;
   protected $target;
@@ -23,7 +25,7 @@ class ConnectionUnitTest extends UnitTestBase {
   protected $monitor;
   protected $originalCount;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->key = 'default';
@@ -33,7 +35,7 @@ class ConnectionUnitTest extends UnitTestBase {
     // Determine whether the database driver is MySQL. If it is not, the test
     // methods will not be executed.
     // @todo Make this test driver-agnostic, or find a proper way to skip it.
-    // @see http://drupal.org/node/1273478
+    //   See https://www.drupal.org/node/1273478.
     $connection_info = Database::getConnectionInfo('default');
     $this->skipTest = (bool) ($connection_info['default']['driver'] != 'mysql');
     if ($this->skipTest) {
@@ -216,46 +218,6 @@ class ConnectionUnitTest extends UnitTestBase {
 
     // Verify that we are back to the original connection count.
     $this->assertNoConnection($id);
-  }
-
-  /**
-   * Tests the serialization and unserialization of a database connection.
-   */
-  public function testConnectionSerialization() {
-    $db = Database::getConnection('default', 'default');
-
-    try {
-      $serialized = serialize($db);
-      $this->pass('The database connection can be serialized.');
-
-      $unserialized = unserialize($serialized);
-      $this->assertTrue(get_class($unserialized) === get_class($db));
-    }
-    catch (\Exception $e) {
-      $this->fail('The database connection cannot be serialized.');
-    }
-
-    // Ensure that all properties on the unserialized object are the same.
-    $db_reflection = new \ReflectionObject($db);
-    $unserialized_reflection = new \ReflectionObject($unserialized);
-    foreach ($db_reflection->getProperties() as $value) {
-      $value->setAccessible(TRUE);
-      $unserialized_property = $unserialized_reflection->getProperty($value->getName());
-      $unserialized_property->setAccessible(TRUE);
-      // For the PDO object, just check the statement class attribute.
-      if ($value->getName() == 'connection') {
-        $db_statement_class = $unserialized_property->getValue($db)->getAttribute(\PDO::ATTR_STATEMENT_CLASS);
-        $unserialized_statement_class = $unserialized_property->getValue($unserialized)->getAttribute(\PDO::ATTR_STATEMENT_CLASS);
-        // Assert the statement class.
-        $this->assertEqual($unserialized_statement_class[0], $db_statement_class[0]);
-        // Assert the connection argument that is passed into the statement.
-        $this->assertEqual(get_class($unserialized_statement_class[1][0]), get_class($db_statement_class[1][0]));
-      }
-      else {
-        $this->assertEqual($unserialized_property->getValue($unserialized), $value->getValue($db));
-      }
-    }
-
   }
 
   /**

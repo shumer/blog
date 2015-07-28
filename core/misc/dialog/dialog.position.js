@@ -1,9 +1,20 @@
+/**
+ * @file
+ * Positioning extensions for dialogs.
+ */
+
+/**
+ * Triggers when content inside a dialog changes.
+ *
+ * @event dialogContentResize
+ */
+
 (function ($, Drupal, drupalSettings, debounce, displace) {
 
   "use strict";
 
   // autoResize option will turn off resizable and draggable.
-  drupalSettings.dialog = $.extend({ autoResize: true, maxHeight: '95%' }, drupalSettings.dialog);
+  drupalSettings.dialog = $.extend({autoResize: true, maxHeight: '95%'}, drupalSettings.dialog);
 
   /**
    * Resets the current options for positioning.
@@ -11,13 +22,21 @@
    * This is used as a window resize and scroll callback to reposition the
    * jQuery UI dialog. Although not a built-in jQuery UI option, this can
    * be disabled by setting autoResize: false in the options array when creating
-   * a new Drupal.dialog().
+   * a new {@link Drupal.dialog}.
+   *
+   * @function Drupal.dialog~resetSize
+   *
+   * @param {jQuery.Event} event
+   *
+   * @fires event:dialogContentResize
    */
   function resetSize(event) {
     var positionOptions = ['width', 'height', 'minWidth', 'minHeight', 'maxHeight', 'maxWidth', 'position'];
     var adjustedOptions = {};
     var windowHeight = $(window).height();
-    var option, optionValue, adjustedValue;
+    var option;
+    var optionValue;
+    var adjustedValue;
     for (var n = 0; n < positionOptions.length; n++) {
       option = positionOptions[n];
       optionValue = event.data.settings[option];
@@ -44,6 +63,12 @@
 
   /**
    * Position the dialog's center at the center of displace.offsets boundaries.
+   *
+   * @function Drupal.dialog~resetPosition
+   *
+   * @param {object} options
+   *
+   * @return {object}
    */
   function resetPosition(options) {
     var offsets = displace.offsets;
@@ -53,7 +78,8 @@
     var leftString = (left > 0 ? '+' : '-') + Math.abs(Math.round(left / 2)) + 'px';
     var topString = (top > 0 ? '+' : '-') + Math.abs(Math.round(top / 2)) + 'px';
     options.position = {
-      my: 'center' + (left !== 0 ? leftString : '') + ' center' + (top !== 0 ? topString : '')
+      my: 'center' + (left !== 0 ? leftString : '') + ' center' + (top !== 0 ? topString : ''),
+      of: window
     };
     return options;
   }
@@ -61,10 +87,10 @@
   $(window).on({
     'dialog:aftercreate': function (event, dialog, $element, settings) {
       var autoResize = debounce(resetSize, 20);
-      var eventData = { settings: settings, $element: $element };
+      var eventData = {settings: settings, $element: $element};
       if (settings.autoResize === true || settings.autoResize === 'true') {
         $element
-          .dialog('option', { resizable: false, draggable: false })
+          .dialog('option', {resizable: false, draggable: false})
           .dialog('widget').css('position', 'fixed');
         $(window)
           .on('resize.dialogResize scroll.dialogResize', eventData, autoResize)

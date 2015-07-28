@@ -2,12 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\rest\RequestHandler.
+ * Contains \Drupal\rest\RequestHandler.
  */
 
 namespace Drupal\rest;
 
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerAwareTrait;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,22 +27,24 @@ class RequestHandler implements ContainerAwareInterface {
   /**
    * Handles a web API request.
    *
-   * @param Symfony\Component\HttpFoundation\Request $request
+   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+   *   The route match.
+   * @param \Symfony\Component\HttpFoundation\Request $request
    *   The HTTP request object.
    *
    * @return \Symfony\Component\HttpFoundation\Response
    *   The response object.
    */
-  public function handle(Request $request) {
+  public function handle(RouteMatchInterface $route_match, Request $request) {
 
-    $plugin = $request->attributes->get(RouteObjectInterface::ROUTE_OBJECT)->getDefault('_plugin');
+    $plugin = $route_match->getRouteObject()->getDefault('_plugin');
     $method = strtolower($request->getMethod());
 
     $resource = $this->container
       ->get('plugin.manager.rest')
       ->getInstance(array('id' => $plugin));
 
-    // Deserialze incoming data if available.
+    // Deserialize incoming data if available.
     $serializer = $this->container->get('serializer');
     $received = $request->getContent();
     $unserialized = NULL;
@@ -74,7 +76,7 @@ class RequestHandler implements ContainerAwareInterface {
 
     // Determine the request parameters that should be passed to the resource
     // plugin.
-    $route_parameters = $request->attributes->get('_route_params');
+    $route_parameters = $route_match->getParameters();
     $parameters = array();
     // Filter out all internal parameters starting with "_".
     foreach ($route_parameters as $key => $parameter) {
@@ -87,7 +89,7 @@ class RequestHandler implements ContainerAwareInterface {
     // All REST routes are restricted to exactly one format, so instead of
     // parsing it out of the Accept headers again, we can simply retrieve the
     // format requirement. If there is no format associated, just pick JSON.
-    $format = $request->attributes->get(RouteObjectInterface::ROUTE_OBJECT)->getRequirement('_format') ?: 'json';
+    $format = $route_match->getRouteObject()->getRequirement('_format') ?: 'json';
     try {
       $response = call_user_func_array(array($resource, $method), array_merge($parameters, array($unserialized, $request)));
     }
@@ -106,6 +108,8 @@ class RequestHandler implements ContainerAwareInterface {
       $output = $serializer->serialize($data, $format);
       $response->setContent($output);
       $response->headers->set('Content-Type', $request->getMimeType($format));
+      // Add rest settings config's cache tags.
+      $response->addCacheableDependency($this->container->get('config.factory')->get('rest.settings'));
     }
     return $response;
   }

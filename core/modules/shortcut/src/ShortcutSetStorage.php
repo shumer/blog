@@ -10,7 +10,6 @@ namespace Drupal\shortcut;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\Entity\ConfigEntityStorage;
-use Drupal\Core\Config\StorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
@@ -45,8 +44,8 @@ class ShortcutSetStorage extends ConfigEntityStorage implements ShortcutSetStora
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    */
-  public function __construct(EntityTypeInterface $entity_info, ConfigFactoryInterface $config_factory, StorageInterface $config_storage, UuidInterface $uuid_service, ModuleHandlerInterface $module_handler, LanguageManagerInterface $language_manager) {
-    parent::__construct($entity_info, $config_factory, $config_storage, $uuid_service, $language_manager);
+  public function __construct(EntityTypeInterface $entity_info, ConfigFactoryInterface $config_factory, UuidInterface $uuid_service, ModuleHandlerInterface $module_handler, LanguageManagerInterface $language_manager) {
+    parent::__construct($entity_info, $config_factory, $uuid_service, $language_manager);
 
     $this->moduleHandler = $module_handler;
   }
@@ -58,7 +57,6 @@ class ShortcutSetStorage extends ConfigEntityStorage implements ShortcutSetStora
     return new static(
       $entity_info,
       $container->get('config.factory'),
-      $container->get('config.storage'),
       $container->get('uuid'),
       $container->get('module_handler'),
       $container->get('language_manager')

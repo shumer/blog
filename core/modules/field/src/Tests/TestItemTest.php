@@ -7,7 +7,7 @@
 
 namespace Drupal\field\Tests;
 
-use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 
@@ -30,20 +30,20 @@ class TestItemTest extends FieldUnitTestBase {
    *
    * @var string
    */
-  protected $field_name = 'field_test';
+  protected $fieldName = 'field_test';
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    // Create an field field and instance for validation.
+    // Create a 'test_field' field and storage for validation.
     entity_create('field_storage_config', array(
-      'name' => $this->field_name,
+      'field_name' => $this->fieldName,
       'entity_type' => 'entity_test',
       'type' => 'test_field',
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
-      'field_name' => $this->field_name,
+      'field_name' => $this->fieldName,
       'bundle' => 'entity_test',
     ))->save();
   }
@@ -56,26 +56,26 @@ class TestItemTest extends FieldUnitTestBase {
     $entity = entity_create('entity_test');
     $value = rand(1, 10);
     $entity->field_test = $value;
-    $entity->name->value = $this->randomName();
+    $entity->name->value = $this->randomMachineName();
     $entity->save();
 
     // Verify entity has been created properly.
     $id = $entity->id();
     $entity = entity_load('entity_test', $id);
-    $this->assertTrue($entity->{$this->field_name} instanceof FieldItemListInterface, 'Field implements interface.');
-    $this->assertTrue($entity->{$this->field_name}[0] instanceof FieldItemInterface, 'Field item implements interface.');
-    $this->assertEqual($entity->{$this->field_name}->value, $value);
-    $this->assertEqual($entity->{$this->field_name}[0]->value, $value);
+    $this->assertTrue($entity->{$this->fieldName} instanceof FieldItemListInterface, 'Field implements interface.');
+    $this->assertTrue($entity->{$this->fieldName}[0] instanceof FieldItemInterface, 'Field item implements interface.');
+    $this->assertEqual($entity->{$this->fieldName}->value, $value);
+    $this->assertEqual($entity->{$this->fieldName}[0]->value, $value);
 
     // Verify changing the field value.
     $new_value = rand(1, 10);
     $entity->field_test->value = $new_value;
-    $this->assertEqual($entity->{$this->field_name}->value, $new_value);
+    $this->assertEqual($entity->{$this->fieldName}->value, $new_value);
 
     // Read changed entity and assert changed values.
     $entity->save();
     $entity = entity_load('entity_test', $id);
-    $this->assertEqual($entity->{$this->field_name}->value, $new_value);
+    $this->assertEqual($entity->{$this->fieldName}->value, $new_value);
 
     // Test the schema for this field type.
     $expected_schema = array(
@@ -83,7 +83,6 @@ class TestItemTest extends FieldUnitTestBase {
         'value' => array(
           'type' => 'int',
           'size' => 'medium',
-          'not null' => FALSE,
         ),
       ),
       'unique keys' => array(),
@@ -92,7 +91,7 @@ class TestItemTest extends FieldUnitTestBase {
       ),
       'foreign keys' => array(),
     );
-    $field_schema = FieldDefinition::create('test_field')->getSchema();
+    $field_schema = BaseFieldDefinition::create('test_field')->getSchema();
     $this->assertEqual($field_schema, $expected_schema);
   }
 

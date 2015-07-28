@@ -17,18 +17,20 @@ use Drupal\simpletest\WebTestBase;
  */
 class CommentBookTest extends WebTestBase {
 
+  use CommentTestTrait;
+
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
   public static $modules = array('book', 'comment');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create comment field on book.
-    \Drupal::service('comment.manager')->addDefaultField('node', 'book');
+    $this->addDefaultCommentField('node', 'book');
   }
 
   /**
@@ -43,8 +45,8 @@ class CommentBookTest extends WebTestBase {
     $book_node->book['bid'] = 'new';
     $book_node->save();
 
-    $comment_subject = $this->randomName(8);
-    $comment_body = $this->randomName(8);
+    $comment_subject = $this->randomMachineName(8);
+    $comment_body = $this->randomMachineName(8);
     $comment = entity_create('comment', array(
       'subject' => $comment_subject,
       'comment_body' => $comment_body,

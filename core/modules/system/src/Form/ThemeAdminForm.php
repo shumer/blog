@@ -1,29 +1,37 @@
 <?php
 /**
  * @file
- * Contains \Drupal\system\Form\ThemeAdminForm
+ * Contains \Drupal\system\Form\ThemeAdminForm.
  */
 
 namespace Drupal\system\Form;
 
-use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\ConfigFormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form to select the administration theme.
  */
-class ThemeAdminForm extends FormBase {
+class ThemeAdminForm extends ConfigFormBase {
 
   /**
    * {@inheritdoc}
    */
-  public function getFormID() {
+  public function getFormId() {
     return 'system_themes_admin_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state, array $theme_options = NULL) {
+  protected function getEditableConfigNames() {
+    return ['system.theme'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state, array $theme_options = NULL) {
     // Administration theme settings.
     $form['admin_theme'] = array(
       '#type' => 'details',
@@ -41,6 +49,7 @@ class ThemeAdminForm extends FormBase {
     $form['admin_theme']['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save configuration'),
+      '#button_type' => 'primary',
     );
     return $form;
   }
@@ -48,9 +57,9 @@ class ThemeAdminForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    drupal_set_message($this->t('The configuration options have been saved.'));
-    $this->config('system.theme')->set('admin', $form_state['values']['admin_theme'])->save();
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    parent::submitForm($form, $form_state);
+    $this->config('system.theme')->set('admin', $form_state->getValue('admin_theme'))->save();
   }
 
 }

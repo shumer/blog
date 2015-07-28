@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Component\Annotation\PluginID.
+ * Contains \Drupal\Component\Annotation\PluginID.
  */
 
 namespace Drupal\Component\Annotation;
@@ -24,7 +24,7 @@ class PluginID extends AnnotationBase {
   public $value;
 
   /**
-   * Implements \Drupal\Core\Annotation\AnnotationInterface::get().
+   * {@inheritdoc}
    */
   public function get() {
     return array(

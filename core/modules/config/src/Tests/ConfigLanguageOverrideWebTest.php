@@ -8,6 +8,7 @@
 namespace Drupal\config\Tests;
 
 use Drupal\Core\Language\LanguageInterface;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -17,9 +18,17 @@ use Drupal\simpletest\WebTestBase;
  */
 class ConfigLanguageOverrideWebTest extends WebTestBase {
 
+  /**
+   * Modules to install.
+   *
+   * @var array
+   */
   public static $modules = array('language', 'system');
 
-  function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
     parent::setUp();
   }
 
@@ -30,13 +39,13 @@ class ConfigLanguageOverrideWebTest extends WebTestBase {
     $adminUser = $this->drupalCreateUser(array('administer site configuration', 'administer languages'));
     $this->drupalLogin($adminUser);
 
-    // Add a custom lanugage.
+    // Add a custom language.
     $langcode = 'xx';
-    $name = $this->randomName(16);
+    $name = $this->randomMachineName(16);
     $edit = array(
       'predefined_langcode' => 'custom',
       'langcode' => $langcode,
-      'name' => $name,
+      'label' => $name,
       'direction' => LanguageInterface::DIRECTION_LTR,
     );
     $this->drupalPostForm('admin/config/regional/language/add', $edit, t('Add custom language'));
@@ -66,10 +75,9 @@ class ConfigLanguageOverrideWebTest extends WebTestBase {
     // overrides still work.
     $language_manager = \Drupal::languageManager()->reset();
     $this->assertTrue($language_manager->isMultilingual(), 'The test site is multilingual.');
-    $language = \Drupal::languageManager()->getLanguage('xx');
-    $language->default = TRUE;
-    language_save($language);
-    language_delete('en');
+    $this->config('system.site')->set('default_langcode', 'xx')->save();
+
+    ConfigurableLanguage::load('en')->delete();
     $this->assertFalse($language_manager->isMultilingual(), 'The test site is monolingual.');
 
     $this->drupalGet('xx');

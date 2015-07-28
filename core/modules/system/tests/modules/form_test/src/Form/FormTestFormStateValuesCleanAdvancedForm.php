@@ -8,9 +8,10 @@
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
- * Form builder for form_state_values_clean() test.
+ * Form builder for \Drupal\Core\Form\FormState::cleanValues() test.
  */
 class FormTestFormStateValuesCleanAdvancedForm extends FormBase {
 
@@ -18,13 +19,13 @@ class FormTestFormStateValuesCleanAdvancedForm extends FormBase {
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'form_test_form_state_values_clean_advanced_form';
+    return 'form_test_form_state_clean_values_advanced_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     // Build an example form containing a managed file and a submit form element.
     $form['image'] = array(
       '#type' => 'managed_file',
@@ -42,8 +43,8 @@ class FormTestFormStateValuesCleanAdvancedForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    form_state_values_clean($form_state);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $form_state->cleanValues();
     print t('You WIN!');
     exit;
   }

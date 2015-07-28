@@ -7,6 +7,8 @@
 
 namespace Drupal\migrate;
 
+use Drupal\Core\Logger\RfcLogLevel;
+
 /**
  * Defines a migrate message class.
  */
@@ -18,15 +20,16 @@ class MigrateMessage implements MigrateMessageInterface {
    * @var array
    */
   protected $map = array(
-    'status' => WATCHDOG_INFO,
-    'error' => WATCHDOG_ERROR,
+    'status' => RfcLogLevel::INFO,
+    'error' => RfcLogLevel::ERROR,
   );
 
   /**
    * {@inheritdoc}
    */
   public function display($message, $type = 'status') {
-    watchdog('migrate', $message, array(), isset($this->map[$type]) ? $this->map[$type] : WATCHDOG_NOTICE);
+    $type = isset($this->map[$type]) ? $this->map[$type] : RfcLogLevel::NOTICE;
+    \Drupal::logger('migrate')->log($type, $message);
   }
 
 }

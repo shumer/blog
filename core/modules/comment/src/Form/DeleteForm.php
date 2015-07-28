@@ -7,19 +7,12 @@
 
 namespace Drupal\comment\Form;
 
-use Drupal\Core\Entity\ContentEntityConfirmFormBase;
+use Drupal\Core\Entity\ContentEntityDeleteForm;
 
 /**
  * Provides the comment delete confirmation form.
  */
-class DeleteForm extends ContentEntityConfirmFormBase {
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getQuestion() {
-    return $this->t('Are you sure you want to delete the comment %title?', array('%title' => $this->entity->subject->value));
-  }
+class DeleteForm extends ContentEntityDeleteForm {
 
   /**
    * {@inheritdoc}
@@ -32,6 +25,13 @@ class DeleteForm extends ContentEntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
+  protected function getRedirectUrl() {
+    return $this->getCancelUrl();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getDescription() {
     return $this->t('Any replies to this comment will be lost. This action cannot be undone.');
   }
@@ -39,20 +39,15 @@ class DeleteForm extends ContentEntityConfirmFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getConfirmText() {
-    return $this->t('Delete');
+  protected function getDeletionMessage() {
+    return $this->t('The comment and all its replies have been deleted.');
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submit(array $form, array &$form_state) {
-    // Delete the comment and its replies.
-    $this->entity->delete();
-    drupal_set_message($this->t('The comment and all its replies have been deleted.'));
-    watchdog('content', 'Deleted comment @cid and its replies.', array('@cid' => $this->entity->id()));
-
-    $form_state['redirect_route'] = $this->getCancelUrl();
+  public function logDeletionMessage() {
+    $this->logger('content')->notice('Deleted comment @cid and its replies.', array('@cid' => $this->entity->id()));
   }
 
 }

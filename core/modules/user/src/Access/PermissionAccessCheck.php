@@ -2,17 +2,19 @@
 
 /**
  * @file
- * Contains Drupal\user\Access\PermissionAccessCheck.
+ * Contains \Drupal\user\Access\PermissionAccessCheck.
  */
 
 namespace Drupal\user\Access;
 
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\Core\Session\AccountInterface;
 use Symfony\Component\Routing\Route;
 
 /**
- * Determines access to routes based on permissions defined via hook_permission().
+ * Determines access to routes based on permissions defined via
+ * $module.permissions.yml files.
  */
 class PermissionAccessCheck implements AccessInterface {
 
@@ -24,11 +26,25 @@ class PermissionAccessCheck implements AccessInterface {
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The currently logged in account.
    *
-   * @return string
-   *   A \Drupal\Core\Access\AccessInterface constant value.
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result.
    */
   public function access(Route $route, AccountInterface $account) {
     $permission = $route->getRequirement('_permission');
-    return $account->hasPermission($permission) ? static::ALLOW : static::DENY;
+
+    if ($permission === NULL) {
+      return AccessResult::neutral();
+    }
+
+    // Allow to conjunct the permissions with OR ('+') or AND (',').
+    $split = explode(',', $permission);
+    if (count($split) > 1) {
+      return AccessResult::allowedIfHasPermissions($account, $split, 'AND');
+    }
+    else {
+      $split = explode('+', $permission);
+      return AccessResult::allowedIfHasPermissions($account, $split, 'OR');
+    }
   }
+
 }

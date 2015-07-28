@@ -40,7 +40,7 @@ class MenuTreeStorageTest extends KernelTestBase {
    *
    * @var array
    */
-  public static $modules = array('system', 'menu_link_content');
+  public static $modules = array('system');
 
   /**
    * {@inheritdoc}
@@ -48,9 +48,8 @@ class MenuTreeStorageTest extends KernelTestBase {
   protected function setUp() {
     parent::setUp();
 
-    $this->treeStorage = new MenuTreeStorage($this->container->get('database'), $this->container->get('cache.menu'), 'menu_tree');
+    $this->treeStorage = new MenuTreeStorage($this->container->get('database'), $this->container->get('cache.menu'), $this->container->get('cache_tags.invalidator'), 'menu_tree');
     $this->connection = $this->container->get('database');
-    $this->installEntitySchema('menu_link_content');
   }
 
   /**
@@ -74,7 +73,7 @@ class MenuTreeStorageTest extends KernelTestBase {
   protected function doTestTable() {
     // Test that we can create a tree storage with an arbitrary table name and
     // that selecting from the storage creates the table.
-    $tree_storage = new MenuTreeStorage($this->container->get('database'), $this->container->get('cache.menu'), 'test_menu_tree');
+    $tree_storage = new MenuTreeStorage($this->container->get('database'), $this->container->get('cache.menu'), $this->container->get('cache_tags.invalidator'), 'test_menu_tree');
     $this->assertFalse($this->connection->schema()->tableExists('test_menu_tree'), 'Test table is not yet created');
     $tree_storage->countMenuLinks();
     $this->assertTrue($this->connection->schema()->tableExists('test_menu_tree'), 'Test table was created');
@@ -181,21 +180,21 @@ class MenuTreeStorageTest extends KernelTestBase {
   }
 
   /**
-   * Tests with hidden child links.
+   * Tests with disabled child links.
    */
-  public function testMenuHiddenChildLinks() {
+  public function testMenuDisabledChildLinks() {
     // Add some links with parent on the previous one and test some values.
     // <tools>
     // - test1
-    // -- test2 (hidden)
+    // -- test2 (disabled)
 
     $this->addMenuLink('test1', '');
     $this->assertMenuLink('test1', array('has_children' => 0, 'depth' => 1));
 
-    $this->addMenuLink('test2', 'test1', '<front>', array(), 'tools', array('hidden' => 1));
+    $this->addMenuLink('test2', 'test1', '<front>', array(), 'tools', array('enabled' => 0));
     // The 1st link does not have any visible children, so has_children is 0.
     $this->assertMenuLink('test1', array('has_children' => 0, 'depth' => 1));
-    $this->assertMenuLink('test2', array('has_children' => 0, 'depth' => 2, 'hidden' => 1), array('test1'));
+    $this->assertMenuLink('test2', array('has_children' => 0, 'depth' => 2, 'enabled' => 0), array('test1'));
 
     // Add more links with parent on the previous one.
     // <footer>
@@ -203,7 +202,7 @@ class MenuTreeStorageTest extends KernelTestBase {
     // ===============
     // <tools>
     // - test1
-    // -- test2 (hidden)
+    // -- test2 (disabled)
     // --- test3
     // ---- test4
     // ----- test5
@@ -267,36 +266,83 @@ class MenuTreeStorageTest extends KernelTestBase {
     $this->assertTrue($tree['test4']['in_active_trail']);
     $this->assertEqual(count($tree['test4']['subtree']['test5']['subtree']), 0);
     $this->assertTrue($tree['test4']['subtree']['test5']['in_active_trail']);
+
+    // Add some conditions to ensure that conditions work as expected.
+    $parameters = new MenuTreeParameters();
+    $parameters->addCondition('parent', 'test1');
+    $data = $this->treeStorage->loadTreeData('tools', $parameters);
+    $this->assertEqual(count($data['tree']), 1);
+    $this->assertEqual($data['tree']['test2']['definition']['id'], 'test2');
+    $this->assertEqual($data['tree']['test2']['subtree'], []);
+
+    // Test for only enabled links.
+    $link = $this->treeStorage->load('test3');
+    $link['enabled'] = FALSE;
+    $this->treeStorage->save($link);
+    $link = $this->treeStorage->load('test4');
+    $link['enabled'] = FALSE;
+    $this->treeStorage->save($link);
+    $link = $this->treeStorage->load('test5');
+    $link['enabled'] = FALSE;
+    $this->treeStorage->save($link);
+
+    $parameters = new MenuTreeParameters();
+    $parameters->onlyEnabledLinks();
+    $data = $this->treeStorage->loadTreeData('tools', $parameters);
+    $this->assertEqual(count($data['tree']), 1);
+    $this->assertEqual($data['tree']['test1']['definition']['id'], 'test1');
+    $this->assertEqual(count($data['tree']['test1']['subtree']), 1);
+    $this->assertEqual($data['tree']['test1']['subtree']['test2']['definition']['id'], 'test2');
+    $this->assertEqual($data['tree']['test1']['subtree']['test2']['subtree'], []);
+
   }
 
   /**
    * Tests finding the subtree height with content menu links.
    */
   public function testSubtreeHeight() {
-
-    $storage = \Drupal::entityManager()->getStorage('menu_link_content');
-
     // root
     // - child1
     // -- child2
     // --- child3
     // ---- child4
-    $root = $storage->create(array('route_name' => 'menu_test.menu_name_test', 'menu_name' => 'menu1', 'bundle' => 'menu_link_content'));
-    $root->save();
-    $child1 = $storage->create(array('route_name' => 'menu_test.menu_name_test', 'menu_name' => 'menu1', 'bundle' => 'menu_link_content', 'parent' => $root->getPluginId()));
-    $child1->save();
-    $child2 = $storage->create(array('route_name' => 'menu_test.menu_name_test', 'menu_name' => 'menu1', 'bundle' => 'menu_link_content', 'parent' => $child1->getPluginId()));
-    $child2->save();
-    $child3 = $storage->create(array('route_name' => 'menu_test.menu_name_test', 'menu_name' => 'menu1', 'bundle' => 'menu_link_content', 'parent' => $child2->getPluginId()));
-    $child3->save();
-    $child4 = $storage->create(array('route_name' => 'menu_test.menu_name_test', 'menu_name' => 'menu1', 'bundle' => 'menu_link_content', 'parent' => $child3->getPluginId()));
-    $child4->save();
+    $this->addMenuLink('root');
+    $this->addMenuLink('child1', 'root');
+    $this->addMenuLink('child2', 'child1');
+    $this->addMenuLink('child3', 'child2');
+    $this->addMenuLink('child4', 'child3');
 
-    $this->assertEqual($this->treeStorage->getSubtreeHeight($root->getPluginId()), 5);
-    $this->assertEqual($this->treeStorage->getSubtreeHeight($child1->getPluginId()), 4);
-    $this->assertEqual($this->treeStorage->getSubtreeHeight($child2->getPluginId()), 3);
-    $this->assertEqual($this->treeStorage->getSubtreeHeight($child3->getPluginId()), 2);
-    $this->assertEqual($this->treeStorage->getSubtreeHeight($child4->getPluginId()), 1);
+    $this->assertEqual($this->treeStorage->getSubtreeHeight('root'), 5);
+    $this->assertEqual($this->treeStorage->getSubtreeHeight('child1'), 4);
+    $this->assertEqual($this->treeStorage->getSubtreeHeight('child2'), 3);
+    $this->assertEqual($this->treeStorage->getSubtreeHeight('child3'), 2);
+    $this->assertEqual($this->treeStorage->getSubtreeHeight('child4'), 1);
+  }
+
+  /**
+   * Tests MenuTreeStorage::loadByProperties().
+   */
+  public function testLoadByProperties() {
+    $tests = array(
+      array('foo' => 'bar'),
+      array(0 => 'wrong'),
+    );
+    $message = 'An invalid property name throws an exception.';
+    foreach ($tests as $properties) {
+      try {
+        $this->treeStorage->loadByProperties($properties);
+        $this->fail($message);
+      }
+      catch (\InvalidArgumentException $e) {
+        $this->assertTrue(preg_match('/^An invalid property name, .+ was specified. Allowed property names are:/', $e->getMessage()), 'Found expected exception message.');
+        $this->pass($message);
+      }
+    }
+    $this->addMenuLink('test_link.1', '', 'test', array(), 'menu1');
+    $properties = array('menu_name' => 'menu1');
+    $links = $this->treeStorage->loadByProperties($properties);
+    $this->assertEqual('menu1', $links['test_link.1']['menu_name']);
+    $this->assertEqual('test', $links['test_link.1']['route_name']);
   }
 
   /**
@@ -341,7 +387,7 @@ class MenuTreeStorageTest extends KernelTestBase {
    * @param array $parents
    *   An ordered array of the IDs of the menu links that are the parents.
    * @param array $children
-   *   Array of child IDs that are visible (hidden == 0).
+   *   Array of child IDs that are visible (enabled == 1).
    */
   protected function assertMenuLink($id, array $expected_properties, array $parents = array(), array $children = array()) {
     $query = $this->connection->select('menu_tree');

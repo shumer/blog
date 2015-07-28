@@ -2,14 +2,14 @@
 
 /**
  * @file
- * Contains Drupal\system\Tests\Validation\ComplexDataConstraintValidatorTest.
+ * Contains \Drupal\system\Tests\Validation\ComplexDataConstraintValidatorTest.
  */
 
 namespace Drupal\system\Tests\Validation;
 
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\MapDataDefinition;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests ComplexData validation constraint with both valid and invalid values
@@ -17,7 +17,7 @@ use Drupal\simpletest\DrupalUnitTestBase;
  *
  * @group Validation
  */
-class ComplexDataConstraintValidatorTest extends DrupalUnitTestBase {
+class ComplexDataConstraintValidatorTest extends KernelTestBase {
 
   /**
    * The typed data manager to use.
@@ -26,7 +26,7 @@ class ComplexDataConstraintValidatorTest extends DrupalUnitTestBase {
    */
   protected $typedData;
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->typedData = $this->container->get('typed_data_manager');
   }

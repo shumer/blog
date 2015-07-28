@@ -32,7 +32,7 @@ use Symfony\Component\HttpFoundation\Request;
  *     fixed. This is done by introducing a prefix or domain in the rendered
  *     page matching the detected interface language.
  *
- * @Plugin(
+ * @LanguageNegotiation(
  *   id = Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationUrlFallback::METHOD_ID,
  *   types = {Drupal\Core\Language\LanguageInterface::TYPE_URL},
  *   weight = 8,
@@ -62,11 +62,11 @@ class LanguageNegotiationUrlFallback extends LanguageNegotiationMethodBase {
       // information, a missing URL language information indicates that URL
       // language should be the default one, otherwise we fall back to an
       // already detected language.
-      if (($prefix && empty($config['prefixes'][$default->id])) || (!$prefix && empty($config['domains'][$default->id]))) {
-        $langcode = $default->id;
+      if (($prefix && empty($config['prefixes'][$default->getId()])) || (!$prefix && empty($config['domains'][$default->getId()]))) {
+        $langcode = $default->getId();
       }
       else {
-        $langcode = $this->languageManager->getCurrentLanguage()->id;
+        $langcode = $this->languageManager->getCurrentLanguage()->getId();
       }
     }
 

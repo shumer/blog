@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\node\Tests\NodeSyndicateBlockTest.
+ * Contains \Drupal\node\Tests\NodeSyndicateBlockTest.
  */
 
 namespace Drupal\node\Tests;
@@ -21,7 +21,7 @@ class NodeSyndicateBlockTest extends NodeTestBase {
    */
   public static $modules = array('block');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create a user and log in.

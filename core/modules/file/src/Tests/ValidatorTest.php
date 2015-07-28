@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\file\Tests\ValidatorTest.
+ * Contains \Drupal\file\Tests\ValidatorTest.
  */
 
 namespace Drupal\file\Tests;
@@ -13,16 +13,31 @@ namespace Drupal\file\Tests;
  * @group file
  */
 class ValidatorTest extends FileManagedUnitTestBase {
-  function setUp() {
+
+  /**
+   * An image file.
+   *
+   * @var \Drupal\file\FileInterface
+   */
+  protected $image;
+
+  /**
+   * A file which is not an image.
+   *
+   * @var \Drupal\file\Entity\File
+   */
+  protected $nonImage;
+
+  protected function setUp() {
     parent::setUp();
 
     $this->image = entity_create('file');
     $this->image->setFileUri('core/misc/druplicon.png');
     $this->image->setFilename(drupal_basename($this->image->getFileUri()));
 
-    $this->non_image = entity_create('file');
-    $this->non_image->setFileUri('core/assets/vendor/jquery/jquery.js');
-    $this->non_image->setFilename(drupal_basename($this->non_image->getFileUri()));
+    $this->nonImage = entity_create('file');
+    $this->nonImage->setFileUri('core/assets/vendor/jquery/jquery.min.js');
+    $this->nonImage->setFilename(drupal_basename($this->nonImage->getFileUri()));
   }
 
   /**
@@ -46,8 +61,8 @@ class ValidatorTest extends FileManagedUnitTestBase {
     $errors = file_validate_is_image($this->image);
     $this->assertEqual(count($errors), 0, 'No error reported for our image file.', 'File');
 
-    $this->assertTrue(file_exists($this->non_image->getFileUri()), 'The non-image being tested exists.', 'File');
-    $errors = file_validate_is_image($this->non_image);
+    $this->assertTrue(file_exists($this->nonImage->getFileUri()), 'The non-image being tested exists.', 'File');
+    $errors = file_validate_is_image($this->nonImage);
     $this->assertEqual(count($errors), 1, 'An error reported for our non-image file.', 'File');
   }
 
@@ -57,9 +72,9 @@ class ValidatorTest extends FileManagedUnitTestBase {
    */
   function testFileValidateImageResolution() {
     // Non-images.
-    $errors = file_validate_image_resolution($this->non_image);
+    $errors = file_validate_image_resolution($this->nonImage);
     $this->assertEqual(count($errors), 0, 'Should not get any errors for a non-image file.', 'File');
-    $errors = file_validate_image_resolution($this->non_image, '50x50', '100x100');
+    $errors = file_validate_image_resolution($this->nonImage, '50x50', '100x100');
     $this->assertEqual(count($errors), 0, 'Do not check the resolution on non files.', 'File');
 
     // Minimum size.
@@ -129,12 +144,6 @@ class ValidatorTest extends FileManagedUnitTestBase {
    * Test file_validate_size().
    */
   function testFileValidateSize() {
-    // Run these tests as a regular user.
-    $user = entity_create('user', array('uid' => 2, 'name' => $this->randomName()));
-    $user->enforceIsNew();
-    $user->save();
-    \Drupal::currentUser()->setAccount($user);
-
     // Create a file with a size of 1000 bytes, and quotas of only 1 byte.
     $file = entity_create('file', array('filesize' => 1000));
     $errors = file_validate_size($file, 0, 0);

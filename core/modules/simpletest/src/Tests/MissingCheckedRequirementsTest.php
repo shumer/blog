@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of \Drupal\simpletest\Tests\MissingCheckedRequirementsTest.
+ * Contains \Drupal\simpletest\Tests\MissingCheckedRequirementsTest.
  */
 
 namespace Drupal\simpletest\Tests;
@@ -23,7 +23,7 @@ class MissingCheckedRequirementsTest extends WebTestBase {
    */
   public static $modules = array('simpletest');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
     $admin_user = $this->drupalCreateUser(array('administer unit tests'));
     $this->drupalLogin($admin_user);
@@ -44,7 +44,7 @@ class MissingCheckedRequirementsTest extends WebTestBase {
   /**
    * Ensures test will not run when requirements are missing.
    */
-  protected function testCheckRequirements() {
+  public function testCheckRequirements() {
     // If this is the main request, run the web test script and then assert
     // that the child tests did not run.
     if (!$this->isInChildSite()) {

@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Contains Drupal\system\Tests\ParamConverter\UpcastingTest.
+ * Contains \Drupal\system\Tests\ParamConverter\UpcastingTest.
  */
 
 namespace Drupal\system\Tests\ParamConverter;
 
 use Drupal\simpletest\WebTestBase;
+use Drupal\language\Entity\ConfigurableLanguage;
 
 /**
  * Tests upcasting of url arguments to entities.
@@ -16,20 +17,20 @@ use Drupal\simpletest\WebTestBase;
  */
 class UpcastingTest extends WebTestBase {
 
-  public static $modules = array('paramconverter_test', 'node');
+  public static $modules = array('paramconverter_test', 'node', 'language');
 
   /**
    * Confirms that all parameters are converted as expected.
    *
-   * All of these requests end up being proccessed by a controller with this
-   * the signature: f($user, $node, $foo) returning either values or labels
+   * All of these requests end up being processed by a controller with the
+   * signature: f($user, $node, $foo) returning either values or labels
    * like "user: Dries, node: First post, foo: bar"
    *
    * The tests shuffle the parameters around an checks if the right thing is
    * happening.
    */
   public function testUpcasting() {
-    $node = $this->drupalCreateNode(array('title' => $this->randomName(8)));
+    $node = $this->drupalCreateNode(array('title' => $this->randomMachineName(8)));
     $user = $this->drupalCreateUser(array('access content'));
     $foo = 'bar';
 
@@ -52,11 +53,33 @@ class UpcastingTest extends WebTestBase {
    * Confirms we can upcast to controller arguments of the same type.
    */
   public function testSameTypes() {
-    $node = $this->drupalCreateNode(array('title' => $this->randomName(8)));
-    $parent = $this->drupalCreateNode(array('title' => $this->randomName(8)));
+    $node = $this->drupalCreateNode(array('title' => $this->randomMachineName(8)));
+    $parent = $this->drupalCreateNode(array('title' => $this->randomMachineName(8)));
     // paramconverter_test/node/{node}/set/parent/{parent}
     // options.parameters.parent.type = entity:node
     $this->drupalGet("paramconverter_test/node/" . $node->id() . "/set/parent/" . $parent->id());
     $this->assertRaw("Setting '" . $parent->getTitle() . "' as parent of '" . $node->getTitle() . "'.");
   }
+
+  /**
+   * Confirms entity is shown in user's language by default.
+   */
+  public function testEntityLanguage() {
+    $language = ConfigurableLanguage::createFromLangcode('de');
+    $language->save();
+    language_negotiation_url_prefixes_save(array('de' => 'de'));
+
+    // The container must be recreated after adding a new language.
+    $this->rebuildContainer();
+
+    $node = $this->drupalCreateNode(array('title' => 'English label'));
+    $translation = $node->addTranslation('de');
+    $translation->setTitle('Deutscher Titel')->save();
+
+    $this->drupalGet("/paramconverter_test/node/" . $node->id() . "/test_language");
+    $this->assertRaw("English label");
+    $this->drupalGet("paramconverter_test/node/" . $node->id() . "/test_language", array('language' => $language));
+    $this->assertRaw("Deutscher Titel");
+  }
+
 }

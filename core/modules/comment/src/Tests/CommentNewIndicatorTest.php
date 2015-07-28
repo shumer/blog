@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\comment\Tests\CommentNewIndicatorTest.
+ * Contains \Drupal\comment\Tests\CommentNewIndicatorTest.
  */
 
 namespace Drupal\comment\Tests;
@@ -10,6 +10,7 @@ namespace Drupal\comment\Tests;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\comment\CommentInterface;
+use Drupal\Core\Url;
 
 /**
  * Tests the 'new' indicator posted on comments.
@@ -55,7 +56,7 @@ class CommentNewIndicatorTest extends CommentTestBase {
 
     // Perform HTTP request.
     return $this->curlExec(array(
-      CURLOPT_URL => url('comments/render_new_comments_node_links', array('absolute' => TRUE)),
+      CURLOPT_URL => \Drupal::url('comment.new_comments_node_links', array(), array('absolute' => TRUE)),
       CURLOPT_POST => TRUE,
       CURLOPT_POSTFIELDS => $post,
       CURLOPT_HTTPHEADER => array(
@@ -71,7 +72,7 @@ class CommentNewIndicatorTest extends CommentTestBase {
   public function testCommentNewCommentsIndicator() {
     // Test if the right links are displayed when no comment is present for the
     // node.
-    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin($this->adminUser);
     $this->drupalGet('node');
     $this->assertNoLink(t('@count comments', array('@count' => 0)));
     $this->assertLink(t('Read more'));
@@ -92,16 +93,16 @@ class CommentNewIndicatorTest extends CommentTestBase {
       'pid' => 0,
       'uid' => $this->loggedInUser->id(),
       'status' => CommentInterface::PUBLISHED,
-      'subject' => $this->randomName(),
+      'subject' => $this->randomMachineName(),
       'hostname' => '127.0.0.1',
       'langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
-      'comment_body' => array(LanguageInterface::LANGCODE_NOT_SPECIFIED => array($this->randomName())),
+      'comment_body' => array(LanguageInterface::LANGCODE_NOT_SPECIFIED => array($this->randomMachineName())),
     ));
     $comment->save();
     $this->drupalLogout();
 
     // Log in with 'web user' and check comment links.
-    $this->drupalLogin($this->web_user);
+    $this->drupalLogin($this->webUser);
     $this->drupalGet('node');
     // Verify the data-history-node-last-comment-timestamp attribute. Given its
     // value, the drupal.node-new-comments-link library would determine that the
@@ -109,12 +110,32 @@ class CommentNewIndicatorTest extends CommentTestBase {
     // perform an HTTP request to render the "new comments" node link.
     $this->assertIdentical(1, count($this->xpath('//*[@data-history-node-last-comment-timestamp="' . $comment->getChangedTime() .  '"]')), 'data-history-node-last-comment-timestamp attribute is set to the correct value.');
     $this->assertIdentical(1, count($this->xpath('//*[@data-history-node-field-name="comment"]')), 'data-history-node-field-name attribute is set to the correct value.');
+    // The data will be pre-seeded on this particular page in drupalSettings, to
+    // avoid the need for the client to make a separate request to the server.
+    $settings = $this->getDrupalSettings();
+    $this->assertEqual($settings['history'], ['lastReadTimestamps' => [1 => 0]]);
+    $this->assertEqual($settings['comment'], [
+      'newCommentsLinks' => [
+        'node' => [
+          'comment' => [
+            1 => [
+              'new_comment_count' => 1,
+              'first_new_comment_link' => Url::fromRoute('entity.node.canonical', ['node' => 1])->setOptions([
+                'fragment' => 'new',
+              ])->toString(),
+            ],
+          ],
+        ],
+      ],
+    ]);
+    // Pretend the data was not present in drupalSettings, i.e. test the
+    // separate request to the server.
     $response = $this->renderNewCommentsNodeLinks(array($this->node->id()));
     $this->assertResponse(200);
     $json = Json::decode($response);
     $expected = array($this->node->id() => array(
       'new_comment_count' => 1,
-      'first_new_comment_link' => url('node/' . $this->node->id(), array('fragment' => 'new')),
+      'first_new_comment_link' => $this->node->url('canonical', array('fragment' => 'new')),
     ));
     $this->assertIdentical($expected, $json);
 

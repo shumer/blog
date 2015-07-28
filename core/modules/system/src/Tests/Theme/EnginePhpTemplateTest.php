@@ -23,16 +23,16 @@ class EnginePhpTemplateTest extends WebTestBase {
    */
   public static $modules = array('theme_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
-    theme_enable(array('test_theme_phptemplate'));
+    \Drupal::service('theme_handler')->install(array('test_theme_phptemplate'));
   }
 
   /**
-   * Ensures a theme's template is overrideable based on the 'template' filename.
+   * Ensures a theme's template is overridable based on the 'template' filename.
    */
   function testTemplateOverride() {
-    \Drupal::config('system.theme')
+    $this->config('system.theme')
       ->set('default', 'test_theme_phptemplate')
       ->save();
     $this->drupalGet('theme-test/template-test');

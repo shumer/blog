@@ -1,5 +1,5 @@
 # Enable all methods on nodes.
-# You must enable Hal and Basic_auth modules for this to work. Also, if you are
+# You must install Hal and Basic_auth modules for this to work. Also, if you are
 # going to use Basic_auth in a production environment then you should consider
 # setting up SSL.
 # There are alternatives to Basic_auth in contrib such as OAuth module.
@@ -43,4 +43,8 @@ resources:
 # hal_json is the only format supported for POST and PATCH methods.
 #
 # The full documentation is located at
-# https://drupal.org/documentation/modules/rest
+# https://www.drupal.org/documentation/modules/rest.
+
+# Set the domain for REST type and relation links.
+# If left blank, the site's domain will be used.
+link_domain: ~

@@ -2,17 +2,16 @@
 
 /**
  * @file
- * Contains Drupal\Core\Extension\ModuleHandler.
+ * Contains \Drupal\Core\Extension\ModuleHandler.
  */
 
 namespace Drupal\Core\Extension;
 
 use Drupal\Component\Graph\Graph;
-use Drupal\Component\Serialization\Yaml;
 use Drupal\Component\Utility\NestedArray;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Entity\Schema\EntitySchemaProviderInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Class that manages modules in a Drupal installation.
@@ -50,6 +49,14 @@ class ModuleHandler implements ModuleHandlerInterface {
   protected $implementations;
 
   /**
+   * List of hooks where the implementations have been "verified".
+   *
+   * @var true[]
+   *   Associative array where keys are hook names.
+   */
+  protected $verified;
+
+  /**
    * Information returned by hook_hook_info() implementations.
    *
    * @var array
@@ -78,8 +85,17 @@ class ModuleHandler implements ModuleHandlerInterface {
   protected $alterFunctions;
 
   /**
+   * The app root.
+   *
+   * @var string
+   */
+  protected $root;
+
+  /**
    * Constructs a ModuleHandler object.
    *
+   * @param string $root
+   *   The app root.
    * @param array $module_list
    *   An associative array whose keys are the names of installed modules and
    *   whose values are Extension class parameters. This is normally the
@@ -90,10 +106,11 @@ class ModuleHandler implements ModuleHandlerInterface {
    * @see \Drupal\Core\DrupalKernel
    * @see \Drupal\Core\CoreServiceProvider
    */
-  public function __construct(array $module_list = array(), CacheBackendInterface $cache_backend) {
+  public function __construct($root, array $module_list = array(), CacheBackendInterface $cache_backend) {
+    $this->root = $root;
     $this->moduleList = array();
     foreach ($module_list as $name => $module) {
-      $this->moduleList[$name] = new Extension($module['type'], $module['pathname'], $module['filename']);
+      $this->moduleList[$name] = new Extension($this->root, $module['type'], $module['pathname'], $module['filename']);
     }
     $this->cacheBackend = $cache_backend;
   }
@@ -194,8 +211,8 @@ class ModuleHandler implements ModuleHandlerInterface {
    */
   protected function add($type, $name, $path) {
     $pathname = "$path/$name.info.yml";
-    $filename = file_exists(DRUPAL_ROOT . "/$path/$name.$type") ? "$name.$type" : NULL;
-    $this->moduleList[$name] = new Extension($type, $pathname, $filename);
+    $filename = file_exists($this->root . "/$path/$name.$type") ? "$name.$type" : NULL;
+    $this->moduleList[$name] = new Extension($this->root, $type, $pathname, $filename);
     $this->resetImplementations();
   }
 
@@ -244,12 +261,12 @@ class ModuleHandler implements ModuleHandlerInterface {
   public function loadInclude($module, $type, $name = NULL) {
     if ($type == 'install') {
       // Make sure the installation API is available
-      include_once DRUPAL_ROOT . '/core/includes/install.inc';
+      include_once $this->root . '/core/includes/install.inc';
     }
 
     $name = $name ?: $module;
     if (isset($this->moduleList[$module])) {
-      $file = DRUPAL_ROOT . '/' . $this->moduleList[$module]->getPath() . "/$name.$type";
+      $file = $this->root . '/' . $this->moduleList[$module]->getPath() . "/$name.$type";
       if (is_file($file)) {
         require_once $file;
         return $file;
@@ -375,14 +392,12 @@ class ModuleHandler implements ModuleHandlerInterface {
     $implementations = $this->getImplementations($hook);
     foreach ($implementations as $module) {
       $function = $module . '_' . $hook;
-      if (function_exists($function)) {
-        $result = call_user_func_array($function, $args);
-        if (isset($result) && is_array($result)) {
-          $return = NestedArray::mergeDeep($return, $result);
-        }
-        elseif (isset($result)) {
-          $return[] = $result;
-        }
+      $result = call_user_func_array($function, $args);
+      if (isset($result) && is_array($result)) {
+        $return = NestedArray::mergeDeep($return, $result);
+      }
+      elseif (isset($result)) {
+        $return[] = $result;
       }
     }
 
@@ -473,30 +488,6 @@ class ModuleHandler implements ModuleHandlerInterface {
           }
         }
       }
-      // Allow the theme to alter variables after the theme system has been
-      // initialized.
-      global $theme, $base_theme_info;
-      if (isset($theme)) {
-        $theme_keys = array();
-        foreach ($base_theme_info as $base) {
-          $theme_keys[] = $base->getName();
-        }
-        $theme_keys[] = $theme;
-        foreach ($theme_keys as $theme_key) {
-          $function = $theme_key . '_' . $hook;
-          if (function_exists($function)) {
-            $this->alterFunctions[$cid][] = $function;
-          }
-          if (isset($extra_types)) {
-            foreach ($extra_types as $extra_type) {
-              $function = $theme_key . '_' . $extra_type . '_alter';
-              if (function_exists($function)) {
-                $this->alterFunctions[$cid][] = $function;
-              }
-            }
-          }
-        }
-      }
     }
 
     foreach ($this->alterFunctions[$cid] as $function) {
@@ -510,14 +501,16 @@ class ModuleHandler implements ModuleHandlerInterface {
    * @param string $hook
    *   The name of the hook (e.g. "help" or "menu").
    *
-   * @return array
+   * @return mixed[]
    *   An array whose keys are the names of the modules which are implementing
-   *   this hook and whose values are either an array of information from
-   *   hook_hook_info() or FALSE if the implementation is in the module file.
+   *   this hook and whose values are either a string identifying a file in
+   *   which the implementation is to be found, or FALSE, if the implementation
+   *   is in the module file.
    */
   protected function getImplementationInfo($hook) {
     if (!isset($this->implementations)) {
       $this->implementations = array();
+      $this->verified = array();
       if ($cache = $this->cacheBackend->get('module_implements')) {
         $this->implementations = $cache->data;
       }
@@ -526,27 +519,18 @@ class ModuleHandler implements ModuleHandlerInterface {
       // The hook is not cached, so ensure that whether or not it has
       // implementations, the cache is updated at the end of the request.
       $this->cacheNeedsWriting = TRUE;
+      // Discover implementations.
       $this->implementations[$hook] = $this->buildImplementationInfo($hook);
+      // Implementations are always "verified" as part of the discovery.
+      $this->verified[$hook] = TRUE;
     }
-    else {
-      foreach ($this->implementations[$hook] as $module => $group) {
-        // If this hook implementation is stored in a lazy-loaded file, include
-        // that file first.
-        if ($group) {
-          $this->loadInclude($module, 'inc', "$module.$group");
-        }
-        // It is possible that a module removed a hook implementation without
-        // the implementations cache being rebuilt yet, so we check whether the
-        // function exists on each request to avoid undefined function errors.
-        // Since ModuleHandler::implementsHook() may needlessly try to
-        // load the include file again, function_exists() is used directly here.
-        if (!function_exists($module . '_' . $hook)) {
-          // Clear out the stale implementation from the cache and force a cache
-          // refresh to forget about no longer existing hook implementations.
-          unset($this->implementations[$hook][$module]);
-          $this->cacheNeedsWriting = TRUE;
-        }
+    elseif (!isset($this->verified[$hook])) {
+      if (!$this->verifyImplementations($this->implementations[$hook], $hook)) {
+        // One or more of the implementations did not exist and need to be
+        // removed in the cache.
+        $this->cacheNeedsWriting = TRUE;
       }
+      $this->verified[$hook] = TRUE;
     }
     return $this->implementations[$hook];
   }
@@ -557,37 +541,102 @@ class ModuleHandler implements ModuleHandlerInterface {
    * @param string $hook
    *   The name of the hook (e.g. "help" or "menu").
    *
-   * @return array
+   * @return mixed[]
    *   An array whose keys are the names of the modules which are implementing
-   *   this hook and whose values are either an array of information from
-   *   hook_hook_info() or FALSE if the implementation is in the module file.
+   *   this hook and whose values are either a string identifying a file in
+   *   which the implementation is to be found, or FALSE, if the implementation
+   *   is in the module file.
+   *
+   * @throws \RuntimeException
+   *   Exception thrown when an invalid implementation is added by
+   *   hook_module_implements_alter().
    *
    * @see \Drupal\Core\Extension\ModuleHandler::getImplementationInfo()
    */
   protected function buildImplementationInfo($hook) {
-    $this->implementations[$hook] = array();
+    $implementations = array();
     $hook_info = $this->getHookInfo();
-    foreach ($this->moduleList as $module => $filename) {
+    foreach ($this->moduleList as $module => $extension) {
       $include_file = isset($hook_info[$hook]['group']) && $this->loadInclude($module, 'inc', $module . '.' . $hook_info[$hook]['group']);
       // Since $this->implementsHook() may needlessly try to load the include
       // file again, function_exists() is used directly here.
       if (function_exists($module . '_' . $hook)) {
-        $this->implementations[$hook][$module] = $include_file ? $hook_info[$hook]['group'] : FALSE;
+        $implementations[$module] = $include_file ? $hook_info[$hook]['group'] : FALSE;
       }
     }
-    // Allow modules to change the weight of specific implementations but avoid
+    // Allow modules to change the weight of specific implementations, but avoid
     // an infinite loop.
     if ($hook != 'module_implements_alter') {
-      $this->alter('module_implements', $this->implementations[$hook], $hook);
+      // Remember the original implementations, before they are modified with
+      // hook_module_implements_alter().
+      $implementations_before = $implementations;
+      // Verify implementations that were added or modified.
+      $this->alter('module_implements', $implementations, $hook);
+      // Verify new or modified implementations.
+      foreach (array_diff_assoc($implementations, $implementations_before) as $module => $group) {
+        // If drupal_alter('module_implements') changed or added a $group, the
+        // respective file needs to be included.
+        if ($group) {
+          $this->loadInclude($module, 'inc', "$module.$group");
+        }
+        // If a new implementation was added, verify that the function exists.
+        if (!function_exists($module . '_' . $hook)) {
+          throw new \RuntimeException(SafeMarkup::format('An invalid implementation @function was added by hook_module_implements_alter()', array('@function' => $module . '_' . $hook)));
+        }
+      }
     }
-    return $this->implementations[$hook];
+    return $implementations;
+  }
+
+  /**
+   * Verifies an array of implementations loaded from the cache, by including
+   * the lazy-loaded $module.$group.inc, and checking function_exists().
+   *
+   * @param string[] $implementations
+   *   Implementation "group" by module name.
+   * @param string $hook
+   *   The hook name.
+   *
+   * @return bool
+   *   TRUE, if all implementations exist.
+   *   FALSE, if one or more implementations don't exist and need to be removed
+   *     from the cache.
+   */
+  protected function verifyImplementations(&$implementations, $hook) {
+    $all_valid = TRUE;
+    foreach ($implementations as $module => $group) {
+      // If this hook implementation is stored in a lazy-loaded file, include
+      // that file first.
+      if ($group) {
+        $this->loadInclude($module, 'inc', "$module.$group");
+      }
+      // It is possible that a module removed a hook implementation without
+      // the implementations cache being rebuilt yet, so we check whether the
+      // function exists on each request to avoid undefined function errors.
+      // Since ModuleHandler::implementsHook() may needlessly try to
+      // load the include file again, function_exists() is used directly here.
+      if (!function_exists($module . '_' . $hook)) {
+        // Clear out the stale implementation from the cache and force a cache
+        // refresh to forget about no longer existing hook implementations.
+        unset($implementations[$module]);
+        // One of the implementations did not exist and needs to be removed in
+        // the cache.
+        $all_valid = FALSE;
+      }
+    }
+    return $all_valid;
   }
 
   /**
    * Parses a dependency for comparison by drupal_check_incompatibility().
    *
    * @param $dependency
-   *   A dependency string, for example 'foo (>=8.x-4.5-beta5, 3.x)'.
+   *   A dependency string, which specifies a module dependency, and optionally
+   *   the project it comes from and versions that are supported. Supported
+   *   formats include:
+   *   - 'module'
+   *   - 'project:module'
+   *   - 'project:module (>=version, version)'
    *
    * @return
    *   An associative array with three keys:
@@ -602,6 +651,12 @@ class ModuleHandler implements ModuleHandlerInterface {
    * @see drupal_check_incompatibility()
    */
   public static function parseDependency($dependency) {
+    $value = array();
+    // Split out the optional project name.
+    if (strpos($dependency, ':') !== FALSE) {
+      list($project_name, $dependency) = explode(':', $dependency);
+      $value['project'] = $project_name;
+    }
     // We use named subpatterns and support every op that version_compare
     // supports. Also, op is optional and defaults to equals.
     $p_op = '(?<operation>!=|==|=|<|<=|>|>=|<>)?';
@@ -610,7 +665,6 @@ class ModuleHandler implements ModuleHandlerInterface {
     $p_major = '(?<major>\d+)';
     // By setting the minor version to x, branches can be matched.
     $p_minor = '(?<minor>(?:\d+|x)(?:-[A-Za-z]+\d+)?)';
-    $value = array();
     $parts = explode('(', $dependency, 2);
     $value['name'] = trim($parts[0]);
     if (isset($parts[1])) {
@@ -644,390 +698,20 @@ class ModuleHandler implements ModuleHandlerInterface {
   /**
    * {@inheritdoc}
    */
-  public function install(array $module_list, $enable_dependencies = TRUE) {
-    $extension_config = \Drupal::config('core.extension');
-    if ($enable_dependencies) {
-      // Get all module data so we can find dependencies and sort.
-      $module_data = system_rebuild_module_data();
-      $module_list = $module_list ? array_combine($module_list, $module_list) : array();
-      if (array_diff_key($module_list, $module_data)) {
-        // One or more of the given modules doesn't exist.
-        return FALSE;
-      }
-
-      // Only process currently uninstalled modules.
-      $installed_modules = $extension_config->get('module') ?: array();
-      if (!$module_list = array_diff_key($module_list, $installed_modules)) {
-        // Nothing to do. All modules already installed.
-        return TRUE;
-      }
-
-      // Add dependencies to the list. The new modules will be processed as
-      // the while loop continues.
-      while (list($module) = each($module_list)) {
-        foreach (array_keys($module_data[$module]->requires) as $dependency) {
-          if (!isset($module_data[$dependency])) {
-            // The dependency does not exist.
-            return FALSE;
-          }
-
-          // Skip already installed modules.
-          if (!isset($module_list[$dependency]) && !isset($installed_modules[$dependency])) {
-            $module_list[$dependency] = $dependency;
-          }
-        }
-      }
-
-      // Set the actual module weights.
-      $module_list = array_map(function ($module) use ($module_data) {
-        return $module_data[$module]->sort;
-      }, $module_list);
-
-      // Sort the module list by their weights (reverse).
-      arsort($module_list);
-      $module_list = array_keys($module_list);
-    }
-
-    // Required for module installation checks.
-    include_once DRUPAL_ROOT . '/core/includes/install.inc';
-
-    /** @var \Drupal\Core\Config\ConfigInstaller $config_installer */
-    $config_installer = \Drupal::service('config.installer');
-    $sync_status = $config_installer->isSyncing();
-    if ($sync_status) {
-      $source_storage = $config_installer->getSourceStorage();
-    }
-    $modules_installed = array();
-    foreach ($module_list as $module) {
-      $enabled = $extension_config->get("module.$module") !== NULL;
-      if (!$enabled) {
-        // Throw an exception if the module name is too long.
-        if (strlen($module) > DRUPAL_EXTENSION_NAME_MAX_LENGTH) {
-          throw new ExtensionNameLengthException(format_string('Module name %name is over the maximum allowed length of @max characters.', array(
-            '%name' => $module,
-            '@max' => DRUPAL_EXTENSION_NAME_MAX_LENGTH,
-          )));
-        }
-
-        $extension_config
-          ->set("module.$module", 0)
-          ->set('module', module_config_sort($extension_config->get('module')))
-          ->save();
-
-        // Prepare the new module list, sorted by weight, including filenames.
-        // This list is used for both the ModuleHandler and DrupalKernel. It
-        // needs to be kept in sync between both. A DrupalKernel reboot or
-        // rebuild will automatically re-instantiate a new ModuleHandler that
-        // uses the new module list of the kernel. However, DrupalKernel does
-        // not cause any modules to be loaded.
-        // Furthermore, the currently active (fixed) module list can be
-        // different from the configured list of enabled modules. For all active
-        // modules not contained in the configured enabled modules, we assume a
-        // weight of 0.
-        $current_module_filenames = $this->getModuleList();
-        $current_modules = array_fill_keys(array_keys($current_module_filenames), 0);
-        $current_modules = module_config_sort(array_merge($current_modules, $extension_config->get('module')));
-        $module_filenames = array();
-        foreach ($current_modules as $name => $weight) {
-          if (isset($current_module_filenames[$name])) {
-            $module_filenames[$name] = $current_module_filenames[$name];
-          }
-          else {
-            $module_path = drupal_get_path('module', $name);
-            $pathname = "$module_path/$name.info.yml";
-            $filename = file_exists($module_path . "/$name.module") ? "$name.module" : NULL;
-            $module_filenames[$name] = new Extension('module', $pathname, $filename);
-          }
-        }
-
-        // Update the module handler in order to load the module's code.
-        // This allows the module to participate in hooks and its existence to
-        // be discovered by other modules.
-        // The current ModuleHandler instance is obsolete with the kernel
-        // rebuild below.
-        $this->setModuleList($module_filenames);
-        $this->load($module);
-        module_load_install($module);
-
-        // Clear the static cache of system_rebuild_module_data() to pick up the
-        // new module, since it merges the installation status of modules into
-        // its statically cached list.
-        drupal_static_reset('system_rebuild_module_data');
-
-        // Update the kernel to include it.
-        // This reboots the kernel to register the module's bundle and its
-        // services in the service container. The $module_filenames argument is
-        // taken over as %container.modules% parameter, which is passed to a
-        // fresh ModuleHandler instance upon first retrieval.
-        // @todo install_begin_request() creates a container without a kernel.
-        if ($kernel = \Drupal::service('kernel', ContainerInterface::NULL_ON_INVALID_REFERENCE)) {
-          $kernel->updateModules($module_filenames, $module_filenames);
-        }
-
-        // Refresh the schema to include it.
-        drupal_get_schema(NULL, TRUE);
-
-        // Allow modules to react prior to the installation of a module.
-        $this->invokeAll('module_preinstall', array($module));
-
-        // Now install the module's schema if necessary.
-        drupal_install_schema($module);
-
-        // Clear plugin manager caches.
-        \Drupal::getContainer()->get('plugin.cache_clearer')->clearCachedDefinitions();
-
-        // Set the schema version to the number of the last update provided by
-        // the module, or the minimum core schema version.
-        $version = \Drupal::CORE_MINIMUM_SCHEMA_VERSION;
-        $versions = drupal_get_schema_versions($module);
-        if ($versions) {
-          $version = max(max($versions), $version);
-        }
-
-        // Install default configuration of the module.
-        $config_installer = \Drupal::service('config.installer');
-        if ($sync_status) {
-          $config_installer
-            ->setSyncing(TRUE)
-            ->setSourceStorage($source_storage);
-        }
-        else {
-          // If we're not in a config synchronisation reset the source storage
-          // so that the extension install storage will pick up the new
-          // configuration.
-          $config_installer->resetSourceStorage();
-        }
-        \Drupal::service('config.installer')->installDefaultConfig('module', $module);
-
-        // If the module has no current updates, but has some that were
-        // previously removed, set the version to the value of
-        // hook_update_last_removed().
-        if ($last_removed = $this->invoke($module, 'update_last_removed')) {
-          $version = max($version, $last_removed);
-        }
-        drupal_set_installed_schema_version($module, $version);
-
-        // Install any entity schemas belonging to the module.
-        $entity_manager = \Drupal::entityManager();
-        $schema = \Drupal::database()->schema();
-        foreach ($entity_manager->getDefinitions() as $entity_type) {
-          if ($entity_type->getProvider() == $module) {
-            $storage = $entity_manager->getStorage($entity_type->id());
-            if ($storage instanceof EntitySchemaProviderInterface) {
-              foreach ($storage->getSchema() as $table_name => $table_schema) {
-                if (!$schema->tableExists($table_name)) {
-                  $schema->createTable($table_name, $table_schema);
-                }
-              }
-            }
-          }
-        }
-
-        // Record the fact that it was installed.
-        $modules_installed[] = $module;
-
-        // Update the theme registry to include it.
-        drupal_theme_rebuild();
-
-        // Modules can alter theme info, so refresh theme data.
-        // @todo ThemeHandler cannot be injected into ModuleHandler, since that
-        //   causes a circular service dependency.
-        // @see https://drupal.org/node/2208429
-        \Drupal::service('theme_handler')->refreshInfo();
-
-        // Allow the module to perform install tasks.
-        $this->invoke($module, 'install');
-
-        // Record the fact that it was installed.
-        watchdog('system', '%module module installed.', array('%module' => $module), WATCHDOG_INFO);
-      }
-    }
-
-    // If any modules were newly installed, invoke hook_modules_installed().
-    if (!empty($modules_installed)) {
-      $this->invokeAll('modules_installed', array($modules_installed));
-    }
-
-    return TRUE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function uninstall(array $module_list, $uninstall_dependents = TRUE) {
-    // Get all module data so we can find dependencies and sort.
-    $module_data = system_rebuild_module_data();
-    $module_list = $module_list ? array_combine($module_list, $module_list) : array();
-    if (array_diff_key($module_list, $module_data)) {
-      // One or more of the given modules doesn't exist.
-      return FALSE;
-    }
-
-    // Only process currently installed modules.
-    $extension_config = \Drupal::config('core.extension');
-    $installed_modules = $extension_config->get('module') ?: array();
-    if (!$module_list = array_intersect_key($module_list, $installed_modules)) {
-      // Nothing to do. All modules already uninstalled.
-      return TRUE;
-    }
-
-    if ($uninstall_dependents) {
-      // Add dependent modules to the list. The new modules will be processed as
-      // the while loop continues.
-      $profile = drupal_get_profile();
-      while (list($module) = each($module_list)) {
-        foreach (array_keys($module_data[$module]->required_by) as $dependent) {
-          if (!isset($module_data[$dependent])) {
-            // The dependent module does not exist.
-            return FALSE;
-          }
-
-          // Skip already uninstalled modules.
-          if (isset($installed_modules[$dependent]) && !isset($module_list[$dependent]) && $dependent != $profile) {
-            $module_list[$dependent] = $dependent;
-          }
-        }
-      }
-    }
-
-    // Set the actual module weights.
-    $module_list = array_map(function ($module) use ($module_data) {
-      return $module_data[$module]->sort;
-    }, $module_list);
-
-    // Sort the module list by their weights.
-    asort($module_list);
-    $module_list = array_keys($module_list);
-
-    // Only process modules that are enabled. A module is only enabled if it is
-    // configured as enabled. Custom or overridden module handlers might contain
-    // the module already, which means that it might be loaded, but not
-    // necessarily installed.
-    $schema_store = \Drupal::keyValue('system.schema');
-    foreach ($module_list as $module) {
-      // Allow modules to react prior to the uninstallation of a module.
-      $this->invokeAll('module_preuninstall', array($module));
-
-      // Uninstall the module.
-      module_load_install($module);
-      $this->invoke($module, 'uninstall');
-
-      // Remove all configuration belonging to the module.
-      \Drupal::service('config.manager')->uninstall('module', $module);
-
-      // Remove any entity schemas belonging to the module.
-      $entity_manager = \Drupal::entityManager();
-      $schema = \Drupal::database()->schema();
-      foreach ($entity_manager->getDefinitions() as $entity_type) {
-        if ($entity_type->getProvider() == $module) {
-          $storage = $entity_manager->getStorage($entity_type->id());
-          if ($storage instanceof EntitySchemaProviderInterface) {
-            foreach ($storage->getSchema() as $table_name => $table_schema) {
-              if ($schema->tableExists($table_name)) {
-                $schema->dropTable($table_name);
-              }
-            }
-          }
-        }
-      }
-
-      // Remove the schema.
-      drupal_uninstall_schema($module);
-
-      // Remove the module's entry from the config.
-      $extension_config->clear("module.$module")->save();
-
-      // Update the module handler to remove the module.
-      // The current ModuleHandler instance is obsolete with the kernel rebuild
-      // below.
-      $module_filenames = $this->getModuleList();
-      unset($module_filenames[$module]);
-      $this->setModuleList($module_filenames);
-
-      // Remove any potential cache bins provided by the module.
-      $this->removeCacheBins($module);
-
-      // Clear the static cache of system_rebuild_module_data() to pick up the
-      // new module, since it merges the installation status of modules into
-      // its statically cached list.
-      drupal_static_reset('system_rebuild_module_data');
-
-      \Drupal::getContainer()->get('plugin.cache_clearer')->clearCachedDefinitions();
-
-      // Update the kernel to exclude the uninstalled modules.
-      \Drupal::service('kernel')->updateModules($module_filenames, $module_filenames);
-
-      // Update the theme registry to remove the newly uninstalled module.
-      drupal_theme_rebuild();
-
-      // Modules can alter theme info, so refresh theme data.
-      // @todo ThemeHandler cannot be injected into ModuleHandler, since that
-      //   causes a circular service dependency.
-      // @see https://drupal.org/node/2208429
-      \Drupal::service('theme_handler')->refreshInfo();
-
-      watchdog('system', '%module module uninstalled.', array('%module' => $module), WATCHDOG_INFO);
-
-      $schema_store->delete($module);
-    }
-    drupal_get_installed_schema_version(NULL, TRUE);
-
-    // Let other modules react.
-    $this->invokeAll('modules_uninstalled', array($module_list));
-
-    drupal_flush_all_caches();
-
-    return TRUE;
-  }
-
-  /**
-   * Helper method for removing all cache bins registered by a given module.
-   *
-   * @param string $module
-   *   The name of the module for which to remove all registered cache bins.
-   */
-  protected function removeCacheBins($module) {
-    // Remove any cache bins defined by a module.
-    $service_yaml_file = drupal_get_path('module', $module) . "/$module.services.yml";
-    if (file_exists($service_yaml_file)) {
-      $definitions = Yaml::decode(file_get_contents($service_yaml_file));
-      if (isset($definitions['services'])) {
-        foreach ($definitions['services'] as $id => $definition) {
-          if (isset($definition['tags'])) {
-            foreach ($definition['tags'] as $tag) {
-              // This works for the default cache registration and even in some
-              // cases when a non-default "super" factory is used. That should
-              // be extremely rare.
-              if ($tag['name'] == 'cache.bin' && isset($definition['factory_service']) && isset($definition['factory_method']) && !empty($definition['arguments'])) {
-                try {
-                  $factory = \Drupal::service($definition['factory_service']);
-                  if (method_exists($factory, $definition['factory_method'])) {
-                    $backend = call_user_func_array(array($factory, $definition['factory_method']), $definition['arguments']);
-                    if ($backend instanceof CacheBackendInterface) {
-                      $backend->removeBin();
-                    }
-                  }
-                }
-                catch (\Exception $e) {
-                  watchdog_exception('system', $e, 'Failed to remove cache bin defined by the service %id.', array('%id' => $id));
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getModuleDirectories() {
     $dirs = array();
     foreach ($this->getModuleList() as $name => $module) {
-      $dirs[$name] = DRUPAL_ROOT . '/' . $module->getPath();
+      $dirs[$name] = $this->root . '/' . $module->getPath();
     }
     return $dirs;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getName($module) {
+    $info = system_get_info('module', $module);
+    return isset($info['name']) ? $info['name'] : $module;
   }
 
 }

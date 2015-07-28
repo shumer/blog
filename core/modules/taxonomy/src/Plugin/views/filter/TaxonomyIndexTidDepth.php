@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\taxonomy\Plugin\views\filter\TaxonomyIndexTidDepth.
+ * Contains \Drupal\taxonomy\Plugin\views\filter\TaxonomyIndexTidDepth.
  */
 
 namespace Drupal\taxonomy\Plugin\views\filter;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Filter handler for taxonomy terms with depth.
@@ -21,7 +23,7 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
 
   public function operatorOptions($which = 'title') {
     return array(
-      'or' => t('Is one of'),
+      'or' => $this->t('Is one of'),
     );
   }
 
@@ -33,14 +35,14 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
     return $options;
   }
 
-  public function buildExtraOptionsForm(&$form, &$form_state) {
+  public function buildExtraOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildExtraOptionsForm($form, $form_state);
 
     $form['depth'] = array(
       '#type' => 'weight',
-      '#title' => t('Depth'),
+      '#title' => $this->t('Depth'),
       '#default_value' => $this->options['depth'],
-      '#description' => t('The depth will match nodes tagged with terms in the hierarchy. For example, if you have the term "fruit" and a child term "apple", with a depth of 1 (or higher) then filtering for the term "fruit" will get nodes that are tagged with "apple" as well as "fruit". If negative, the reverse is true; searching for "apple" will also pick up nodes tagged with "fruit" if depth is -1 (or lower).'),
+      '#description' => $this->t('The depth will match nodes tagged with terms in the hierarchy. For example, if you have the term "fruit" and a child term "apple", with a depth of 1 (or higher) then filtering for the term "fruit" will get nodes that are tagged with "apple" as well as "fruit". If negative, the reverse is true; searching for "apple" will also pick up nodes tagged with "fruit" if depth is -1 (or lower).'),
     );
   }
 
@@ -50,7 +52,7 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
       return;
     }
     elseif (count($this->value) == 1) {
-      // Somethis $this->value is an array with a single element so convert it.
+      // Sometimes $this->value is an array with a single element so convert it.
       if (is_array($this->value)) {
         $this->value = current($this->value);
       }
@@ -62,18 +64,14 @@ class TaxonomyIndexTidDepth extends TaxonomyIndexTid {
 
     // The normal use of ensureMyTable() here breaks Views.
     // So instead we trick the filter into using the alias of the base table.
-    // See http://drupal.org/node/271833
+    //   See https://www.drupal.org/node/271833.
     // If a relationship is set, we must use the alias it provides.
     if (!empty($this->relationship)) {
       $this->tableAlias = $this->relationship;
     }
     // If no relationship, then use the alias of the base table.
-    elseif (isset($this->query->table_queue[$this->view->storage->get('base_table')]['alias'])) {
-      $this->tableAlias = $this->query->table_queue[$this->view->storage->get('base_table')]['alias'];
-    }
-    // This should never happen, but if it does, we fail quietly.
     else {
-      return;
+      $this->tableAlias = $this->query->ensureTable($this->view->storage->get('base_table'));
     }
 
     // Now build the subqueries.

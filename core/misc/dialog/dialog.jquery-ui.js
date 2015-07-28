@@ -2,6 +2,7 @@
  * @file
  * Adds default classes to buttons for styling purposes.
  */
+
 (function ($) {
 
   "use strict";
@@ -15,7 +16,9 @@
       var opts = this.options;
       var primaryIndex;
       var $buttons;
-      for (var index = 0, il = opts.buttons.length; index < il; index += 1) {
+      var index;
+      var il = opts.buttons.length;
+      for (index = 0; index < il; index++) {
         if (opts.buttons[index].primary && opts.buttons[index].primary === true) {
           primaryIndex = index;
           delete opts.buttons[index].primary;

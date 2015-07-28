@@ -9,6 +9,7 @@ namespace Drupal\user;
 
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityForm;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form controller for the role entity edit forms.
@@ -18,7 +19,7 @@ class RoleForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $entity = $this->entity;
     $form['label'] = array(
       '#type' => 'textfield',
@@ -37,7 +38,7 @@ class RoleForm extends EntityForm {
       '#size' => 30,
       '#maxlength' => 64,
       '#machine_name' => array(
-        'exists' => 'user_role_load',
+        'exists' => ['\Drupal\user\Entity\Role', 'load'],
       ),
     );
     $form['weight'] = array(
@@ -51,23 +52,23 @@ class RoleForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function save(array $form, array &$form_state) {
+  public function save(array $form, FormStateInterface $form_state) {
     $entity = $this->entity;
 
     // Prevent leading and trailing spaces in role names.
     $entity->set('label', trim($entity->label()));
     $status = $entity->save();
 
-    $edit_link = \Drupal::linkGenerator()->generateFromUrl($this->t('Edit'), $this->entity->urlInfo());
+    $edit_link = $this->entity->link($this->t('Edit'));
     if ($status == SAVED_UPDATED) {
       drupal_set_message($this->t('Role %label has been updated.', array('%label' => $entity->label())));
-      watchdog('user', 'Role %label has been updated.', array('%label' => $entity->label()), WATCHDOG_NOTICE, $edit_link);
+      $this->logger('user')->notice('Role %label has been updated.', array('%label' => $entity->label(), 'link' => $edit_link));
     }
     else {
       drupal_set_message($this->t('Role %label has been added.', array('%label' => $entity->label())));
-      watchdog('user', 'Role %label has been added.', array('%label' => $entity->label()), WATCHDOG_NOTICE, $edit_link);
+      $this->logger('user')->notice('Role %label has been added.', array('%label' => $entity->label(), 'link' => $edit_link));
     }
-    $form_state['redirect_route']['route_name'] = 'user.role_list';
+    $form_state->setRedirect('entity.user_role.collection');
   }
 
 }

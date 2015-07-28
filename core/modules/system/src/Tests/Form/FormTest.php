@@ -2,16 +2,18 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Form\FormTest.
+ * Contains \Drupal\system\Tests\Form\FormTest.
  */
 
 namespace Drupal\system\Tests\Form;
 
 use Drupal\Component\Serialization\Json;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Form\FormState;
 use Drupal\Core\Render\Element;
 use Drupal\form_test\Form\FormTestDisabledElementsForm;
 use Drupal\simpletest\WebTestBase;
+use Drupal\user\RoleInterface;
 
 /**
  * Tests various form element validation mechanisms.
@@ -27,7 +29,7 @@ class FormTest extends WebTestBase {
    */
   public static $modules = array('filter', 'form_test', 'file', 'datetime');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $filtered_html_format = entity_create('filter_format', array(
@@ -37,7 +39,7 @@ class FormTest extends WebTestBase {
     $filtered_html_format->save();
 
     $filtered_html_permission = $filtered_html_format->getPermissionName();
-    user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, array($filtered_html_permission));
+    user_role_grant_permissions(RoleInterface::ANONYMOUS_ID, array($filtered_html_permission));
   }
 
   /**
@@ -46,52 +48,52 @@ class FormTest extends WebTestBase {
    * Carriage returns, tabs, spaces, and unchecked checkbox elements are not
    * valid content for a required field.
    *
-   * If the form field is found in form_get_errors() then the test pass.
+   * If the form field is found in $form_state->getErrors() then the test pass.
    */
   function testRequiredFields() {
-    // Originates from http://drupal.org/node/117748
+    // Originates from https://www.drupal.org/node/117748.
     // Sets of empty strings and arrays.
     $empty_strings = array('""' => "", '"\n"' => "\n", '" "' => " ", '"\t"' => "\t", '" \n\t "' => " \n\t ", '"\n\n\n\n\n"' => "\n\n\n\n\n");
     $empty_arrays = array('array()' => array());
     $empty_checkbox = array(NULL);
 
-    $elements['textfield']['element'] = array('#title' => $this->randomName(), '#type' => 'textfield');
+    $elements['textfield']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'textfield');
     $elements['textfield']['empty_values'] = $empty_strings;
 
-    $elements['telephone']['element'] = array('#title' => $this->randomName(), '#type' => 'tel');
+    $elements['telephone']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'tel');
     $elements['telephone']['empty_values'] = $empty_strings;
 
-    $elements['url']['element'] = array('#title' => $this->randomName(), '#type' => 'url');
+    $elements['url']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'url');
     $elements['url']['empty_values'] = $empty_strings;
 
-    $elements['search']['element'] = array('#title' => $this->randomName(), '#type' => 'search');
+    $elements['search']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'search');
     $elements['search']['empty_values'] = $empty_strings;
 
-    $elements['password']['element'] = array('#title' => $this->randomName(), '#type' => 'password');
+    $elements['password']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'password');
     $elements['password']['empty_values'] = $empty_strings;
 
-    $elements['password_confirm']['element'] = array('#title' => $this->randomName(), '#type' => 'password_confirm');
+    $elements['password_confirm']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'password_confirm');
     // Provide empty values for both password fields.
     foreach ($empty_strings as $key => $value) {
       $elements['password_confirm']['empty_values'][$key] = array('pass1' => $value, 'pass2' => $value);
     }
 
-    $elements['textarea']['element'] = array('#title' => $this->randomName(), '#type' => 'textarea');
+    $elements['textarea']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'textarea');
     $elements['textarea']['empty_values'] = $empty_strings;
 
-    $elements['radios']['element'] = array('#title' => $this->randomName(), '#type' => 'radios', '#options' => array('' => t('None'), $this->randomName(), $this->randomName(), $this->randomName()));
+    $elements['radios']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'radios', '#options' => array('' => t('None'), $this->randomMachineName(), $this->randomMachineName(), $this->randomMachineName()));
     $elements['radios']['empty_values'] = $empty_arrays;
 
-    $elements['checkbox']['element'] = array('#title' => $this->randomName(), '#type' => 'checkbox', '#required' => TRUE);
+    $elements['checkbox']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'checkbox', '#required' => TRUE);
     $elements['checkbox']['empty_values'] = $empty_checkbox;
 
-    $elements['checkboxes']['element'] = array('#title' => $this->randomName(), '#type' => 'checkboxes', '#options' => array($this->randomName(), $this->randomName(), $this->randomName()));
+    $elements['checkboxes']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'checkboxes', '#options' => array($this->randomMachineName(), $this->randomMachineName(), $this->randomMachineName()));
     $elements['checkboxes']['empty_values'] = $empty_arrays;
 
-    $elements['select']['element'] = array('#title' => $this->randomName(), '#type' => 'select', '#options' => array('' => t('None'), $this->randomName(), $this->randomName(), $this->randomName()));
+    $elements['select']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'select', '#options' => array('' => t('None'), $this->randomMachineName(), $this->randomMachineName(), $this->randomMachineName()));
     $elements['select']['empty_values'] = $empty_strings;
 
-    $elements['file']['element'] = array('#title' => $this->randomName(), '#type' => 'file');
+    $elements['file']['element'] = array('#title' => $this->randomMachineName(), '#type' => 'file');
     $elements['file']['empty_values'] = $empty_strings;
 
     // Regular expression to find the expected marker on required elements.
@@ -100,28 +102,29 @@ class FormTest extends WebTestBase {
     foreach ($elements as $type => $data) {
       foreach ($data['empty_values'] as $key => $empty) {
         foreach (array(TRUE, FALSE) as $required) {
-          $form_id = $this->randomName();
+          $form_id = $this->randomMachineName();
           $form = array();
-          $form_state = \Drupal::formBuilder()->getFormStateDefaults();
+          $form_state = new FormState();
           $form['op'] = array('#type' => 'submit', '#value' => t('Submit'));
           $element = $data['element']['#title'];
           $form[$element] = $data['element'];
           $form[$element]['#required'] = $required;
-          $form_state['input'][$element] = $empty;
-          $form_state['input']['form_id'] = $form_id;
-          $form_state['build_info']['callback_object'] = new StubForm($form_id, $form);
-          $form_state['method'] = 'post';
+          $user_input[$element] = $empty;
+          $user_input['form_id'] = $form_id;
+          $form_state->setUserInput($user_input);
+          $form_state->setFormObject(new StubForm($form_id, $form));
+          $form_state->setMethod('POST');
           // The form token CSRF protection should not interfere with this test,
           // so we bypass it by setting the token to FALSE.
           $form['#token'] = FALSE;
           \Drupal::formBuilder()->prepareForm($form_id, $form, $form_state);
-          drupal_process_form($form_id, $form, $form_state);
-          $errors = form_get_errors($form_state);
+          \Drupal::formBuilder()->processForm($form_id, $form, $form_state);
+          $errors = $form_state->getErrors();
           // Form elements of type 'radios' throw all sorts of PHP notices
           // when you try to render them like this, so we ignore those for
           // testing the required marker.
-          // @todo Fix this work-around (http://drupal.org/node/588438).
-          $form_output = ($type == 'radios') ? '' : drupal_render($form);
+          // @todo Fix this work-around (https://www.drupal.org/node/588438).
+          $form_output = ($type == 'radios') ? '' : \Drupal::service('renderer')->renderRoot($form);
           if ($required) {
             // Make sure we have a form error for this element.
             $this->assertTrue(isset($errors[$element]), "Check empty($key) '$type' field '$element'");
@@ -185,7 +188,7 @@ class FormTest extends WebTestBase {
     }
 
     // Check the page for error messages.
-    $errors = $this->xpath('//div[contains(@class, "error")]//li');
+    $errors = $this->xpath('//div[contains(@class, "form-error-message")]//strong');
     foreach ($errors as $error) {
       $expected_key = array_search($error[0], $expected);
       // If the error message is not one of the expected messages, fail.
@@ -300,21 +303,32 @@ class FormTest extends WebTestBase {
 
     // Posting without any values should throw validation errors.
     $this->drupalPostForm(NULL, array(), 'Submit');
-    $this->assertNoText(t($error, array('!name' => $form['select']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['select_required']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['select_optional']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['empty_value']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['empty_value_one']['#title'])));
-    $this->assertText(t($error, array('!name' => $form['no_default']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['no_default_optional']['#title'])));
-    $this->assertText(t($error, array('!name' => $form['no_default_empty_option']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['no_default_empty_option_optional']['#title'])));
-    $this->assertText(t($error, array('!name' => $form['no_default_empty_value']['#title'])));
-    $this->assertText(t($error, array('!name' => $form['no_default_empty_value_one']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['no_default_empty_value_optional']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['multiple']['#title'])));
-    $this->assertNoText(t($error, array('!name' => $form['multiple_no_default']['#title'])));
-    $this->assertText(t($error, array('!name' => $form['multiple_no_default_required']['#title'])));
+    $no_errors = array(
+        'select',
+        'select_required',
+        'select_optional',
+        'empty_value',
+        'empty_value_one',
+        'no_default_optional',
+        'no_default_empty_option_optional',
+        'no_default_empty_value_optional',
+        'multiple',
+        'multiple_no_default',
+    );
+    foreach ($no_errors as $key) {
+      $this->assertNoText(t('!name field is required.', array('!name' => $form[$key]['#title'])));
+    }
+
+    $expected_errors = array(
+        'no_default',
+        'no_default_empty_option',
+        'no_default_empty_value',
+        'no_default_empty_value_one',
+        'multiple_no_default_required',
+    );
+    foreach ($expected_errors as $key) {
+      $this->assertText(t('!name field is required.', array('!name' => $form[$key]['#title'])));
+    }
 
     // Post values for required fields.
     $edit = array(
@@ -325,7 +339,7 @@ class FormTest extends WebTestBase {
       'multiple_no_default_required[]' => 'three',
     );
     $this->drupalPostForm(NULL, $edit, 'Submit');
-    $values = Json::decode($this->drupalGetContent());
+    $values = Json::decode($this->getRawContent());
 
     // Verify expected values.
     $expected = array(
@@ -482,7 +496,7 @@ class FormTest extends WebTestBase {
    */
   function testDisabledElements() {
     // Get the raw form in its original state.
-    $form_state = array();
+    $form_state = new FormState();
     $form = (new FormTestDisabledElementsForm())->buildForm(array(), $form_state);
 
     // Build a submission that tries to hijack the form by submitting input for
@@ -502,7 +516,7 @@ class FormTest extends WebTestBase {
     }
 
     // Submit the form with no input, as the browser does for disabled elements,
-    // and fetch the $form_state['values'] that is passed to the submit handler.
+    // and fetch the $form_state->getValues() that is passed to the submit handler.
     $this->drupalPostForm('form-test/disabled-elements', array(), t('Submit'));
     $returned_values['normal'] = Json::decode($this->content);
 
@@ -520,7 +534,7 @@ class FormTest extends WebTestBase {
     // the disabled container.
     $actual_count = count($disabled_elements);
     $expected_count = 41;
-    $this->assertEqual($actual_count, $expected_count, String::format('Found @actual elements with disabled property (expected @expected).', array(
+    $this->assertEqual($actual_count, $expected_count, SafeMarkup::format('Found @actual elements with disabled property (expected @expected).', array(
       '@actual' => count($disabled_elements),
       '@expected' => $expected_count,
     )));
@@ -602,7 +616,7 @@ class FormTest extends WebTestBase {
       $path = strtr($path, array('!type' => $type));
       // Verify that the element exists.
       $element = $this->xpath($path, array(
-        ':name' => String::checkPlain($name),
+        ':name' => SafeMarkup::checkPlain($name),
         ':div-class' => $class,
         ':value' => isset($item['#value']) ? $item['#value'] : '',
       ));
@@ -658,12 +672,4 @@ class FormTest extends WebTestBase {
     $this->assertTrue(!empty($element), 'The textarea has the proper required attribute.');
   }
 
-  /**
-   * Tests a form with a form state storing a database connection.
-   */
-  public function testFormStateDatabaseConnection() {
-    $this->assertNoText('Database connection found');
-    $this->drupalPostForm('form-test/form_state-database', array(), t('Submit'));
-    $this->assertText('Database connection found');
-  }
 }

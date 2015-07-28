@@ -21,16 +21,16 @@ class BooleanItemTest extends FieldUnitTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    // Create an boolean field and instance for validation.
+    // Create a boolean field and storage for validation.
     entity_create('field_storage_config', array(
-      'name' => 'field_boolean',
+      'field_name' => 'field_boolean',
       'entity_type' => 'entity_test',
       'type' => 'boolean',
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_boolean',
       'bundle' => 'entity_test',
@@ -39,7 +39,7 @@ class BooleanItemTest extends FieldUnitTestBase {
     // Create a form display for the default form mode.
     entity_get_form_display('entity_test', 'entity_test', 'default')
       ->setComponent('field_boolean', array(
-        'type' => 'boolean',
+        'type' => 'boolean_checkbox',
       ))
       ->save();
   }
@@ -52,7 +52,7 @@ class BooleanItemTest extends FieldUnitTestBase {
     $entity = entity_create('entity_test');
     $value = '1';
     $entity->field_boolean = $value;
-    $entity->name->value = $this->randomName();
+    $entity->name->value = $this->randomMachineName();
     $entity->save();
 
     // Verify entity has been created properly.
@@ -72,6 +72,11 @@ class BooleanItemTest extends FieldUnitTestBase {
     $entity->save();
     $entity = entity_load('entity_test', $id);
     $this->assertEqual($entity->field_boolean->value, $new_value);
+
+    // Test sample item generation.
+    $entity = entity_create('entity_test');
+    $entity->field_boolean->generateSampleItems();
+    $this->entityValidateAndSave($entity);
   }
 
 }

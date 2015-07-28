@@ -16,7 +16,7 @@ use Drupal\Core\Plugin\Discovery\AnnotatedClassDiscovery;
  */
 class AnnotatedClassDiscoveryTest extends DiscoveryTestBase {
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->expectedDefinitions = array(
       'apple' => array(
@@ -43,6 +43,13 @@ class AnnotatedClassDiscoveryTest extends DiscoveryTestBase {
         'class' => 'Drupal\plugin_test\Plugin\plugin_test\fruit\Cherry',
         'provider' => 'plugin_test',
       ),
+      'kale' => array(
+        'id' => 'kale',
+        'label' => 'Kale',
+        'color' => 'green',
+        'class' => 'Drupal\plugin_test\Plugin\plugin_test\fruit\Kale',
+        'provider' => 'plugin_test',
+      ),
       'orange' => array(
         'id' => 'orange',
         'label' => 'Orange',
@@ -52,7 +59,7 @@ class AnnotatedClassDiscoveryTest extends DiscoveryTestBase {
       ),
     );
 
-    $base_directory = DRUPAL_ROOT . '/core/modules/system/tests/modules/plugin_test/src';
+    $base_directory = \Drupal::root() . '/core/modules/system/tests/modules/plugin_test/src';
     $namespaces = new \ArrayObject(array('Drupal\plugin_test' => $base_directory));
 
     $this->discovery = new AnnotatedClassDiscovery('Plugin/plugin_test/fruit', $namespaces);

@@ -88,11 +88,11 @@ class NodeType extends DrupalSqlBase {
   /**
    * {@inheritdoc}
    */
-  protected function runQuery() {
+  protected function initializeIterator() {
     $this->teaserLength = $this->variableGet('teaser_length', 600);
     $this->nodePreview = $this->variableGet('node_preview', 0);
     $this->themeSettings = $this->variableGet('theme_settings', array());
-    return parent::runQuery();
+    return parent::initializeIterator();
   }
 
   /**
@@ -110,7 +110,7 @@ class NodeType extends DrupalSqlBase {
     }
     $row->setSourceProperty('options', $options);
     $submitted = isset($this->themeSettings['toggle_node_info_' . $type]) ? $this->themeSettings['toggle_node_info_' . $type] : FALSE;
-    $row->setSourceProperty('submitted', $submitted);
+    $row->setSourceProperty('display_submitted', $submitted);
 
     return parent::prepareRow($row);
   }

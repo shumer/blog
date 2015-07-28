@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\node\Tests\NodeQueryAlterTest.
+ * Contains \Drupal\node\Tests\NodeQueryAlterTest.
  */
 
 namespace Drupal\node\Tests;
@@ -31,7 +31,7 @@ class NodeQueryAlterTest extends NodeTestBase {
    */
   protected $noAccessUser;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     node_access_rebuild();

@@ -27,7 +27,7 @@ class TokenTest extends UnitTestCase {
   /**
    * The language manager used for testing.
    *
-   * @var \Drupal\Core\Language\LanguageManager|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $languageManager;
 
@@ -39,6 +39,13 @@ class TokenTest extends UnitTestCase {
   protected $moduleHandler;
 
   /**
+   * The language interface used for testing.
+   *
+   * @var \Drupal\Core\Language\LanguageInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $language;
+
+  /**
    * The token service under test.
    *
    * @var \Drupal\Core\Utility\Token|\PHPUnit_Framework_MockObject_MockObject
@@ -46,18 +53,27 @@ class TokenTest extends UnitTestCase {
   protected $token;
 
   /**
+   * The cache tags invalidator.
+   *
+   * @var \Drupal\Core\Cache\CacheTagsInvalidatorInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $cacheTagsInvalidator;
+
+  /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     $this->cache = $this->getMock('\Drupal\Core\Cache\CacheBackendInterface');
 
-    $this->languageManager = $this->getMockBuilder('\Drupal\Core\Language\LanguageManager')
-      ->disableOriginalConstructor()
-      ->getMock();
+    $this->languageManager = $this->getMock('Drupal\Core\Language\LanguageManagerInterface');
 
     $this->moduleHandler = $this->getMock('\Drupal\Core\Extension\ModuleHandlerInterface');
 
-    $this->token = new Token($this->moduleHandler, $this->cache, $this->languageManager);
+    $this->language = $this->getMock('\Drupal\Core\Language\LanguageInterface');
+
+    $this->cacheTagsInvalidator = $this->getMock('\Drupal\Core\Cache\CacheTagsInvalidatorInterface');
+
+    $this->token = new Token($this->moduleHandler, $this->cache, $this->languageManager, $this->cacheTagsInvalidator);
   }
 
   /**
@@ -67,18 +83,19 @@ class TokenTest extends UnitTestCase {
     $token_info = array(
       'types' => array(
         'foo' => array(
-          'name' => $this->randomName(),
+          'name' => $this->randomMachineName(),
         ),
       ),
     );
 
-    $language = $this->getMock('\Drupal\Core\Language\Language');
-    $language->id = $this->randomName();
+    $this->language->expects($this->atLeastOnce())
+      ->method('getId')
+      ->will($this->returnValue($this->randomMachineName()));
 
     $this->languageManager->expects($this->once())
       ->method('getCurrentLanguage')
       ->with(LanguageInterface::TYPE_CONTENT)
-      ->will($this->returnValue($language));
+      ->will($this->returnValue($this->language));
 
     // The persistent cache must only be hit once, after which the info is
     // cached statically.
@@ -86,7 +103,7 @@ class TokenTest extends UnitTestCase {
       ->method('get');
     $this->cache->expects($this->once())
       ->method('set')
-      ->with('token_info:' . $language->id, $token_info);
+      ->with('token_info:' . $this->language->getId(), $token_info);
 
     $this->moduleHandler->expects($this->once())
       ->method('invokeAll')
@@ -103,6 +120,17 @@ class TokenTest extends UnitTestCase {
     // the static cache, so the persistent cache must not be accessed and the
     // hooks must not be invoked.
     $this->token->getInfo();
+  }
+
+  /**
+   * @covers ::resetInfo
+   */
+  public function testResetInfo() {
+    $this->cacheTagsInvalidator->expects($this->once())
+      ->method('invalidateTags')
+      ->with(['token_info']);
+
+    $this->token->resetInfo();
   }
 
 }

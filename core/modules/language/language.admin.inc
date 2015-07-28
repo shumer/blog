@@ -5,8 +5,10 @@
  * Administration functions for language.module.
  */
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
 
 /**
  * Prepares variables for language negotiation configuration form.
@@ -49,7 +51,7 @@ function template_preprocess_language_negotiation_configure_form(&$variables) {
 
     foreach ($form[$type]['title'] as $id => $element) {
       // Do not take form control structures.
-      if (is_array($element) && element_child($id)) {
+      if (is_array($element) && Element::child($id)) {
         $table[$id]['#attributes']['class'][] = 'draggable';
         $table[$id]['#weight'] = $element['#weight'];
 
@@ -84,6 +86,7 @@ function template_preprocess_language_negotiation_configure_form(&$variables) {
       'configurable' => $configurable,
       'table' => $table,
       'children' => $form[$type],
+      'attributes' => new Attribute(),
     );
     // Prevent the type from rendering with the remaining form child elements.
     unset($form[$type]);
@@ -111,10 +114,7 @@ function theme_language_negotiation_configure_browser_form_table($variables) {
     $links = array();
     $links['delete'] = array(
       'title' => t('Delete'),
-      'href' => "admin/config/regional/language/detection/browser/delete/$key",
-      'attributes' => array(
-        'class' => array('image-style-link'),
-      ),
+      'url' => Url::fromRoute('language.negotiation_browser_delete', ['browser_langcode' => $key]),
     );
     $row[] = array(
       'data' => array(
@@ -128,7 +128,7 @@ function theme_language_negotiation_configure_browser_form_table($variables) {
 
   $header = array(
     t('Browser language code'),
-    t('Drupal language'),
+    t('Site language'),
     t('Operations'),
   );
 
@@ -136,7 +136,8 @@ function theme_language_negotiation_configure_browser_form_table($variables) {
     '#type' => 'table',
     '#header' => $header,
     '#rows' => $rows,
-    '#attributes' => array('id' => 'lang-neg-browser'),
+    '#empty' => t('No browser language mappings available.'),
+    '#attributes' => array('id' => 'language-negotiation-browser'),
   );
   $output = drupal_render($table);
 
@@ -169,7 +170,7 @@ function template_preprocess_language_content_settings_table(&$variables) {
           'data' => array(
             '#prefix' => '<label>',
             '#suffix' => '</label>',
-            '#markup' => String::checkPlain($element[$bundle]['settings']['#label']),
+            '#markup' => SafeMarkup::checkPlain($element[$bundle]['settings']['#label']),
           ),
           'class' => array('bundle'),
         ),
@@ -198,26 +199,8 @@ function template_preprocess_language_content_settings_table(&$variables) {
  *   - build: A render element representing a table of bundle content language
  *     settings for a particular entity type.
  *
- * @ingroup themable
+ * @ingroup themeable
  */
 function theme_language_content_settings_table($variables) {
   return '<h4>' . $variables['build']['#title'] . '</h4>' . drupal_render($variables['build']);
-}
-
-/**
- * Helper function to disable the language switcher blocks.
- *
- * @param array $language_types
- *   Array containing all language types whose language switchers need to be
- *   disabled.
- */
-function _language_disable_language_switcher(array $language_types) {
-  $blocks = _block_rehash();
-  foreach ($language_types as $language_type) {
-    foreach ($blocks as $block) {
-      if (strpos($block->id, 'language_switcher_' . substr($language_type, 9)) !== FALSE) {
-        $block->delete();
-      }
-    }
-  }
 }

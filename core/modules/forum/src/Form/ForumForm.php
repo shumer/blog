@@ -7,6 +7,8 @@
 
 namespace Drupal\forum\Form;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\taxonomy\TermForm;
 
 /**
@@ -31,7 +33,7 @@ class ForumForm extends TermForm {
   /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $taxonomy_term = $this->entity;
     // Build the bulk of the form from the parent taxonomy term form.
     $form = parent::form($form, $form_state, $taxonomy_term);
@@ -61,11 +63,11 @@ class ForumForm extends TermForm {
   /**
    * {@inheritdoc}
    */
-  public function buildEntity(array $form, array &$form_state) {
+  public function buildEntity(array $form, FormStateInterface $form_state) {
     $term = parent::buildEntity($form, $form_state);
 
     // Assign parents from forum parent select field.
-    $term->parent = array($form_state['values']['parent'][0]);
+    $term->parent = array($form_state->getValue(array('parent', 0)));
 
     return $term;
   }
@@ -73,39 +75,39 @@ class ForumForm extends TermForm {
   /**
    * {@inheritdoc}
    */
-  public function save(array $form, array &$form_state) {
+  public function save(array $form, FormStateInterface $form_state) {
     $term = $this->entity;
     $term_storage = $this->entityManager->getStorage('taxonomy_term');
     $status = $term_storage->save($term);
 
+    $route_name = $this->urlStub == 'container' ? 'entity.taxonomy_term.forum_edit_container_form' : 'entity.taxonomy_term.forum_edit_form';
+    $route_parameters  = ['taxonomy_term' => $term->id()];
+    $link = $this->l($this->t('Edit'), new Url($route_name, $route_parameters));
     switch ($status) {
       case SAVED_NEW:
         drupal_set_message($this->t('Created new @type %term.', array('%term' => $term->getName(), '@type' => $this->forumFormType)));
-        watchdog('forum', 'Created new @type %term.', array('%term' => $term->getName(), '@type' => $this->forumFormType), WATCHDOG_NOTICE, l($this->t('Edit'), 'admin/structure/forum/edit/' . $this->urlStub . '/' . $term->id()));
-        $form_state['values']['tid'] = $term->id();
+        $this->logger('forum')->notice('Created new @type %term.', array('%term' => $term->getName(), '@type' => $this->forumFormType, 'link' => $link));
+        $form_state->setValue('tid', $term->id());
         break;
 
       case SAVED_UPDATED:
         drupal_set_message($this->t('The @type %term has been updated.', array('%term' => $term->getName(), '@type' => $this->forumFormType)));
-        watchdog('taxonomy', 'Updated @type %term.', array('%term' => $term->getName(), '@type' => $this->forumFormType), WATCHDOG_NOTICE, l($this->t('Edit'), 'admin/structure/forum/edit/' . $this->urlStub . '/' . $term->id()));
+        $this->logger('forum')->notice('Updated @type %term.', array('%term' => $term->getName(), '@type' => $this->forumFormType, 'link' => $link));
         break;
     }
 
-    $form_state['redirect_route']['route_name'] = 'forum.overview';
+    $form_state->setRedirect('forum.overview');
     return $term;
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     $actions = parent::actions($form, $form_state);
 
     if (!$this->entity->isNew() && $this->entity->hasLinkTemplate('forum-delete-form')) {
-      $route_info = $this->entity->urlInfo('forum-delete-form');
-      $actions['delete']['#options'] = $route_info->getOptions();
-      $actions['delete']['#route_name'] = $route_info->getRouteName();
-      $actions['delete']['#route_parameters'] = $route_info->getRouteParameters();
+      $actions['delete']['#url'] = $this->entity->urlInfo('forum-delete-form');
     }
     else {
       unset($actions['delete']);
@@ -126,8 +128,8 @@ class ForumForm extends TermForm {
    *   A select form element.
    */
   protected function forumParentSelect($tid, $title) {
-    // @todo Inject a taxonomy service when one exists.
-    $parents = taxonomy_term_load_parents($tid);
+    $taxonomy_storage = $this->entityManager->getStorage('taxonomy_term');
+    $parents = $taxonomy_storage->loadParents($tid);
     if ($parents) {
       $parent = array_shift($parents);
       $parent = $parent->id();
@@ -137,8 +139,7 @@ class ForumForm extends TermForm {
     }
 
     $vid = $this->config('forum.settings')->get('vocabulary');
-    // @todo Inject a taxonomy service when one exists.
-    $children = taxonomy_get_tree($vid, $tid, NULL, TRUE);
+    $children = $taxonomy_storage->loadTree($vid, $tid, NULL, TRUE);
 
     // A term can't be the child of itself, nor of its children.
     foreach ($children as $child) {
@@ -146,8 +147,7 @@ class ForumForm extends TermForm {
     }
     $exclude[] = $tid;
 
-    // @todo Inject a taxonomy service when one exists.
-    $tree = taxonomy_get_tree($vid, 0, NULL, TRUE);
+    $tree = $taxonomy_storage->loadTree($vid, 0, NULL, TRUE);
     $options[0] = '<' . $this->t('root') . '>';
     if ($tree) {
       foreach ($tree as $term) {

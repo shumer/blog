@@ -7,6 +7,7 @@
 
 namespace Drupal\user\Plugin\Validation\Constraint;
 
+use Drupal\Component\Utility\Unicode;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 
@@ -18,11 +19,12 @@ class UserNameConstraintValidator extends ConstraintValidator {
   /**
    * {@inheritdoc}
    */
-  public function validate($name, Constraint $constraint) {
-    if (!$name) {
+  public function validate($items, Constraint $constraint) {
+    if (!isset($items) || !$items->value) {
       $this->context->addViolation($constraint->emptyMessage);
       return;
     }
+    $name = $items->first()->value;
     if (substr($name, 0, 1) == ' ') {
       $this->context->addViolation($constraint->spaceBeginMessage);
     }
@@ -47,7 +49,7 @@ class UserNameConstraintValidator extends ConstraintValidator {
     ) {
       $this->context->addViolation($constraint->illegalMessage);
     }
-    if (drupal_strlen($name) > USERNAME_MAX_LENGTH) {
+    if (Unicode::strlen($name) > USERNAME_MAX_LENGTH) {
       $this->context->addViolation($constraint->tooLongMessage, array('%name' => $name, '%max' => USERNAME_MAX_LENGTH));
     }
   }

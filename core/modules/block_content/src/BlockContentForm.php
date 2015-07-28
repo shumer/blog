@@ -7,11 +7,12 @@
 
 namespace Drupal\block_content;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
-use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Language\LanguageManager;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -27,11 +28,25 @@ class BlockContentForm extends ContentEntityForm {
   protected $blockContentStorage;
 
   /**
+   * The custom block type storage.
+   *
+   * @var \Drupal\Core\Entity\EntityStorageInterface
+   */
+  protected $blockContentTypeStorage;
+
+  /**
    * The language manager.
    *
-   * @var \Drupal\Core\Language\LanguageManager
+   * @var \Drupal\Core\Language\LanguageManagerInterface
    */
   protected $languageManager;
+
+  /**
+   * The block content entity.
+   *
+   * @var \Drupal\block_content\BlockContentInterface
+   */
+  protected $entity;
 
   /**
    * Constructs a BlockContentForm object.
@@ -40,12 +55,15 @@ class BlockContentForm extends ContentEntityForm {
    *   The entity manager.
    * @param \Drupal\Core\Entity\EntityStorageInterface $block_content_storage
    *   The custom block storage.
-   * @param \Drupal\Core\Language\LanguageManager $language_manager
+   * @param \Drupal\Core\Entity\EntityStorageInterface $block_content_type_storage
+   *   The custom block type storage.
+   * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
    */
-  public function __construct(EntityManagerInterface $entity_manager, EntityStorageInterface $block_content_storage, LanguageManager $language_manager) {
+  public function __construct(EntityManagerInterface $entity_manager, EntityStorageInterface $block_content_storage, EntityStorageInterface $block_content_type_storage, LanguageManagerInterface $language_manager) {
     parent::__construct($entity_manager);
     $this->blockContentStorage = $block_content_storage;
+    $this->blockContentTypeStorage = $block_content_type_storage;
     $this->languageManager = $language_manager;
   }
 
@@ -57,6 +75,7 @@ class BlockContentForm extends ContentEntityForm {
     return new static(
       $entity_manager,
       $entity_manager->getStorage('block_content'),
+      $entity_manager->getStorage('block_content_type'),
       $container->get('language_manager')
     );
   }
@@ -66,24 +85,24 @@ class BlockContentForm extends ContentEntityForm {
    *
    * Prepares the custom block object.
    *
-   * Fills in a few default values, and then invokes hook_block_content_prepare()
-   * on all modules.
+   * Fills in a few default values, and then invokes
+   * hook_block_content_prepare() on all modules.
    */
   protected function prepareEntity() {
     $block = $this->entity;
     // Set up default values, if required.
-    $block_type = entity_load('block_content_type', $block->bundle());
+    $block_type = $this->blockContentTypeStorage->load($block->bundle());
     if (!$block->isNew()) {
       $block->setRevisionLog(NULL);
     }
     // Always use the default revision setting.
-    $block->setNewRevision($block_type->revision);
+    $block->setNewRevision($block_type->shouldCreateNewRevision());
   }
 
   /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $block = $this->entity;
     $account = $this->currentUser();
 
@@ -93,25 +112,7 @@ class BlockContentForm extends ContentEntityForm {
     // Override the default CSS class name, since the user-defined custom block
     // type name in 'TYPE-block-form' potentially clashes with third-party class
     // names.
-    $form['#attributes']['class'][0] = drupal_html_class('block-' . $block->bundle() . '-form');
-
-    if ($this->moduleHandler->moduleExists('language')) {
-      $language_configuration = language_get_default_configuration('block_content', $block->bundle());
-
-      // Set the correct default language.
-      if ($block->isNew()) {
-        $language_default = $this->languageManager->getCurrentLanguage($language_configuration['langcode']);
-        $block->langcode->value = $language_default->id;
-      }
-    }
-
-    $form['langcode'] = array(
-      '#title' => $this->t('Language'),
-      '#type' => 'language_select',
-      '#default_value' => $block->getUntranslated()->language()->id,
-      '#languages' => LanguageInterface::STATE_ALL,
-      '#access' => isset($language_configuration['language_show']) && $language_configuration['language_show'],
-    );
+    $form['#attributes']['class'][0] = 'block-' . Html::getClass($block->bundle()) . '-form';
 
     $form['advanced'] = array(
       '#type' => 'vertical_tabs',
@@ -166,82 +167,68 @@ class BlockContentForm extends ContentEntityForm {
   }
 
   /**
-   * Overrides \Drupal\Core\Entity\EntityForm::submit().
-   *
-   * Updates the custom block object by processing the submitted values.
-   *
-   * This function can be called by a "Next" button of a wizard to update the
-   * form state's entity with the current step's values before proceeding to the
-   * next step.
+   * {@inheritdoc}
    */
-  public function submit(array $form, array &$form_state) {
-    // Build the block object from the submitted values.
-    $block = parent::submit($form, $form_state);
+  public function save(array $form, FormStateInterface $form_state) {
+    $block = $this->entity;
 
     // Save as a new revision if requested to do so.
-    if (!empty($form_state['values']['revision'])) {
+    if (!$form_state->isValueEmpty('revision')) {
       $block->setNewRevision();
     }
 
-    return $block;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function save(array $form, array &$form_state) {
-    $block = $this->entity;
     $insert = $block->isNew();
     $block->save();
-    $watchdog_args = array('@type' => $block->bundle(), '%info' => $block->label());
-    $block_type = entity_load('block_content_type', $block->bundle());
+    $context = array('@type' => $block->bundle(), '%info' => $block->label());
+    $logger = $this->logger('block_content');
+    $block_type = $this->blockContentTypeStorage->load($block->bundle());
     $t_args = array('@type' => $block_type->label(), '%info' => $block->label());
 
     if ($insert) {
-      watchdog('content', '@type: added %info.', $watchdog_args, WATCHDOG_NOTICE);
+      $logger->notice('@type: added %info.', $context);
       drupal_set_message($this->t('@type %info has been created.', $t_args));
     }
     else {
-      watchdog('content', '@type: updated %info.', $watchdog_args, WATCHDOG_NOTICE);
+      $logger->notice('@type: updated %info.', $context);
       drupal_set_message($this->t('@type %info has been updated.', $t_args));
     }
 
     if ($block->id()) {
-      $form_state['values']['id'] = $block->id();
-      $form_state['id'] = $block->id();
+      $form_state->setValue('id', $block->id());
+      $form_state->set('id', $block->id());
       if ($insert) {
         if (!$theme = $block->getTheme()) {
           $theme = $this->config('system.theme')->get('default');
         }
-        $form_state['redirect_route'] = array(
-          'route_name' => 'block.admin_add',
-          'route_parameters' => array(
+        $form_state->setRedirect(
+          'block.admin_add',
+          array(
             'plugin_id' => 'block_content:' . $block->uuid(),
             'theme' => $theme,
-          ),
+          )
         );
       }
       else {
-        $form_state['redirect_route']['route_name'] = 'block_content.list';
+        $form_state->setRedirectUrl($block->urlInfo('collection'));
       }
     }
     else {
       // In the unlikely case something went wrong on save, the block will be
       // rebuilt and block form redisplayed.
       drupal_set_message($this->t('The block could not be saved.'), 'error');
-      $form_state['rebuild'] = TRUE;
+      $form_state->setRebuild();
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     if ($this->entity->isNew()) {
-      $exists = $this->blockContentStorage->loadByProperties(array('info' => $form_state['values']['info']));
+      $exists = $this->blockContentStorage->loadByProperties(array('info' => $form_state->getValue(['info', 0, 'value'])));
       if (!empty($exists)) {
-        $this->setFormError('info', $form_state, $this->t('A block with description %name already exists.', array(
-          '%name' => $form_state['values']['info'][0]['value'],
+        $form_state->setErrorByName('info', $this->t('A block with description %name already exists.', array(
+          '%name' => $form_state->getValue(array('info', 0, 'value')),
         )));
       }
     }

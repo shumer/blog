@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\action\Tests\ConfigurationTest.
+ * Contains \Drupal\action\Tests\ConfigurationTest.
  */
 
 namespace Drupal\action\Tests;
@@ -19,7 +19,7 @@ use Drupal\simpletest\WebTestBase;
 class ConfigurationTest extends WebTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
@@ -41,7 +41,7 @@ class ConfigurationTest extends WebTestBase {
 
     // Make a POST request to the individual action configuration page.
     $edit = array();
-    $action_label = $this->randomName();
+    $action_label = $this->randomMachineName();
     $edit['label'] = $action_label;
     $edit['id'] = strtolower($action_label);
     $edit['url'] = 'admin';
@@ -57,7 +57,7 @@ class ConfigurationTest extends WebTestBase {
     preg_match('|admin/config/system/actions/configure/(.+)|', $this->getUrl(), $matches);
     $aid = $matches[1];
     $edit = array();
-    $new_action_label = $this->randomName();
+    $new_action_label = $this->randomMachineName();
     $edit['label'] = $new_action_label;
     $edit['url'] = 'admin';
     $this->drupalPostForm(NULL, $edit, t('Save'));
@@ -81,7 +81,7 @@ class ConfigurationTest extends WebTestBase {
     $this->assertResponse(200);
 
     // Make sure that the action was actually deleted.
-    $this->assertRaw(t('Action %action was deleted', array('%action' => $new_action_label)), 'Make sure that we get a delete confirmation message.');
+    $this->assertRaw(t('The action %action has been deleted.', array('%action' => $new_action_label)), 'Make sure that we get a delete confirmation message.');
     $this->drupalGet('admin/config/system/actions');
     $this->assertResponse(200);
     $this->assertNoText($new_action_label, "Make sure the action label does not appear on the overview page after we've deleted the action.");

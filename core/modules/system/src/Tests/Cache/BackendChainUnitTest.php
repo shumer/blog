@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Cache\BackendChainUnitTest.
+ * Contains \Drupal\system\Tests\Cache\BackendChainUnitTest.
  */
 
 namespace Drupal\system\Tests\Cache;
@@ -26,6 +26,9 @@ class BackendChainUnitTest extends GenericCacheBackendUnitTestBase {
       ->prependBackend(new MemoryBackend('bar'))
       ->appendBackend(new MemoryBackend('baz'));
 
+    \Drupal::service('cache_tags.invalidator')->addInvalidator($chain);
+
     return $chain;
   }
+
 }

@@ -26,16 +26,16 @@ class LinkItemTest extends FieldUnitTestBase {
    */
   public static $modules = array('link');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    // Create an link field and instance for validation.
+    // Create a link field for validation.
     entity_create('field_storage_config', array(
-      'name' => 'field_test',
+      'field_name' => 'field_test',
       'entity_type' => 'entity_test',
       'type' => 'link',
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_test',
       'bundle' => 'entity_test',
@@ -48,15 +48,15 @@ class LinkItemTest extends FieldUnitTestBase {
   public function testLinkItem() {
     // Create entity.
     $entity = entity_create('entity_test');
-    $url = 'http://www.drupal.org?test_param=test_value';
+    $url = 'https://www.drupal.org?test_param=test_value';
     $parsed_url = UrlHelper::parse($url);
-    $title = $this->randomName();
-    $class = $this->randomName();
-    $entity->field_test->url = $parsed_url['path'];
+    $title = $this->randomMachineName();
+    $class = $this->randomMachineName();
+    $entity->field_test->uri = $parsed_url['path'];
     $entity->field_test->title = $title;
     $entity->field_test->first()->get('options')->set('query', $parsed_url['query']);
     $entity->field_test->first()->get('options')->set('attributes', array('class' => $class));
-    $entity->name->value = $this->randomName();
+    $entity->name->value = $this->randomMachineName();
     $entity->save();
 
     // Verify that the field value is changed.
@@ -64,8 +64,8 @@ class LinkItemTest extends FieldUnitTestBase {
     $entity = entity_load('entity_test', $id);
     $this->assertTrue($entity->field_test instanceof FieldItemListInterface, 'Field implements interface.');
     $this->assertTrue($entity->field_test[0] instanceof FieldItemInterface, 'Field item implements interface.');
-    $this->assertEqual($entity->field_test->url, $parsed_url['path']);
-    $this->assertEqual($entity->field_test[0]->url, $parsed_url['path']);
+    $this->assertEqual($entity->field_test->uri, $parsed_url['path']);
+    $this->assertEqual($entity->field_test[0]->uri, $parsed_url['path']);
     $this->assertEqual($entity->field_test->title, $title);
     $this->assertEqual($entity->field_test[0]->title, $title);
     $this->assertEqual($entity->field_test->options['attributes']['class'], $class);
@@ -73,23 +73,23 @@ class LinkItemTest extends FieldUnitTestBase {
 
     // Update only the entity name property to check if the link field data will
     // remain intact.
-    $entity->name->value = $this->randomName();
+    $entity->name->value = $this->randomMachineName();
     $entity->save();
     $id = $entity->id();
     $entity = entity_load('entity_test', $id);
-    $this->assertEqual($entity->field_test->url, $parsed_url['path']);
+    $this->assertEqual($entity->field_test->uri, $parsed_url['path']);
     $this->assertEqual($entity->field_test->options['attributes']['class'], $class);
     $this->assertEqual($entity->field_test->options['query'], $parsed_url['query']);
 
     // Verify changing the field value.
-    $new_url = 'http://drupal.org';
-    $new_title = $this->randomName();
-    $new_class = $this->randomName();
-    $entity->field_test->url = $new_url;
+    $new_url = 'https://www.drupal.org';
+    $new_title = $this->randomMachineName();
+    $new_class = $this->randomMachineName();
+    $entity->field_test->uri = $new_url;
     $entity->field_test->title = $new_title;
     $entity->field_test->first()->get('options')->set('query', NULL);
     $entity->field_test->first()->get('options')->set('attributes', array('class' => $new_class));
-    $this->assertEqual($entity->field_test->url, $new_url);
+    $this->assertEqual($entity->field_test->uri, $new_url);
     $this->assertEqual($entity->field_test->title, $new_title);
     $this->assertEqual($entity->field_test->options['attributes']['class'], $new_class);
     $this->assertNull($entity->field_test->options['query']);
@@ -97,9 +97,43 @@ class LinkItemTest extends FieldUnitTestBase {
     // Read changed entity and assert changed values.
     $entity->save();
     $entity = entity_load('entity_test', $id);
-    $this->assertEqual($entity->field_test->url, $new_url);
+    $this->assertEqual($entity->field_test->uri, $new_url);
     $this->assertEqual($entity->field_test->title, $new_title);
     $this->assertEqual($entity->field_test->options['attributes']['class'], $new_class);
+
+    // Check that if we only set uri the default values for title and options
+    // are also initialized.
+    $entity->field_test = ['uri' => 'internal:/node/add'];
+    $this->assertEqual($entity->field_test->uri, 'internal:/node/add');
+    $this->assertNull($entity->field_test->title);
+    $this->assertIdentical($entity->field_test->options, []);
+
+    // Check that if set uri and serialize options then the default values are
+    // properly initialized.
+    $entity->field_test = [
+      'uri' => 'internal:/node/add',
+      'options' => serialize(['query' => NULL]),
+    ];
+    $this->assertEqual($entity->field_test->uri, 'internal:/node/add');
+    $this->assertNull($entity->field_test->title);
+    $this->assertNull($entity->field_test->options['query']);
+
+    // Check that if we set the direct value of link field it correctly set the
+    // uri and the default values of the field.
+    $entity->field_test = 'internal:/node/add';
+    $this->assertEqual($entity->field_test->uri, 'internal:/node/add');
+    $this->assertNull($entity->field_test->title);
+    $this->assertIdentical($entity->field_test->options, []);
+
+    // Check that setting LinkItem value NULL doesn't generate any error or
+    // warning.
+    $entity->field_test[0] = NULL;
+    $this->assertNull($entity->field_test[0]->getValue());
+
+    // Test the generateSampleValue() method.
+    $entity = entity_create('entity_test');
+    $entity->field_test->generateSampleItems();
+    $this->entityValidateAndSave($entity);
   }
 
 }

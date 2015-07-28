@@ -17,13 +17,19 @@ use Drupal\system\MenuInterface;
  * @ConfigEntityType(
  *   id = "menu",
  *   label = @Translation("Menu"),
- *   controllers = {
- *     "access" = "Drupal\system\MenuAccessController"
+ *   handlers = {
+ *     "access" = "Drupal\system\MenuAccessControlHandler"
  *   },
  *   admin_permission = "administer menu",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label"
+ *   },
+ *   config_export = {
+ *     "id",
+ *     "label",
+ *     "description",
+ *     "locked",
  *   }
  * )
  */
@@ -34,21 +40,21 @@ class Menu extends ConfigEntityBase implements MenuInterface {
    *
    * @var string
    */
-  public $id;
+  protected $id;
 
   /**
    * The human-readable name of the menu entity.
    *
    * @var string
    */
-  public $label;
+  protected $label;
 
   /**
    * The menu description.
    *
    * @var string
    */
-  public $description;
+  protected $description;
 
   /**
    * The locked status of this menu.
@@ -56,6 +62,13 @@ class Menu extends ConfigEntityBase implements MenuInterface {
    * @var bool
    */
   protected $locked = FALSE;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getDescription() {
+    return $this->description;
+  }
 
   /**
    * {@inheritdoc}

@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\field\Plugin\PluginSettingsBase.
+ * Contains \Drupal\Core\Field\PluginSettingsBase.
  */
 
 namespace Drupal\Core\Field;
 
+use Drupal\Component\Plugin\DependentPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
 
 /**
@@ -14,7 +15,7 @@ use Drupal\Core\Plugin\PluginBase;
  *
  * This class handles lazy replacement of default settings values.
  */
-abstract class PluginSettingsBase extends PluginBase implements PluginSettingsInterface {
+abstract class PluginSettingsBase extends PluginBase implements PluginSettingsInterface, DependentPluginInterface {
 
   /**
    * The plugin settings.
@@ -106,6 +107,19 @@ abstract class PluginSettingsBase extends PluginBase implements PluginSettingsIn
   public function setThirdPartySetting($module, $key, $value) {
     $this->thirdPartySettings[$module][$key] = $value;
     return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    if (!empty($this->thirdPartySettings)) {
+      // Create dependencies on any modules providing third party settings.
+      return array(
+        'module' => array_keys($this->thirdPartySettings)
+      );
+    }
+    return array();
   }
 
 }

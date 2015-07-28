@@ -2,13 +2,15 @@
 
 /**
  * @file
- * Definition of Drupal\rest\Plugin\ResourceBase.
+ * Contains \Drupal\rest\Plugin\ResourceBase.
  */
 
 namespace Drupal\rest\Plugin;
 
+use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -33,6 +35,13 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
   protected $serializerFormats = array();
 
   /**
+   * A logger instance.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
+
+  /**
    * Constructs a Drupal\rest\Plugin\ResourceBase object.
    *
    * @param array $configuration
@@ -43,10 +52,13 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
    *   The plugin implementation definition.
    * @param array $serializer_formats
    *   The available serialization formats.
+   * @param \Psr\Log\LoggerInterface $logger
+   *   A logger instance.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, array $serializer_formats) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, array $serializer_formats, LoggerInterface $logger) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->serializerFormats = $serializer_formats;
+    $this->logger = $logger;
   }
 
   /**
@@ -57,7 +69,8 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->getParameter('serializer.formats')
+      $container->getParameter('serializer.formats'),
+      $container->get('logger.factory')->get('rest')
     );
   }
 
@@ -74,7 +87,7 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
     foreach ($this->availableMethods() as $method) {
       $lowered_method = strtolower($method);
       $permissions["restful $lowered_method $this->pluginId"] = array(
-        'title' => t('Access @method on %label resource', array('@method' => $method, '%label' => $definition['label'])),
+        'title' => $this->t('Access @method on %label resource', array('@method' => $method, '%label' => $definition['label'])),
       );
     }
     return $permissions;
@@ -88,7 +101,7 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
 
     $definition = $this->getPluginDefinition();
     $canonical_path = isset($definition['uri_paths']['canonical']) ? $definition['uri_paths']['canonical'] : '/' . strtr($this->pluginId, ':', '/') . '/{id}';
-    $create_path = isset($definition['uri_paths']['http://drupal.org/link-relations/create']) ? $definition['uri_paths']['http://drupal.org/link-relations/create'] : '/' . strtr($this->pluginId, ':', '/');
+    $create_path = isset($definition['uri_paths']['https://www.drupal.org/link-relations/create']) ? $definition['uri_paths']['https://www.drupal.org/link-relations/create'] : '/' . strtr($this->pluginId, ':', '/');
 
     $route_name = strtr($this->pluginId, ':', '.');
 
@@ -98,7 +111,7 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
 
       switch ($method) {
         case 'POST':
-          $route->setPattern($create_path);
+          $route->setPath($create_path);
           // Restrict the incoming HTTP Content-type header to the known
           // serialization formats.
           $route->addRequirements(array('_content_type_format' => implode('|', $this->serializerFormats)));
@@ -190,12 +203,14 @@ abstract class ResourceBase extends PluginBase implements ContainerFactoryPlugin
       // Pass the resource plugin ID along as default property.
       '_plugin' => $this->pluginId,
     ), array(
-      // The HTTP method is a requirement for this route.
-      '_method' => $method,
       '_permission' => "restful $lower_method $this->pluginId",
-    ), array(
-      '_access_mode' => 'ANY',
-    ));
+    ),
+      array(),
+      '',
+      array(),
+      // The HTTP method is a requirement for this route.
+      array($method)
+    );
     return $route;
   }
 

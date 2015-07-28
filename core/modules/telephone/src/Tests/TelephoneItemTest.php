@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\field\Tests\TelephoneItemTest.
+ * Contains \Drupal\telephone\Tests\TelephoneItemTest.
  */
 
 namespace Drupal\telephone\Tests;
@@ -25,16 +25,16 @@ class TelephoneItemTest extends FieldUnitTestBase {
    */
   public static $modules = array('telephone');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    // Create a telephone field and instance for validation.
+    // Create a telephone field storage and field for validation.
     entity_create('field_storage_config', array(
-      'name' => 'field_test',
+      'field_name' => 'field_test',
       'entity_type' => 'entity_test',
       'type' => 'telephone',
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_test',
       'bundle' => 'entity_test',
@@ -49,7 +49,7 @@ class TelephoneItemTest extends FieldUnitTestBase {
     $entity = entity_create('entity_test');
     $value = '+0123456789';
     $entity->field_test = $value;
-    $entity->name->value = $this->randomName();
+    $entity->name->value = $this->randomMachineName();
     $entity->save();
 
     // Verify entity has been created properly.
@@ -69,6 +69,11 @@ class TelephoneItemTest extends FieldUnitTestBase {
     $entity->save();
     $entity = entity_load('entity_test', $id);
     $this->assertEqual($entity->field_test->value, $new_value);
+
+    // Test sample item generation.
+    $entity = entity_create('entity_test');
+    $entity->field_test->generateSampleItems();
+    $this->entityValidateAndSave($entity);
   }
 
 }

@@ -9,6 +9,7 @@ namespace Drupal\shortcut\Form;
 
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -27,7 +28,7 @@ class SetCustomize extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $form = parent::form($form, $form_state);
     $form['shortcuts'] = array(
       '#tree' => TRUE,
@@ -50,8 +51,16 @@ class SetCustomize extends EntityForm {
 
     foreach ($this->entity->getShortcuts() as $shortcut) {
       $id = $shortcut->id();
+      $url = $shortcut->getUrl();
+      if (!$url->access()) {
+        continue;
+      }
       $form['shortcuts']['links'][$id]['#attributes']['class'][] = 'draggable';
-      $form['shortcuts']['links'][$id]['name']['#markup'] = l($shortcut->getTitle(), $shortcut->path->value);
+      $form['shortcuts']['links'][$id]['name'] = array(
+        '#type' => 'link',
+        '#title' => $shortcut->getTitle(),
+      ) + $url->toRenderArray();
+      unset($form['shortcuts']['links'][$id]['name']['#access_callback']);
       $form['shortcuts']['links'][$id]['#weight'] = $shortcut->getWeight();
       $form['shortcuts']['links'][$id]['weight'] = array(
         '#type' => 'weight',
@@ -63,35 +72,32 @@ class SetCustomize extends EntityForm {
 
       $links['edit'] = array(
         'title' => t('Edit'),
-        'href' => "admin/config/user-interface/shortcut/link/$id",
+        'url' => $shortcut->urlInfo(),
       );
       $links['delete'] = array(
         'title' => t('Delete'),
-        'href' => "admin/config/user-interface/shortcut/link/$id/delete",
+        'url' => $shortcut->urlInfo('delete-form'),
       );
       $form['shortcuts']['links'][$id]['operations'] = array(
         '#type' => 'operations',
         '#links' => $links,
+        '#access' => $url->access(),
       );
     }
-    // Sort the list so the output is ordered by weight.
-    uasort($form['shortcuts']['links'], array('\Drupal\Component\Utility\SortArray', 'sortByWeightProperty'));
     return $form;
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     // Only includes a Save action for the entity, no direct Delete button.
     return array(
       'submit' => array(
+        '#type' => 'submit',
         '#value' => t('Save changes'),
         '#access' => (bool) Element::getVisibleChildren($form['shortcuts']['links']),
-        '#submit' => array(
-          array($this, 'submit'),
-          array($this, 'save'),
-        ),
+        '#submit' => array('::submitForm', '::save'),
       ),
     );
   }
@@ -99,9 +105,10 @@ class SetCustomize extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function save(array $form, array &$form_state) {
+  public function save(array $form, FormStateInterface $form_state) {
     foreach ($this->entity->getShortcuts() as $shortcut) {
-      $shortcut->setWeight($form_state['values']['shortcuts']['links'][$shortcut->id()]['weight']);
+      $weight = $form_state->getValue(array('shortcuts', 'links', $shortcut->id(), 'weight'));
+      $shortcut->setWeight($weight);
       $shortcut->save();
     }
     drupal_set_message(t('The shortcut set has been updated.'));

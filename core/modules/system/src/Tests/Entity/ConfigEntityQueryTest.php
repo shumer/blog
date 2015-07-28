@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Contains \Drupal\system\Tests\ConfigEntityQueryTest.
+ * Contains \Drupal\system\Tests\Entity\ConfigEntityQueryTest.
  */
 
 namespace Drupal\system\Tests\Entity;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\Core\Config\Entity\Query\QueryFactory;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests Config Entity Query functionality.
@@ -15,7 +16,7 @@ use Drupal\simpletest\DrupalUnitTestBase;
  * @group Entity
  * @see \Drupal\Core\Config\Entity\Query
  */
-class ConfigEntityQueryTest extends DrupalUnitTestBase {
+class ConfigEntityQueryTest extends KernelTestBase {
 
   /**
    * Modules to enable.
@@ -49,7 +50,6 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
     parent::setUp();
 
     $this->entities = array();
-    $this->enableModules(array('entity'), TRUE);
     $this->factory = $this->container->get('entity.query');
 
     // These two are here to make sure that matchArray needs to go over several
@@ -59,7 +59,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
     // The tests match array.level1.level2.
     $array['level1']['level2'] = 1;
     $entity = entity_create('config_query_test', array(
-      'label' => $this->randomName(),
+      'label' => $this->randomMachineName(),
       'id' => '1',
       'number' => 31,
       'array' => $array,
@@ -70,7 +70,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
 
     $array['level1']['level2'] = 2;
     $entity = entity_create('config_query_test', array(
-      'label' => $this->randomName(),
+      'label' => $this->randomMachineName(),
       'id' => '2',
       'number' => 41,
       'array' => $array,
@@ -81,7 +81,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
 
     $array['level1']['level2'] = 1;
     $entity = entity_create('config_query_test', array(
-      'label' => 'test_prefix_' . $this->randomName(),
+      'label' => 'test_prefix_' . $this->randomMachineName(),
       'id' => '3',
       'number' => 59,
       'array' => $array,
@@ -92,7 +92,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
 
     $array['level1']['level2'] = 2;
     $entity = entity_create('config_query_test', array(
-      'label' => $this->randomName() . '_test_suffix',
+      'label' => $this->randomMachineName() . '_test_suffix',
       'id' => '4',
       'number' => 26,
       'array' => $array,
@@ -103,7 +103,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
 
     $array['level1']['level2'] = 3;
     $entity = entity_create('config_query_test', array(
-      'label' => $this->randomName() . '_TEST_contains_' . $this->randomName(),
+      'label' => $this->randomMachineName() . '_TEST_contains_' . $this->randomMachineName(),
       'id' => '5',
       'number' => 53,
       'array' => $array,
@@ -344,9 +344,65 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
   }
 
   /**
+   * Tests ID conditions.
+   */
+  public function testStringIdConditions() {
+    // We need an entity with a non-numeric ID.
+    $entity = entity_create('config_query_test', array(
+      'label' => $this->randomMachineName(),
+      'id' => 'foo.bar',
+    ));
+    $this->entities[] = $entity;
+    $entity->enforceIsNew();
+    $entity->save();
+
+    // Test 'STARTS_WITH' condition.
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'foo.bar', 'STARTS_WITH')
+      ->execute();
+    $this->assertResults(array('foo.bar'));
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'f', 'STARTS_WITH')
+      ->execute();
+    $this->assertResults(array('foo.bar'));
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'miss', 'STARTS_WITH')
+      ->execute();
+    $this->assertResults(array());
+
+    // Test 'CONTAINS' condition.
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'foo.bar', 'CONTAINS')
+      ->execute();
+    $this->assertResults(array('foo.bar'));
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'oo.ba', 'CONTAINS')
+      ->execute();
+    $this->assertResults(array('foo.bar'));
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'miss', 'CONTAINS')
+      ->execute();
+    $this->assertResults(array());
+
+    // Test 'ENDS_WITH' condition.
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'foo.bar', 'ENDS_WITH')
+      ->execute();
+    $this->assertResults(array('foo.bar'));
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'r', 'ENDS_WITH')
+      ->execute();
+    $this->assertResults(array('foo.bar'));
+    $this->queryResults = $this->factory->get('config_query_test')
+      ->condition('id', 'miss', 'ENDS_WITH')
+      ->execute();
+    $this->assertResults(array());
+  }
+
+  /**
    * Tests count query.
    */
-  protected function testCount() {
+  public function testCount() {
     // Test count on no conditions.
     $count = $this->factory->get('config_query_test')
       ->count()
@@ -372,7 +428,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
   /**
    * Tests sorting and range on config entity queries.
    */
-  protected function testSortRange() {
+  public function testSortRange() {
     // Sort by simple ascending/descending.
     $this->queryResults = $this->factory->get('config_query_test')
       ->sort('number', 'DESC')
@@ -428,7 +484,7 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
   /**
    * Tests dotted path matching.
    */
-  protected function testDotted() {
+  public function testDotted() {
     $this->queryResults = $this->factory->get('config_query_test')
       ->condition('array.level1.*', 1)
       ->execute();
@@ -468,6 +524,64 @@ class ConfigEntityQueryTest extends DrupalUnitTestBase {
       ->condition('label', 'test', 'CONTAINS')
       ->execute();
     $this->assertResults(array('3', '4', '5'));
+  }
+
+  /**
+   * Tests lookup keys are added to the key value store.
+   */
+  public function testLookupKeys() {
+    \Drupal::service('state')->set('config_test.lookup_keys', TRUE);
+    \Drupal::entityManager()->clearCachedDefinitions();
+    $key_value = $this->container->get('keyvalue')->get(QueryFactory::CONFIG_LOOKUP_PREFIX . 'config_test');
+
+    $test_entities = [];
+    $entity = entity_create('config_test', array(
+      'label' => $this->randomMachineName(),
+      'id' => '1',
+      'style' => 'test',
+    ));
+    $test_entities[$entity->getConfigDependencyName()] = $entity;
+    $entity->enforceIsNew();
+    $entity->save();
+
+
+    $expected[] = $entity->getConfigDependencyName();
+    $this->assertEqual($expected, $key_value->get('style:test'));
+
+    $entity = entity_create('config_test', array(
+      'label' => $this->randomMachineName(),
+      'id' => '2',
+      'style' => 'test',
+    ));
+    $test_entities[$entity->getConfigDependencyName()] = $entity;
+    $entity->enforceIsNew();
+    $entity->save();
+    $expected[] = $entity->getConfigDependencyName();
+    $this->assertEqual($expected, $key_value->get('style:test'));
+
+    $entity = entity_create('config_test', array(
+      'label' => $this->randomMachineName(),
+      'id' => '3',
+      'style' => 'blah',
+    ));
+    $entity->enforceIsNew();
+    $entity->save();
+    // Do not add this entity to the list of expected result as it has a
+    // different value.
+    $this->assertEqual($expected, $key_value->get('style:test'));
+    $this->assertEqual([$entity->getConfigDependencyName()], $key_value->get('style:blah'));
+
+    // Ensure that a delete clears a key.
+    $entity->delete();
+    $this->assertEqual([], $key_value->get('style:blah'));
+
+    // Ensure that delete only clears one key.
+    $entity_id = array_pop($expected);
+    $test_entities[$entity_id]->delete();
+    $this->assertEqual($expected, $key_value->get('style:test'));
+    $entity_id = array_pop($expected);
+    $test_entities[$entity_id]->delete();
+    $this->assertEqual($expected, $key_value->get('style:test'));
   }
 
   /**

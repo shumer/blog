@@ -1,6 +1,7 @@
 <?php
 
 /**
+ * @file
  * Contains \Drupal\Core\Asset\JsCollectionOptimizer.
  */
 
@@ -72,8 +73,8 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
    * variable is emptied to force a rebuild of the cache. Second, the cache file
    * is generated if it is missing on disk. Old cache files are not deleted
    * immediately when the lookup variable is emptied, but are deleted after a
-   * set period by drupal_delete_file_if_stale(). This ensures that files
-   * referenced by a cached page will still be available.
+   * configurable period (@code system.performance.stale_file_threshold @endcode)
+   * to ensure that files referenced by a cached page will still be available.
    */
   public function optimize(array $js_assets) {
     // Group the assets.
@@ -112,11 +113,19 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
               // Concatenate each asset within the group.
               $data = '';
               foreach ($js_group['items'] as $js_asset) {
-                $data .= $this->optimizer->optimize($js_asset);
+                // Optimize this JS file, but only if it's not yet minified.
+                if (isset($js_asset['minified']) && $js_asset['minified']) {
+                  $data .= file_get_contents($js_asset['data']);
+                }
+                else {
+                  $data .= $this->optimizer->optimize($js_asset);
+                }
                 // Append a ';' and a newline after each JS file to prevent them
                 // from running together.
                 $data .= ";\n";
               }
+              // Remove unwanted JS code that cause issues.
+              $data = $this->optimizer->clean($data);
               // Dump the optimized JS for this group into an aggregate file.
               $uri = $this->dumper->dump($data, 'js');
               // Set the URI for this group's aggregate file.
@@ -163,4 +172,26 @@ class JsCollectionOptimizer implements AssetCollectionOptimizerInterface {
     }
     return hash('sha256', serialize($js_data));
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getAll() {
+    return $this->state->get('system.js_cache_files');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deleteAll() {
+    $this->state->delete('system.js_cache_files');
+    $delete_stale = function($uri) {
+      // Default stale file threshold is 30 days.
+      if (REQUEST_TIME - filemtime($uri) > \Drupal::config('system.performance')->get('stale_file_threshold')) {
+        file_unmanaged_delete($uri);
+      }
+    };
+    file_scan_directory('public://js', '/.*/', array('callback' => $delete_stale));
+  }
+
 }

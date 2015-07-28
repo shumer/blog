@@ -9,34 +9,14 @@ namespace Drupal\Core\Entity;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\BaseFormIdInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 
 /**
- * Defines a common interface for entity form classes.
+ * Defines an interface for entity form classes.
  */
 interface EntityFormInterface extends BaseFormIdInterface {
-
-  /**
-   * Returns the code identifying the active form language.
-   *
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
-   *
-   * @return string
-   *   The form language code.
-   */
-  public function getFormLangcode(array &$form_state);
-
-  /**
-   * Checks whether the current form language matches the entity one.
-   *
-   * @param array $form_state
-   *   A keyed array containing the current state of the form.
-   *
-   * @return boolean
-   *   Returns TRUE if the entity form language matches the entity one.
-   */
-  public function isDefaultFormLangcode(array $form_state);
 
   /**
    * Sets the operation for this form.
@@ -49,7 +29,7 @@ interface EntityFormInterface extends BaseFormIdInterface {
   public function setOperation($operation);
 
   /**
-   * Returns the operation identifying the form.
+   * Gets the operation identifying the form.
    *
    * @return string
    *   The name of the operation.
@@ -57,12 +37,9 @@ interface EntityFormInterface extends BaseFormIdInterface {
   public function getOperation();
 
   /**
-   * Returns the form entity.
+   * Gets the form entity.
    *
    * The form entity which has been used for populating form element defaults.
-   *
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
    *
    * @return \Drupal\Core\Entity\EntityInterface
    *   The current form entity.
@@ -86,6 +63,19 @@ interface EntityFormInterface extends BaseFormIdInterface {
   public function setEntity(EntityInterface $entity);
 
   /**
+   * Determines which entity will be used by this form from a RouteMatch object.
+   *
+   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+   *   The route match.
+   * @param string $entity_type_id
+   *   The entity type identifier.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface
+   *   The entity object as determined from the passed-in route match.
+   */
+  public function getEntityFromRouteMatch(RouteMatchInterface $route_match, $entity_type_id);
+
+  /**
    * Builds an updated entity object based upon the submitted form values.
    *
    * For building the updated entity object the form's entity is cloned and
@@ -96,37 +86,42 @@ interface EntityFormInterface extends BaseFormIdInterface {
    *
    * @param array $form
    *   A nested array form elements comprising the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    *
    * @return \Drupal\Core\Entity\EntityInterface
    *   An updated copy of the form's entity object.
    */
-  public function buildEntity(array $form, array &$form_state);
+  public function buildEntity(array $form, FormStateInterface $form_state);
 
   /**
    * Validates the submitted form values of the entity form.
    *
    * @param array $form
    *   A nested array form elements comprising the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityTypeInterface
+   *   The built entity.
    */
-  public function validate(array $form, array &$form_state);
+  public function validate(array $form, FormStateInterface $form_state);
 
   /**
-   * Updates the form's entity by processing this submission's values.
+   * Form submission handler for the 'save' action.
    *
-   * Note: Before this can be safely invoked the entity form must have passed
-   * validation, i.e. only add this as form #submit handler if validation is
-   * added as well.
+   * Normally this method should be overridden to provide specific messages to
+   * the user and redirect the form after the entity has been saved.
    *
    * @param array $form
-   *   A nested array form elements comprising the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   *   An associative array containing the structure of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   *
+   * @return int
+   *   Either SAVED_NEW or SAVED_UPDATED, depending on the operation performed.
    */
-  public function submit(array $form, array &$form_state);
+  public function save(array $form, FormStateInterface $form_state);
 
   /**
    * Sets the string translation service for this form.
@@ -147,5 +142,15 @@ interface EntityFormInterface extends BaseFormIdInterface {
    * @return $this
    */
   public function setModuleHandler(ModuleHandlerInterface $module_handler);
+
+  /**
+   * Sets the entity manager for this form.
+   *
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager.
+   *
+   * @return $this
+   */
+  public function setEntityManager(EntityManagerInterface $entity_manager);
 
 }

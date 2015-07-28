@@ -9,8 +9,9 @@ namespace Drupal\Core\Utility;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\SafeMarkup;
-use Drupal\Component\Utility\String;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\GeneratedLink;
+use Drupal\Core\Link;
 use Drupal\Core\Path\AliasManagerInterface;
 use Drupal\Core\Routing\UrlGeneratorInterface;
 use Drupal\Core\Template\Attribute;
@@ -50,17 +51,28 @@ class LinkGenerator implements LinkGeneratorInterface {
 
   /**
    * {@inheritdoc}
+   */
+  public function generateFromLink(Link $link, $collect_cacheability_metadata = FALSE) {
+    return $this->generate($link->getText(), $link->getUrl(), $collect_cacheability_metadata);
+  }
+
+  /**
+   * {@inheritdoc}
    *
    * For anonymous users, the "active" class will be calculated on the server,
    * because most sites serve each anonymous user the same cached page anyway.
    * For authenticated users, the "active" class will be calculated on the
    * client (through JavaScript), only data- attributes are added to links to
    * prevent breaking the render cache. The JavaScript is added in
-   * system_page_build().
+   * system_page_attachments().
    *
-   * @see system_page_build()
+   * @see system_page_attachments()
    */
-  public function generateFromUrl($text, Url $url) {
+  public function generate($text, Url $url, $collect_cacheability_metadata = FALSE) {
+    // Performance: avoid Url::toString() needing to retrieve the URL generator
+    // service from the container.
+    $url->setUrlGenerator($this->urlGenerator);
+
     // Start building a structured representation of our link to be altered later.
     $variables = array(
       // @todo Inject the service when drupal_render() is converted to one.
@@ -73,7 +85,6 @@ class LinkGenerator implements LinkGeneratorInterface {
     $variables['options'] += array(
       'attributes' => array(),
       'query' => array(),
-      'html' => FALSE,
       'language' => NULL,
       'set_active_class' => FALSE,
       'absolute' => FALSE,
@@ -82,7 +93,7 @@ class LinkGenerator implements LinkGeneratorInterface {
     // Add a hreflang attribute if we know the language of this link's url and
     // hreflang has not already been set.
     if (!empty($variables['options']['language']) && !isset($variables['options']['attributes']['hreflang'])) {
-      $variables['options']['attributes']['hreflang'] = $variables['options']['language']->id;
+      $variables['options']['attributes']['hreflang'] = $variables['options']['language']->getId();
     }
 
     // Set the "active" class if the 'set_active_class' option is not empty.
@@ -97,9 +108,11 @@ class LinkGenerator implements LinkGeneratorInterface {
 
       // Add a "data-drupal-link-system-path" attribute to let the
       // drupal.active-link library know the path in a standardized manner.
-      if (!isset($variables['options']['attributes']['data-drupal-link-system-path'])) {
+      if ($url->isRouted() && !isset($variables['options']['attributes']['data-drupal-link-system-path'])) {
         // @todo System path is deprecated - use the route name and parameters.
-        $variables['options']['attributes']['data-drupal-link-system-path'] = $url->getInternalPath();
+        $system_path = $url->getInternalPath();
+        // Special case for the front page.
+        $variables['options']['attributes']['data-drupal-link-system-path'] = $system_path == '' ? '<front>' : $system_path;
       }
     }
 
@@ -112,27 +125,27 @@ class LinkGenerator implements LinkGeneratorInterface {
     // Allow other modules to modify the structure of the link.
     $this->moduleHandler->alter('link', $variables);
 
-    // Move attributes out of options. generateFromRoute(() doesn't need them.
-    $attributes = new Attribute($variables['options']['attributes']);
+    // Move attributes out of options since generateFromRoute() doesn't need
+    // them. Include a placeholder for the href.
+    $attributes = array('href' => '') + $variables['options']['attributes'];
     unset($variables['options']['attributes']);
     $url->setOptions($variables['options']);
 
-    // The result of the url generator is a plain-text URL. Because we are using
-    // it here in an HTML argument context, we need to encode it properly.
-    $url = String::checkPlain($url->toString());
+    if (!$collect_cacheability_metadata) {
+      $url_string = $url->toString($collect_cacheability_metadata);
+    }
+    else {
+      $generated_url = $url->toString($collect_cacheability_metadata);
+      $url_string = $generated_url->getGeneratedUrl();
+      $generated_link = GeneratedLink::createFromObject($generated_url);
+    }
+    // The result of the URL generator is a plain-text URL to use as the href
+    // attribute, and it is escaped by \Drupal\Core\Template\Attribute.
+    $attributes['href'] = $url_string;
 
-    // Sanitize the link text if necessary.
-    $text = $variables['options']['html'] ? $variables['text'] : String::checkPlain($variables['text']);
-    return SafeMarkup::set('<a href="' . $url . '"' . $attributes . '>' . $text . '</a>');
-  }
+    $result = SafeMarkup::format('<a@attributes>@text</a>', array('@attributes' => new Attribute($attributes), '@text' => $variables['text']));
 
-  /**
-   * {@inheritdoc}
-   */
-  public function generate($text, $route_name, array $parameters = array(), array $options = array()) {
-    $url = new Url($route_name, $parameters, $options);
-    $url->setUrlGenerator($this->urlGenerator);
-    return $this->generateFromUrl($text, $url);
+    return $collect_cacheability_metadata ? $generated_link->setGeneratedLink($result) : $result;
   }
 
 }

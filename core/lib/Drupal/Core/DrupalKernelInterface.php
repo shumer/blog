@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\DrupalKernelInterface.
+ * Contains \Drupal\Core\DrupalKernelInterface.
  */
 
 namespace Drupal\Core;
@@ -52,15 +52,19 @@ interface DrupalKernelInterface extends HttpKernelInterface {
   /**
    * Gets the current container.
    *
-   * @return ContainerInterface A ContainerInterface instance
+   * @return \Symfony\Component\DependencyInjection\ContainerInterface
+   *   A ContainerInterface instance.
    */
   public function getContainer();
 
   /**
    * Set the current site path.
    *
-   * @param $path
+   * @param string $path
    *   The current site path.
+   *
+   * @throws \LogicException
+   *   In case the kernel is already booted.
    */
   public function setSitePath($path);
 
@@ -71,6 +75,13 @@ interface DrupalKernelInterface extends HttpKernelInterface {
    *   The current site path.
    */
   public function getSitePath();
+
+  /**
+   * Gets the app root.
+   *
+   * @return string
+   */
+  public function getAppRoot();
 
   /**
    * Updates the kernel's list of modules to the new list.
@@ -86,16 +97,6 @@ interface DrupalKernelInterface extends HttpKernelInterface {
   public function updateModules(array $module_list, array $module_filenames = array());
 
   /**
-   * Attempts to serve a page from the cache.
-   *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The current request.
-   *
-   * @return $this
-   */
-  public function handlePageCache(Request $request);
-
-  /**
    * Prepare the kernel for handling a request without handling the request.
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
@@ -107,5 +108,18 @@ interface DrupalKernelInterface extends HttpKernelInterface {
    *   Only used by legacy front-controller scripts.
    */
   public function prepareLegacyRequest(Request $request);
+
+  /**
+   * Helper method that does request related initialization.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   */
+  public function preHandle(Request $request);
+
+  /**
+   * Helper method that loads legacy Drupal include files.
+   */
+  public function loadLegacyIncludes();
 
 }

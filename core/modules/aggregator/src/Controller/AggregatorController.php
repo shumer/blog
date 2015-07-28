@@ -9,8 +9,9 @@ namespace Drupal\aggregator\Controller;
 
 use Drupal\Component\Utility\Xss;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Datetime\Date as DateFormatter;
+use Drupal\Core\Datetime\DateFormatter;
 use Drupal\aggregator\FeedInterface;
+use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -23,14 +24,14 @@ class AggregatorController extends ControllerBase {
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
   /**
    * Constructs a \Drupal\aggregator\Controller\AggregatorController object.
    *
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *    The date formatter service.
    */
   public function __construct(DateFormatter $date_formatter) {
@@ -42,7 +43,7 @@ class AggregatorController extends ControllerBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('date')
+      $container->get('date.formatter')
     );
   }
 
@@ -58,26 +59,6 @@ class AggregatorController extends ControllerBase {
         'refresh' => 3600,
       ));
     return $this->entityFormBuilder()->getForm($feed);
-  }
-
-  /**
-   * Displays all the items captured from the particular feed.
-   *
-   * @param \Drupal\aggregator\FeedInterface $aggregator_feed
-   *   The feed for which to display all items.
-   *
-   * @return array
-   *   The rendered list of items for the feed.
-   */
-  public function viewFeed(FeedInterface $aggregator_feed) {
-    $entity_manager = $this->entityManager();
-    $feed_source = $entity_manager->getViewBuilder('aggregator_feed')
-      ->view($aggregator_feed, 'default');
-    // Load aggregator feed item for the particular feed id.
-    $items = $entity_manager->getStorage('aggregator_item')->loadByFeed($aggregator_feed->id(), 20);
-    // Print the feed items.
-    $build = $this->buildPageList($items, $feed_source);
-    return $build;
   }
 
   /**
@@ -101,7 +82,7 @@ class AggregatorController extends ControllerBase {
     if ($items) {
       $build['items'] = $this->entityManager()->getViewBuilder('aggregator_item')
         ->viewMultiple($items, 'default');
-      $build['pager'] = array('#theme' => 'pager');
+      $build['pager'] = array('#type' => 'pager');
     }
     return $build;
   }
@@ -139,33 +120,30 @@ class AggregatorController extends ControllerBase {
 
     $header = array($this->t('Title'), $this->t('Items'), $this->t('Last update'), $this->t('Next update'), $this->t('Operations'));
     $rows = array();
+    /** @var \Drupal\aggregator\FeedInterface[] $feeds */
     foreach ($feeds as $feed) {
       $row = array();
-      $row[] = l($feed->label(), "aggregator/sources/" . $feed->id());
-      $row[] = $this->dateFormatter->formatInterval($entity_manager->getStorage('aggregator_item')->getItemCount($feed), '1 item', '@count items');
+      $row[] = $feed->link();
+      $row[] = $this->formatPlural($entity_manager->getStorage('aggregator_item')->getItemCount($feed), '1 item', '@count items');
       $last_checked = $feed->getLastCheckedTime();
       $refresh_rate = $feed->getRefreshRate();
-      $row[] = ($last_checked ? $this->t('@time ago', array('@time' => $this->dateFormatter->formatInterval(REQUEST_TIME - $last_checked))) : $this->t('never'));
-      $row[] = ($last_checked && $refresh_rate ? $this->t('%time left', array('%time' => $this->dateFormatter->formatInterval($last_checked + $refresh_rate - REQUEST_TIME))) : $this->t('never'));
-      $links['edit'] = array(
+      $row[] = ($last_checked ? $this->t('@time ago', array('@time' => $this->dateFormatter->formatTimeDiffSince($last_checked))) : $this->t('never'));
+      $row[] = ($last_checked && $refresh_rate ? $this->t('@time left', array('@time' => $this->dateFormatter->formatTimeDiffUntil($last_checked + $refresh_rate))) : $this->t('never'));
+      $links['edit'] = [
         'title' => $this->t('Edit'),
-        'route_name' => 'aggregator.feed_configure',
-        'route_parameters' => array('aggregator_feed' => $feed->id()),
-      );
+        'url' => Url::fromRoute('entity.aggregator_feed.edit_form', ['aggregator_feed' => $feed->id()]),
+      ];
       $links['delete'] = array(
         'title' => $this->t('Delete'),
-        'route_name' => 'aggregator.feed_delete',
-        'route_parameters' => array('aggregator_feed' => $feed->id()),
+        'url' => Url::fromRoute('entity.aggregator_feed.delete_form', ['aggregator_feed' => $feed->id()]),
       );
       $links['delete_items'] = array(
         'title' => $this->t('Delete items'),
-        'route_name' => 'aggregator.feed_items_delete',
-        'route_parameters' => array('aggregator_feed' => $feed->id()),
+        'url' => Url::fromRoute('aggregator.feed_items_delete', ['aggregator_feed' => $feed->id()]),
       );
       $links['update'] = array(
         'title' => $this->t('Update items'),
-        'route_name' => 'aggregator.feed_refresh',
-        'route_parameters' => array('aggregator_feed' => $feed->id()),
+        'url' => Url::fromRoute('aggregator.feed_refresh', ['aggregator_feed' => $feed->id()]),
       );
       $row[] = array(
         'data' => array(
@@ -195,81 +173,8 @@ class AggregatorController extends ControllerBase {
   public function pageLast() {
     $items = $this->entityManager()->getStorage('aggregator_item')->loadAll(20);
     $build = $this->buildPageList($items);
-    $build['#attached']['drupal_add_feed'][] = array('aggregator/rss', $this->config('system.site')->get('name') . ' ' . $this->t('aggregator'));
+    $build['#attached']['feed'][] = array('aggregator/rss', $this->config('system.site')->get('name') . ' ' . $this->t('aggregator'));
     return $build;
-  }
-
-  /**
-   * Displays all the feeds used by the Aggregator module.
-   *
-   * @return array
-   *   A render array as expected by drupal_render().
-   */
-  public function sources() {
-    $entity_manager = $this->entityManager();
-
-    $feeds = $entity_manager->getStorage('aggregator_feed')->loadMultiple();
-
-    $build = array(
-      '#type' => 'container',
-      '#attributes' => array('class' => array('aggregator-wrapper')),
-      '#sorted' => TRUE,
-    );
-
-    foreach ($feeds as $feed) {
-      // Most recent items:
-      $summary_items = array();
-      $aggregator_summary_items = $this->config('aggregator.settings')
-        ->get('source.list_max');
-      if ($aggregator_summary_items) {
-        $items = $entity_manager->getStorage('aggregator_item')
-          ->loadByFeed($feed->id(), 20);
-        if ($items) {
-          $summary_items = $entity_manager->getViewBuilder('aggregator_item')
-            ->viewMultiple($items, 'summary');
-        }
-      }
-      $feed->url = $this->url('aggregator.feed_view', array('aggregator_feed' => $feed->id()));
-      $build[$feed->id()] = array(
-        '#theme' => 'aggregator_summary_items',
-        '#summary_items' => $summary_items,
-        '#source' => $feed,
-        '#cache' => array(
-          'tags' => $feed->getCacheTag(),
-        ),
-      );
-    }
-    $build['feed_icon'] = array(
-      '#theme' => 'feed_icon',
-      '#url' => 'aggregator/opml',
-      '#title' => $this->t('OPML feed'),
-    );
-    return $build;
-  }
-
-  /**
-   * Generates an OPML representation of all feeds.
-   *
-   * @return \Symfony\Component\HttpFoundation\Response
-   *   The response containing the OPML.
-   */
-  public function opmlPage() {
-     $feeds = $this->entityManager()
-      ->getStorage('aggregator_feed')
-      ->loadMultiple();
-
-    $feeds = $result->fetchAll();
-    $aggregator_page_opml = array(
-      '#theme' => 'aggregator_page_opml',
-      '#feeds' => $feeds,
-    );
-    $output = drupal_render($aggregator_page_opml);
-
-    $response = new Response();
-    $response->headers->set('Content-Type', 'text/xml; charset=utf-8');
-    $response->setContent($output);
-
-    return $response;
   }
 
   /**

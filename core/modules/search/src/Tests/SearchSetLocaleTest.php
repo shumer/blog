@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\search\Tests\SearchSetLocaleTest.
+ * Contains \Drupal\search\Tests\SearchSetLocaleTest.
  */
 
 namespace Drupal\search\Tests;
@@ -28,7 +28,7 @@ class SearchSetLocaleTest extends SearchTestBase {
    */
   protected $nodeSearchPlugin;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create a plugin instance.

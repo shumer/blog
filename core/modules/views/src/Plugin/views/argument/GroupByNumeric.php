@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\argument\GroupByNumeric.
+ * Contains \Drupal\views\Plugin\views\argument\GroupByNumeric.
  */
 
 namespace Drupal\views\Plugin\views\argument;
@@ -32,7 +32,7 @@ class GroupByNumeric extends ArgumentPluginBase {
    * {@inheritdoc}
    */
   public function getSortName() {
-    return t('Numerical', array(), array('context' => 'Sort order'));
+    return $this->t('Numerical', array(), array('context' => 'Sort order'));
   }
 
 }

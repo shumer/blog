@@ -32,7 +32,7 @@ interface StaticMenuLinkOverridesInterface {
    *     - weight
    *     - menu_name
    *     - expanded
-   *     - hidden
+   *     - enabled
    *   or NULL if there is no override for the given ID.
    */
   public function loadOverride($id);
@@ -77,11 +77,19 @@ interface StaticMenuLinkOverridesInterface {
    *   - parent
    *   - weight
    *   - expanded
-   *   - hidden
+   *   - enabled
    *
    * @return array
    *   A list of properties which got saved.
    */
   public function saveOverride($id, array $definition);
+
+  /**
+   * The unique cache tag associated with this menu link override.
+   *
+   * @return string[]
+   *   An array of cache tags.
+   */
+  public function getCacheTags();
 
 }

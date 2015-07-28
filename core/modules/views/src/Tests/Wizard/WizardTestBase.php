@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views\Tests\Wizard\WizardTestBase.
+ * Contains \Drupal\views\Tests\Wizard\WizardTestBase.
  */
 
 namespace Drupal\views\Tests\Wizard;
@@ -19,9 +19,9 @@ abstract class WizardTestBase extends ViewTestBase {
    *
    * @var array
    */
-  public static $modules = array('node', 'views_ui', 'block');
+  public static $modules = array('node', 'views_ui', 'block', 'rest');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create and log in a user with administer views permission.

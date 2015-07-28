@@ -9,6 +9,7 @@ namespace Drupal\tour;
 
 use Drupal\Core\Entity\EntityViewBuilder;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Component\Utility\Html;
 
 /**
  * Provides a Tour view builder.
@@ -19,6 +20,7 @@ class TourViewBuilder extends EntityViewBuilder {
    * {@inheritdoc}
    */
   public function viewMultiple(array $entities = array(), $view_mode = 'full', $langcode = NULL) {
+    /** @var \Drupal\tour\TourInterface[] $entities */
     $build = array();
     foreach ($entities as $entity_id => $entity) {
       $tips = $entity->getTips();
@@ -28,9 +30,9 @@ class TourViewBuilder extends EntityViewBuilder {
         if ($output = $tip->getOutput()) {
           $attributes = array(
             'class' => array(
-              'tip-module-' . drupal_clean_css_identifier($entity->get('module')),
-              'tip-type-' . drupal_clean_css_identifier($tip->get('plugin')),
-              'tip-' . drupal_clean_css_identifier($tip->get('id')),
+              'tip-module-' . Html::cleanCssIdentifier($entity->getModule()),
+              'tip-type-' . Html::cleanCssIdentifier($tip->getPluginId()),
+              'tip-' . Html::cleanCssIdentifier($tip->id()),
             ),
           );
           $list_items[] = array(
@@ -63,6 +65,9 @@ class TourViewBuilder extends EntityViewBuilder {
               'hidden',
             ),
           ),
+          '#cache' => [
+            'tags' => $entity->getCacheTags(),
+          ],
         );
       }
     }

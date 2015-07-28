@@ -7,6 +7,7 @@
 
 namespace Drupal\user;
 
+use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 
@@ -15,7 +16,7 @@ use Drupal\Core\Session\AccountInterface;
  *
  * @ingroup user_api
  */
-interface UserInterface extends ContentEntityInterface, AccountInterface {
+interface UserInterface extends ContentEntityInterface, EntityChangedInterface, AccountInterface {
 
   /**
    * Whether a user has a certain role.
@@ -84,24 +85,6 @@ interface UserInterface extends ContentEntityInterface, AccountInterface {
    *   The called user entity.
    */
   public function setEmail($mail);
-
-  /**
-   * Returns the user signature.
-   *
-   * @todo: Convert this to a configurable field.
-   *
-   * @return string
-   *   The signature text.
-   */
-  public function getSignature();
-
-  /**
-   * Returns the signature format.
-   *
-   * @return string
-   *   Name of the filter format.
-   */
-  public function getSignatureFormat();
 
   /**
    * Returns the creation time of the user as a UNIX timestamp.
@@ -180,5 +163,30 @@ interface UserInterface extends ContentEntityInterface, AccountInterface {
    *   Initial email address of the user.
    */
   public function getInitialEmail();
+
+  /**
+   * Sets the existing plain text password.
+   *
+   * Required for validation when changing the password, name or email fields.
+   *
+   * @param string $password
+   *   The existing plain text password of the user.
+   *
+   * @return $this
+   */
+  public function setExistingPassword($password);
+
+  /**
+   * Checks the existing password if set.
+   *
+   * @param \Drupal\user\UserInterface $account_unchanged
+   *   The unchanged user entity to compare against.
+   *
+   * @return bool
+   *   TRUE if the correct existing password was provided.
+   *
+   * @see UserInterface::setExistingPassword().
+   */
+  public function checkExistingPassword(UserInterface $account_unchanged);
 
 }

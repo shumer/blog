@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\access\None.
+ * Contains \Drupal\views\Plugin\views\access\None.
  */
 
 namespace Drupal\views\Plugin\views\access;
@@ -27,7 +27,7 @@ class None extends AccessPluginBase {
    * {@inheritdoc}
    */
   public function summaryTitle() {
-    return t('Unrestricted');
+    return $this->t('Unrestricted');
   }
 
   /**

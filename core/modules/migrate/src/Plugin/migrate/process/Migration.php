@@ -10,13 +10,12 @@ namespace Drupal\migrate\Plugin\migrate\process;
 
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\migrate\MigrateException;
+use Drupal\migrate\MigrateSkipProcessException;
 use Drupal\migrate\MigrateSkipRowException;
-use Drupal\migrate\Plugin\MigrateIdMapInterface;
 use Drupal\migrate\Plugin\MigratePluginManager;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Entity\MigrationInterface;
-use Drupal\migrate\MigrateExecutable;
+use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\Row;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -66,7 +65,7 @@ class Migration extends ProcessPluginBase implements ContainerFactoryPluginInter
   /**
    * {@inheritdoc}
    */
-  public function transform($value, MigrateExecutable $migrate_executable, Row $row, $destination_property) {
+  public function transform($value, MigrateExecutableInterface $migrate_executable, Row $row, $destination_property) {
     $migration_ids = $this->configuration['migration'];
     if (!is_array($migration_ids)) {
       $migration_ids = array($migration_ids);
@@ -76,6 +75,7 @@ class Migration extends ProcessPluginBase implements ContainerFactoryPluginInter
       $scalar = TRUE;
       $value = array($value);
     }
+    $this->skipOnEmpty($value);
     $self = FALSE;
     /** @var \Drupal\migrate\Entity\MigrationInterface[] $migrations */
     $migrations = $this->migrationStorage->loadMultiple($migration_ids);
@@ -99,7 +99,8 @@ class Migration extends ProcessPluginBase implements ContainerFactoryPluginInter
         break;
       }
     }
-    if (!$destination_ids && (($self && empty($this->configuration['no stub'])) || isset($this->configuration['stub_id']) || count($migrations) == 1))  {
+
+    if (!$destination_ids && ($self || isset($this->configuration['stub_id']) || count($migrations) == 1)) {
       // If the lookup didn't succeed, figure out which migration will do the
       // stubbing.
       if ($self) {
@@ -111,9 +112,9 @@ class Migration extends ProcessPluginBase implements ContainerFactoryPluginInter
       else {
         $migration = reset($migrations);
       }
-      $destination_plugin = $migration->getDestinationPlugin();
+      $destination_plugin = $migration->getDestinationPlugin(TRUE);
       // Only keep the process necessary to produce the destination ID.
-      $process = array_intersect_key($migration->get('process'), $destination_plugin->getIds());
+      $process = $migration->get('process');
       // We already have the source id values but need to key them for the Row
       // constructor.
       $source_ids = $migration->getSourcePlugin()->getIds();
@@ -121,15 +122,17 @@ class Migration extends ProcessPluginBase implements ContainerFactoryPluginInter
       foreach (array_keys($source_ids) as $index => $source_id) {
         $values[$source_id] = $source_id_values[$migration->id()][$index];
       }
-      $stub_row = new Row($values, $source_ids);
-      $stub_row->stub(TRUE);
+
+      $stub_row = new Row($values + $migration->get('source'), $source_ids, TRUE);
+
       // Do a normal migration with the stub row.
       $migrate_executable->processRow($stub_row, $process);
       $destination_ids = array();
       try {
         $destination_ids = $destination_plugin->import($stub_row);
       }
-      catch (MigrateException $e) {
+      catch (\Exception $e) {
+        $migrate_executable->saveMessage($e->getMessage());
       }
     }
     if ($destination_ids) {
@@ -143,6 +146,20 @@ class Migration extends ProcessPluginBase implements ContainerFactoryPluginInter
       }
     }
     throw new MigrateSkipRowException();
+  }
+
+  /**
+   * Skip the migration process entirely if the value is FALSE.
+   *
+   * @param mixed $value
+   *   The incoming value to transform.
+   *
+   * @throws \Drupal\migrate\MigrateSkipProcessException
+   */
+  protected function skipOnEmpty($value) {
+    if (!array_filter($value)) {
+      throw new MigrateSkipProcessException();
+    }
   }
 
 }

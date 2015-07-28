@@ -7,7 +7,6 @@
 
 use Drupal\field\FieldStorageConfigInterface;
 use Drupal\views\ViewExecutable;
-use Drupal\views\ViewStorageInterface;
 
 /**
  * Implements hook_views_query_substitutions().
@@ -47,12 +46,21 @@ function views_test_data_views_pre_render(ViewExecutable $view) {
   \Drupal::state()->set('views_hook_test_views_pre_render', TRUE);
 
   if (isset($view) && ($view->storage->id() == 'test_cache_header_storage')) {
-    $path = drupal_get_path('module', 'views_test_data');
-    $view->element['#attached']['js'][] = "$path/views_cache.test.js";
-    $view->element['#attached']['css'][] = "$path/views_cache.test.css";
+    $view->element['#attached']['library'][] = 'views_test_data/test';
+    $view->element['#attached']['drupalSettings']['foo'] = 'bar';
+    $view->element['#attached']['placeholders']['non-existing-placeholder-just-for-testing-purposes']['#lazy_builder'] = ['views_test_data_placeholders', ['bar']];
+    $view->element['#cache']['tags'][] = 'views_test_data:1';
     $view->build_info['pre_render_called'] = TRUE;
   }
 
+}
+
+/**
+ * #lazy_builder callback; for testing purposes only.
+ */
+function views_test_data_placeholders() {
+  // No-op.
+  return [];
 }
 
 /**

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Tests\Core\Routing\ContentTypeHeaderMatcherTest.
+ * Contains \Drupal\Tests\Core\Routing\ContentTypeHeaderMatcherTest.
  */
 
 namespace Drupal\Tests\Core\Routing;
@@ -36,7 +36,7 @@ class ContentTypeHeaderMatcherTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->fixtures = new RoutingFixtures();

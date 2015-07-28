@@ -9,10 +9,13 @@ namespace Drupal\comment\Plugin\Field\FieldFormatter;
 
 use Drupal\comment\CommentManagerInterface;
 use Drupal\comment\CommentStorageInterface;
+use Drupal\comment\Entity\Comment;
 use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\EntityViewBuilderInterface;
 use Drupal\Core\Entity\EntityFormBuilderInterface;
 use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FormatterBase;
@@ -67,6 +70,13 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
   protected $viewBuilder;
 
   /**
+   * The entity manager.
+   *
+   * @var \Drupal\Core\Entity\EntityManagerInterface
+   */
+  protected $entityManager;
+
+  /**
    * The entity form builder.
    *
    * @var \Drupal\Core\Entity\EntityFormBuilderInterface
@@ -86,8 +96,7 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
       $configuration['view_mode'],
       $configuration['third_party_settings'],
       $container->get('current_user'),
-      $container->get('entity.manager')->getStorage('comment'),
-      $container->get('entity.manager')->getViewBuilder('comment'),
+      $container->get('entity.manager'),
       $container->get('entity.form_builder')
     );
   }
@@ -111,18 +120,17 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
    *   Third party settings.
    * @param \Drupal\Core\Session\AccountInterface $current_user
    *   The current user.
-   * @param \Drupal\comment\CommentStorageInterface $comment_storage
-   *   The comment storage.
-   * @param \Drupal\Core\Entity\EntityViewBuilderInterface $comment_view_builder
-   *   The comment view builder.
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
+   *   The entity manager
    * @param \Drupal\Core\Entity\EntityFormBuilderInterface $entity_form_builder
    *   The entity form builder.
    */
-  public function __construct($plugin_id, $plugin_definition, FieldDefinitionInterface $field_definition, array $settings, $label, $view_mode, array $third_party_settings, AccountInterface $current_user, CommentStorageInterface $comment_storage, EntityViewBuilderInterface $comment_view_builder, EntityFormBuilderInterface $entity_form_builder) {
+  public function __construct($plugin_id, $plugin_definition, FieldDefinitionInterface $field_definition, array $settings, $label, $view_mode, array $third_party_settings, AccountInterface $current_user, EntityManagerInterface $entity_manager, EntityFormBuilderInterface $entity_form_builder) {
     parent::__construct($plugin_id, $plugin_definition, $field_definition, $settings, $label, $view_mode, $third_party_settings);
-    $this->viewBuilder = $comment_view_builder;
-    $this->storage = $comment_storage;
+    $this->viewBuilder = $entity_manager->getViewBuilder('comment');
+    $this->storage = $entity_manager->getStorage('comment');
     $this->currentUser = $current_user;
+    $this->entityManager = $entity_manager;
     $this->entityFormBuilder = $entity_form_builder;
   }
 
@@ -149,40 +157,32 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
       // Unpublished comments are not included in
       // $entity->get($field_name)->comment_count, but unpublished comments
       // should display if the user is an administrator.
-      if ((($entity->get($field_name)->comment_count && $this->currentUser->hasPermission('access comments')) ||
-        $this->currentUser->hasPermission('administer comments'))) {
-        $mode = $comment_settings['default_mode'];
-        $comments_per_page = $comment_settings['per_page'];
-        $comments = $this->storage->loadThread($entity, $field_name, $mode, $comments_per_page, $this->getSetting('pager_id'));
-        if ($comments) {
-          comment_prepare_thread($comments);
-          $build = $this->viewBuilder->viewMultiple($comments);
-          $build['pager']['#theme'] = 'pager';
-          if ($this->getSetting('pager_id')) {
-            $build['pager']['#element'] = $this->getSetting('pager_id');
+      $elements['#cache']['contexts'][] = 'user.permissions';
+      if ($this->currentUser->hasPermission('access comments') || $this->currentUser->hasPermission('administer comments')) {
+        // This is a listing of Comment entities, so associate its list cache
+        // tag for correct invalidation.
+        $output['comments']['#cache']['tags'] = $this->entityManager->getDefinition('comment')->getListCacheTags();
+
+        if ($entity->get($field_name)->comment_count || $this->currentUser->hasPermission('administer comments')) {
+          $mode = $comment_settings['default_mode'];
+          $comments_per_page = $comment_settings['per_page'];
+          $comments = $this->storage->loadThread($entity, $field_name, $mode, $comments_per_page, $this->getSetting('pager_id'));
+          if ($comments) {
+            $build = $this->viewBuilder->viewMultiple($comments);
+            $build['pager']['#type'] = 'pager';
+            if ($this->getSetting('pager_id')) {
+              $build['pager']['#element'] = $this->getSetting('pager_id');
+            }
+            $output['comments'] += $build;
           }
-          // The viewElements() method of entity field formatters is run
-          // during the #pre_render phase of rendering an entity. A formatter
-          // builds the content of the field in preparation for theming.
-          // All entity cache tags must be available after the #pre_render phase.
-          // This field formatter is highly exceptional: it renders *another*
-          // entity and this referenced entity has its own #pre_render
-          // callbacks. In order collect the cache tags associated with the
-          // referenced entity it must be passed to drupal_render() so that its
-          // #pre_render callbacks are invoked and its full build array is
-          // assembled. Rendering the referenced entity in place here will allow
-          // its cache tags to be bubbled up and included with those of the
-          // main entity when cache tags are collected for a renderable array
-          // in drupal_render().
-          drupal_render($build, TRUE);
-          $output['comments'] = $build;
         }
       }
 
       // Append comment form if the comments are open and the form is set to
       // display below the entity. Do not show the form for the print view mode.
-      if ($status == CommentItemInterface::OPEN && $comment_settings['form_location'] == COMMENT_FORM_BELOW && $this->viewMode != 'print') {
+      if ($status == CommentItemInterface::OPEN && $comment_settings['form_location'] == CommentItemInterface::FORM_BELOW && $this->viewMode != 'print') {
         // Only show the add comment form if the user has permission.
+        $elements['#cache']['contexts'][] = 'user.roles';
         if ($this->currentUser->hasPermission('post comments')) {
           // All users in the "anonymous" role can use the same form: it is fine
           // for this form to be stored in the render cache.
@@ -197,23 +197,17 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
             $output['comment_form'] = $this->entityFormBuilder->getForm($comment);
           }
           // All other users need a user-specific form, which would break the
-          // render cache: hence use a #post_render_cache callback.
+          // render cache: hence use a #lazy_builder callback.
           else {
-            $callback = 'comment.post_render_cache:renderForm';
-            $context = array(
-              'entity_type' => $entity->getEntityTypeId(),
-              'entity_id' => $entity->id(),
-              'field_name' => $field_name,
-            );
-            $placeholder = drupal_render_cache_generate_placeholder($callback, $context);
-            $output['comment_form'] = array(
-              '#post_render_cache' => array(
-                $callback => array(
-                  $context,
-                ),
-              ),
-              '#markup' => $placeholder,
-            );
+            $output['comment_form'] = [
+              '#lazy_builder' => ['comment.lazy_builders:renderForm', [
+                $entity->getEntityTypeId(),
+                $entity->id(),
+                $field_name,
+                $this->getFieldSetting('comment_type'),
+              ]],
+              '#create_placeholder' => TRUE,
+            ];
           }
         }
       }
@@ -232,7 +226,7 @@ class CommentDefaultFormatter extends FormatterBase implements ContainerFactoryP
   /**
    * {@inheritdoc}
    */
-  public function settingsForm(array $form, array &$form_state) {
+  public function settingsForm(array $form, FormStateInterface $form_state) {
     $element = array();
     $element['pager_id'] = array(
       '#type' => 'select',

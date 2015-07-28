@@ -2,13 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Common\XssUnitTest.
+ * Contains \Drupal\system\Tests\Common\XssUnitTest.
  */
 
 namespace Drupal\system\Tests\Common;
 
 use Drupal\Component\Utility\UrlHelper;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Confirm that \Drupal\Component\Utility\Xss::filter() and check_url() work
@@ -16,7 +16,7 @@ use Drupal\simpletest\DrupalUnitTestBase;
  *
  * @group Common
  */
-class XssUnitTest extends DrupalUnitTestBase {
+class XssUnitTest extends KernelTestBase {
 
   /**
    * Modules to enable.

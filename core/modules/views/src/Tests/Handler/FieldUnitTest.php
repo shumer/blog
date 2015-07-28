@@ -28,7 +28,12 @@ class FieldUnitTest extends ViewUnitTestBase {
    */
   public static $testViews = array('test_view', 'test_field_tokens', 'test_field_output');
 
-  protected $column_map = array(
+  /**
+   * Map column names.
+   *
+   * @var array
+   */
+  protected $columnMap = array(
     'views_test_data_name' => 'name',
   );
 
@@ -50,7 +55,7 @@ class FieldUnitTest extends ViewUnitTestBase {
     $view = Views::getView('test_field_tokens');
     $this->executeView($view);
 
-    $random_text = $this->randomName();
+    $random_text = $this->randomMachineName();
     $view->field['job']->setTestValue($random_text);
     $this->assertEqual($view->field['job']->theme($view->result[0]), $random_text, 'Make sure the render method rendered the manual set value.');
   }
@@ -143,7 +148,7 @@ class FieldUnitTest extends ViewUnitTestBase {
     $id_field = $view->field['id'];
 
     // Don't check the rewrite checkbox, so the text shouldn't appear.
-    $id_field->options['alter']['text'] = $random_text = $this->randomName();
+    $id_field->options['alter']['text'] = $random_text = $this->randomMachineName();
     $output = $id_field->theme($row);
     $this->assertNotSubString($output, $random_text);
 
@@ -164,13 +169,13 @@ class FieldUnitTest extends ViewUnitTestBase {
     $row = $view->result[0];
 
     $name_field_0->options['alter']['alter_text'] = TRUE;
-    $name_field_0->options['alter']['text'] = '[name]';
+    $name_field_0->options['alter']['text'] = '{{ name }}';
 
     $name_field_1->options['alter']['alter_text'] = TRUE;
-    $name_field_1->options['alter']['text'] = '[name_1] [name]';
+    $name_field_1->options['alter']['text'] = '{{ name_1 }} {{ name }}';
 
     $name_field_2->options['alter']['alter_text'] = TRUE;
-    $name_field_2->options['alter']['text'] = '[name_2] [name_1]';
+    $name_field_2->options['alter']['text'] = '{{ name_2 }} {{ name_1 }}';
 
     foreach ($view->result as $row) {
       $expected_output_0 = $row->views_test_data_name;
@@ -178,36 +183,63 @@ class FieldUnitTest extends ViewUnitTestBase {
       $expected_output_2 = "$row->views_test_data_name $row->views_test_data_name $row->views_test_data_name";
 
       $output = $name_field_0->advancedRender($row);
-      $this->assertEqual($output, $expected_output_0);
+      $this->assertEqual($output, $expected_output_0, format_string('Test token replacement: "!token" gave "!output"', [
+        '!token' => $name_field_0->options['alter']['text'],
+        '!output' => $output,
+      ]));
 
       $output = $name_field_1->advancedRender($row);
-      $this->assertEqual($output, $expected_output_1);
+      $this->assertEqual($output, $expected_output_1, format_string('Test token replacement: "!token" gave "!output"', [
+        '!token' => $name_field_1->options['alter']['text'],
+        '!output' => $output,
+      ]));
 
       $output = $name_field_2->advancedRender($row);
-      $this->assertEqual($output, $expected_output_2);
+      $this->assertEqual($output, $expected_output_2, format_string('Test token replacement: "!token" gave "!output"', [
+        '!token' => $name_field_2->options['alter']['text'],
+        '!output' => $output,
+      ]));
     }
 
     $job_field = $view->field['job'];
     $job_field->options['alter']['alter_text'] = TRUE;
-    $job_field->options['alter']['text'] = '[test-token]';
+    $job_field->options['alter']['text'] = '{{ job }}';
 
-    $random_text = $this->randomName();
+    $random_text = $this->randomMachineName();
     $job_field->setTestValue($random_text);
     $output = $job_field->advancedRender($row);
-    $this->assertSubString($output, $random_text, format_string('Make sure the self token (!value) appears in the output (!output)', array('!value' => $random_text, '!output' => $output)));
+    $this->assertSubString($output, $random_text, format_string('Make sure the self token (!token => !value) appears in the output (!output)', [
+      '!value' => $random_text,
+      '!output' => $output,
+      '!token' => $job_field->options['alter']['text'],
+    ]));
+
+    // Verify the token format used in D7 and earlier does not get substituted.
+    $old_token = '[job]';
+    $job_field->options['alter']['text'] = $old_token;
+    $random_text = $this->randomMachineName();
+    $job_field->setTestValue($random_text);
+    $output = $job_field->advancedRender($row);
+    $this->assertSubString($output, $old_token, format_string('Make sure the old token style (!token => !value) is not changed in the output (!output)', [
+      '!value' => $random_text,
+      '!output' => $output,
+      '!token' => $job_field->options['alter']['text'],
+    ]));
   }
 
   /**
    * Tests the exclude setting.
    */
   public function testExclude() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
     $view = Views::getView('test_field_output');
     $view->initHandlers();
     // Hide the field and see whether it's rendered.
     $view->field['name']->options['exclude'] = TRUE;
 
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
     foreach ($this->dataSet() as $entry) {
       $this->assertNotSubString($output, $entry['name']);
     }
@@ -216,7 +248,7 @@ class FieldUnitTest extends ViewUnitTestBase {
     $view->field['name']->options['exclude'] = FALSE;
 
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
     foreach ($this->dataSet() as $entry) {
       $this->assertSubString($output, $entry['name']);
     }
@@ -240,10 +272,10 @@ class FieldUnitTest extends ViewUnitTestBase {
     $view->initDisplay();
     $this->executeView($view);
 
-    $column_map_reversed = array_flip($this->column_map);
+    $column_map_reversed = array_flip($this->columnMap);
     $view->row_index = 0;
-    $random_name = $this->randomName();
-    $random_value = $this->randomName();
+    $random_name = $this->randomMachineName();
+    $random_value = $this->randomMachineName();
 
     // Test when results are not rewritten and empty values are not hidden.
     $view->field['name']->options['hide_alter_empty'] = FALSE;
@@ -458,10 +490,10 @@ class FieldUnitTest extends ViewUnitTestBase {
     $view->initDisplay();
     $this->executeView($view);
 
-    $column_map_reversed = array_flip($this->column_map);
+    $column_map_reversed = array_flip($this->columnMap);
     $view->row_index = 0;
 
-    $empty_text = $view->field['name']->options['empty'] = $this->randomName();
+    $empty_text = $view->field['name']->options['empty'] = $this->randomMachineName();
     $view->result[0]->{$column_map_reversed['name']} = "";
     $render = $view->field['name']->advancedRender($view->result[0]);
     $this->assertIdentical($render, $empty_text, 'If a field is empty, the empty text should be used for the output.');
@@ -477,7 +509,7 @@ class FieldUnitTest extends ViewUnitTestBase {
 
     $view->result[0]->{$column_map_reversed['name']} = "";
     $view->field['name']->options['alter']['alter_text'] = TRUE;
-    $alter_text = $view->field['name']->options['alter']['text'] = $this->randomName();
+    $alter_text = $view->field['name']->options['alter']['text'] = $this->randomMachineName();
     $view->field['name']->options['hide_alter_empty'] = FALSE;
     $render = $view->field['name']->advancedRender($view->result[0]);
     $this->assertIdentical($render, $alter_text, 'If a field is empty, some rewrite text exists, but hide_alter_empty is not checked, render the rewrite text.');
@@ -536,7 +568,7 @@ class FieldUnitTest extends ViewUnitTestBase {
    * Tests the trimText method.
    */
   public function testTrimText() {
-    // Test unicode, @see http://drupal.org/node/513396#comment-2839416
+    // Test unicode. See https://www.drupal.org/node/513396#comment-2839416.
     $text = array(
       'Tuy nhiên, những hi vọng',
       'Giả sử chúng tôi có 3 Apple',

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\statistics\Tests\StatisticsReportsTest.
+ * Contains \Drupal\statistics\Tests\StatisticsReportsTest.
  */
 
 namespace Drupal\statistics\Tests;
@@ -22,7 +22,7 @@ class StatisticsReportsTest extends StatisticsTestBase {
     $this->container->get('plugin.manager.block')->clearCachedDefinitions();
 
     // Visit a node to have something show up in the block.
-    $node = $this->drupalCreateNode(array('type' => 'page', 'uid' => $this->blocking_user->id()));
+    $node = $this->drupalCreateNode(array('type' => 'page', 'uid' => $this->blockingUser->id()));
     $this->drupalGet('node/' . $node->id());
     // Manually calling statistics.php, simulating ajax behavior.
     $nid = $node->id();
@@ -49,7 +49,9 @@ class StatisticsReportsTest extends StatisticsTestBase {
     $this->assertText('All time', 'Found the all time popular content.');
     $this->assertText('Last viewed', 'Found the last viewed popular content.');
 
-    $this->assertRaw(l($node->label(), 'node/' . $node->id()), 'Found link to visited node.');
+    // statistics.module doesn't use node entities, prevent the node language
+    // from being added to the options.
+    $this->assertRaw(\Drupal::l($node->label(), $node->urlInfo('canonical', ['language' => NULL])), 'Found link to visited node.');
   }
 
 }

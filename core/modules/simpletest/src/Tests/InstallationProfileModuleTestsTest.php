@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of \Drupal\simpletest\Tests\InstallationProfileModuleTestsTest.
+ * Contains \Drupal\simpletest\Tests\InstallationProfileModuleTestsTest.
  */
 
 namespace Drupal\simpletest\Tests;
@@ -24,6 +24,13 @@ class InstallationProfileModuleTestsTest extends WebTestBase {
   public static $modules = array('simpletest');
 
   /**
+   * An administrative user with permission to adminsiter unit tests.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $adminUser;
+
+  /**
    * Use the Testing profile.
    *
    * The Testing profile contains drupal_system_listing_compatible_test.test,
@@ -37,11 +44,11 @@ class InstallationProfileModuleTestsTest extends WebTestBase {
    */
   protected $profile = 'testing';
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    $this->admin_user = $this->drupalCreateUser(array('administer unit tests'));
-    $this->drupalLogin($this->admin_user);
+    $this->adminUser = $this->drupalCreateUser(array('administer unit tests'));
+    $this->drupalLogin($this->adminUser);
   }
 
   /**

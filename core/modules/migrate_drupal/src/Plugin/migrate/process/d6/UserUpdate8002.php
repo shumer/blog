@@ -2,11 +2,11 @@
 
 /**
  * @file
- * Contains \Drupal\migrate_drupal\Plugin\migrate\Process\d6\UserUpdate8002.
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\process\d6\UserUpdate8002.
  */
 
-namespace Drupal\migrate_drupal\Plugin\migrate\Process\d6;
-use Drupal\migrate\MigrateExecutable;
+namespace Drupal\migrate_drupal\Plugin\migrate\process\d6;
+use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
 
@@ -24,7 +24,7 @@ class UserUpdate8002 extends ProcessPluginBase {
    *
    * Keep the predefined roles for rid 1 and 2.
    */
-  public function transform($value, MigrateExecutable $migrate_executable, Row $row, $destination_property) {
+  public function transform($value, MigrateExecutableInterface $migrate_executable, Row $row, $destination_property) {
     $rid = $row->getSourceProperty('rid');
     $map = array(
       1 => 'anonymous',

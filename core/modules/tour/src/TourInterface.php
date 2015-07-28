@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\tour\Entity\TourInterface.
+ * Contains \Drupal\tour\TourInterface.
  */
 
 namespace Drupal\tour;
@@ -53,6 +53,14 @@ interface TourInterface extends ConfigEntityInterface {
    *   An array of tip plugins.
    */
   public function getTips();
+
+  /**
+   * Gets the module this tour belongs to.
+   *
+   * @return string
+   *   The module this tour belongs to.
+   */
+  public function getModule();
 
   /**
    * Resets the statically cached keyed routes.

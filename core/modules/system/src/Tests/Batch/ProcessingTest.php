@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Batch\ProcessingTest.
+ * Contains \Drupal\system\Tests\Batch\ProcessingTest.
  */
 
 namespace Drupal\system\Tests\Batch;
@@ -105,7 +105,7 @@ class ProcessingTest extends WebTestBase {
     // Check that result messages are present and in the correct order.
     $this->assertBatchMessages($this->_resultMessages('chained'), 'Batches defined in separate submit handlers performed successfully.');
     // The stack contains execution order of batch callbacks and submit
-    // hanlders and logging of corresponding $form_state[{values'].
+    // handlers and logging of corresponding $form_state->getValues().
     $this->assertEqual(batch_test_stack(), $this->_resultStack('chained', $value), 'Execution order was correct, and $form_state is correctly persisted.');
     $this->assertText('Redirection successful.', 'Redirection after batch execution is correct.');
   }
@@ -123,26 +123,26 @@ class ProcessingTest extends WebTestBase {
     // Check that result messages are present and in the correct order.
     $this->assertBatchMessages($this->_resultMessages('chained'), 'Batches defined in separate submit handlers performed successfully.');
     // The stack contains execution order of batch callbacks and submit
-    // hanlders and logging of corresponding $form_state[{values'].
+    // handlers and logging of corresponding $form_state->getValues().
     $this->assertEqual(batch_test_stack(), $this->_resultStack('chained', $value), 'Execution order was correct, and $form_state is correctly persisted.');
     $this->assertText('Got out of a programmatic batched form.', 'Page execution continues normally.');
   }
 
   /**
-   * Tests that drupal_form_submit() can run within a batch operation.
+   * Test form submission during a batch operation.
    */
   function testDrupalFormSubmitInBatch() {
     // Displaying the page triggers a batch that programmatically submits a
     // form.
     $value = rand(0, 255);
     $this->drupalGet('batch-test/nested-programmatic/' . $value);
-    $this->assertEqual(batch_test_stack(), array('mock form submitted with value = ' . $value), 'drupal_form_submit() ran successfully within a batch operation.');
+    $this->assertEqual(batch_test_stack(), array('mock form submitted with value = ' . $value), '\Drupal::formBuilder()->submitForm() ran successfully within a batch operation.');
   }
 
   /**
    * Tests batches that return $context['finished'] > 1 do in fact complete.
    *
-   * @see http://drupal.org/node/600836
+   * @see https://www.drupal.org/node/600836
    */
   function testBatchLargePercentage() {
     // Displaying the page triggers batch 5.

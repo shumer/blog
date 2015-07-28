@@ -7,8 +7,11 @@
 
 namespace Drupal\views\Form;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\views\ExposedFormCache;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -51,7 +54,7 @@ class ViewsExposedForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     // Don't show the form when batch operations are in progress.
     if ($batch = batch_get() && isset($batch['current_set'])) {
       return array(
@@ -62,15 +65,15 @@ class ViewsExposedForm extends FormBase {
 
     // Make sure that we validate because this form might be submitted
     // multiple times per page.
-    $form_state['must_validate'] = TRUE;
+    $form_state->setValidationEnforced();
     /** @var \Drupal\views\ViewExecutable $view */
-    $view = $form_state['view'];
-    $display = &$form_state['display'];
+    $view = $form_state->get('view');
+    $display = &$form_state->get('display');
 
-    $form_state['input'] = $view->getExposedInput();
+    $form_state->setUserInput($view->getExposedInput());
 
     // Let form plugins know this is for exposed widgets.
-    $form_state['exposed'] = TRUE;
+    $form_state->set('exposed', TRUE);
     // Check if the form was already created
     if ($cache = $this->exposedFormCache->getForm($view->storage->id(), $view->current_display)) {
       return $cache;
@@ -80,7 +83,7 @@ class ViewsExposedForm extends FormBase {
 
     // Go through each handler and let it generate its exposed widget.
     foreach ($view->display_handler->handlers as $type => $value) {
-      /** @var \Drupal\views\Plugin\views\HandlerBase $handler */
+      /** @var \Drupal\views\Plugin\views\ViewsHandlerInterface $handler */
       foreach ($view->$type as $id => $handler) {
         if ($handler->canExpose() && $handler->isExposed()) {
           // Grouped exposed filters have their own forms.
@@ -110,16 +113,15 @@ class ViewsExposedForm extends FormBase {
       '#name' => '',
       '#type' => 'submit',
       '#value' => $this->t('Apply'),
-      '#id' => drupal_html_id('edit-submit-' . $view->storage->id()),
+      '#id' => Html::getUniqueId('edit-submit-' . $view->storage->id()),
     );
 
-    $form['#action'] = url($view->display_handler->getUrl());
+    $form['#action'] = $view->hasUrl() ? $view->getUrl()->toString() : Url::fromRoute('<current>')->toString();
     $form['#theme'] = $view->buildThemeFunctions('views_exposed_form');
-    $form['#id'] = drupal_clean_css_identifier('views_exposed_form-' . String::checkPlain($view->storage->id()) . '-' . String::checkPlain($display['id']));
-    // $form['#attributes']['class'] = array('views-exposed-form');
+    $form['#id'] = Html::cleanCssIdentifier('views_exposed_form-' . $view->storage->id() . '-' . $display['id']);
 
     /** @var \Drupal\views\Plugin\views\exposed_form\ExposedFormPluginBase $exposed_form_plugin */
-    $exposed_form_plugin = $form_state['exposed_form_plugin'];
+    $exposed_form_plugin = $view->display_handler->getPlugin('exposed_form');
     $exposed_form_plugin->exposedFormAlter($form, $form_state);
 
     // Save the form.
@@ -131,41 +133,45 @@ class ViewsExposedForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+
     foreach (array('field', 'filter') as $type) {
-      /** @var \Drupal\views\Plugin\views\HandlerBase[] $handlers */
-      $handlers = &$form_state['view']->$type;
+      /** @var \Drupal\views\Plugin\views\ViewsHandlerInterface[] $handlers */
+      $handlers = &$view->$type;
       foreach ($handlers as $key => $handler) {
         $handlers[$key]->validateExposed($form, $form_state);
       }
     }
     /** @var \Drupal\views\Plugin\views\exposed_form\ExposedFormPluginBase $exposed_form_plugin */
-    $exposed_form_plugin = $form_state['exposed_form_plugin'];
+    $exposed_form_plugin = $view->display_handler->getPlugin('exposed_form');
     $exposed_form_plugin->exposedFormValidate($form, $form_state);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     foreach (array('field', 'filter') as $type) {
-      /** @var \Drupal\views\Plugin\views\HandlerBase[] $handlers */
-      $handlers = &$form_state['view']->$type;
+      /** @var \Drupal\views\Plugin\views\ViewsHandlerInterface[] $handlers */
+      $handlers = &$form_state->get('view')->$type;
       foreach ($handlers as $key => $info) {
         $handlers[$key]->submitExposed($form, $form_state);
       }
     }
-    $form_state['view']->exposed_data = $form_state['values'];
-    $form_state['view']->exposed_raw_input = array();
 
-    $exclude = array('submit', 'form_build_id', 'form_id', 'form_token', 'exposed_form_plugin', '', 'reset');
+    $view = $form_state->get('view');
+    $view->exposed_data = $form_state->getValues();
+    $view->exposed_raw_input = [];
+
+    $exclude = array('submit', 'form_build_id', 'form_id', 'form_token', 'exposed_form_plugin', 'reset');
     /** @var \Drupal\views\Plugin\views\exposed_form\ExposedFormPluginBase $exposed_form_plugin */
-    $exposed_form_plugin = $form_state['exposed_form_plugin'];
+    $exposed_form_plugin = $view->display_handler->getPlugin('exposed_form');
     $exposed_form_plugin->exposedFormSubmit($form, $form_state, $exclude);
 
-    foreach ($form_state['values'] as $key => $value) {
+    foreach ($form_state->getValues() as $key => $value) {
       if (!in_array($key, $exclude)) {
-        $form_state['view']->exposed_raw_input[$key] = $value;
+        $view->exposed_raw_input[$key] = $value;
       }
     }
   }

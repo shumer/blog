@@ -7,7 +7,6 @@
 
 namespace Drupal\Core\EventSubscriber;
 
-use Drupal\Component\Utility\String;
 use Drupal\Core\Routing\RouteBuildEvent;
 use Drupal\Core\Routing\RouteSubscriberBase;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
@@ -24,25 +23,20 @@ class SpecialAttributesRouteSubscriber extends RouteSubscriberBase {
   protected function alterRoutes(RouteCollection $collection) {
     $special_variables = array(
       'system_path',
-      '_maintenance',
       '_legacy',
-      '_authentication_provider',
       '_raw_variables',
       RouteObjectInterface::ROUTE_OBJECT,
       RouteObjectInterface::ROUTE_NAME,
       '_content',
+      '_controller',
       '_form',
     );
-
-    foreach ($collection->all() as $route) {
+    foreach ($collection->all() as $name => $route) {
       if ($not_allowed_variables = array_intersect($route->compile()->getVariables(), $special_variables)) {
-        $placeholders = array('@variables' => implode(', ', $not_allowed_variables));
-        drupal_set_message(String::format('The following variables are reserved names by drupal: @variables', $placeholders));
-        watchdog('error', 'The following variables are reserved names by drupal: @variables', $placeholders);
-        return FALSE;
+        $reserved = implode(', ', $not_allowed_variables);
+        trigger_error(sprintf('Route %s uses reserved variable names: %s', $name, $reserved), E_USER_WARNING);
       }
     }
-    return TRUE;
   }
 
   /**

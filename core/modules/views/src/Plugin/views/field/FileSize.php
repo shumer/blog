@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\field\FileSize.
+ * Contains \Drupal\views\Plugin\views\field\FileSize.
  */
 
 namespace Drupal\views\Plugin\views\field;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ResultRow;
 
 /**
@@ -18,6 +19,9 @@ use Drupal\views\ResultRow;
  */
 class FileSize extends FieldPluginBase {
 
+  /**
+   * {@inheritdoc}
+   */
   protected function defineOptions() {
     $options = parent::defineOptions();
 
@@ -26,14 +30,17 @@ class FileSize extends FieldPluginBase {
     return $options;
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  /**
+   * {@inheritdoc}
+   */
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
     $form['file_size_display'] = array(
-      '#title' => t('File size display'),
+      '#title' => $this->t('File size display'),
       '#type' => 'select',
       '#options' => array(
-        'formatted' => t('Formatted (in KB or MB)'),
-        'bytes' => t('Raw bytes'),
+        'formatted' => $this->t('Formatted (in KB or MB)'),
+        'bytes' => $this->t('Raw bytes'),
       ),
     );
   }

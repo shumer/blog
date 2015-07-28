@@ -14,6 +14,12 @@ use Drupal\migrate\Plugin\MigrateIdMapInterface;
 
 /**
  * Sources whose data may be fetched via DBTNG.
+ *
+ * By default, an existing database connection with key 'migrate' and target
+ * 'default' is used. These may be overridden with explicit 'key' and/or
+ * 'target' configuration keys. In addition, if the configuration key 'database'
+ * is present, it is used as a database connection information array to define
+ * the connection.
  */
 abstract class SqlBase extends SourcePluginBase {
 
@@ -57,7 +63,22 @@ abstract class SqlBase extends SourcePluginBase {
    */
   public function getDatabase() {
     if (!isset($this->database)) {
-      $this->database = Database::getConnection('default', 'migrate');
+      if (isset($this->configuration['target'])) {
+        $target = $this->configuration['target'];
+      }
+      else {
+        $target = 'default';
+      }
+      if (isset($this->configuration['key'])) {
+        $key = $this->configuration['key'];
+      }
+      else {
+        $key = 'migrate';
+      }
+      if (isset($this->configuration['database'])) {
+        Database::addConnectionInfo($key, $target, $this->configuration['database']);
+      }
+      $this->database = Database::getConnection($target, $key);
     }
     return $this->database;
   }
@@ -91,9 +112,9 @@ abstract class SqlBase extends SourcePluginBase {
    * We could simply execute the query and be functionally correct, but
    * we will take advantage of the PDO-based API to optimize the query up-front.
    */
-  protected function runQuery() {
+  protected function initializeIterator() {
     $this->prepareQuery();
-    $highwaterProperty = $this->migration->get('highwaterProperty');
+    $high_water_property = $this->migration->get('highWaterProperty');
 
     // Get the key values, for potential use in joining to the map table, or
     // enforcing idlist.
@@ -109,12 +130,12 @@ abstract class SqlBase extends SourcePluginBase {
     else {
       // 2. If the map is joinable, join it. We will want to accept all rows
       //    which are either not in the map, or marked in the map as NEEDS_UPDATE.
-      //    Note that if highwater fields are in play, we want to accept all rows
-      //    above the highwater mark in addition to those selected by the map
+      //    Note that if high water fields are in play, we want to accept all rows
+      //    above the high water mark in addition to those selected by the map
       //    conditions, so we need to OR them together (but AND with any existing
       //    conditions in the query). So, ultimately the SQL condition will look
       //    like (original conditions) AND (map IS NULL OR map needs update
-      //      OR above highwater).
+      //      OR above high water).
       $conditions = $this->query->orConditionGroup();
       $condition_added = FALSE;
       if ($this->mapJoinable()) {
@@ -142,23 +163,24 @@ abstract class SqlBase extends SourcePluginBase {
           $map_key = 'sourceid' . $count;
           $this->query->addField($alias, $map_key, "migrate_map_$map_key");
         }
-        $n = count($this->migration->get('destinationIds'));
-        for ($count = 1; $count <= $n; $count++) {
-          $map_key = 'destid' . $count++;
-          $this->query->addField($alias, $map_key, "migrate_map_$map_key");
+        if ($n = count($this->migration->get('destinationIds'))) {
+          for ($count = 1; $count <= $n; $count++) {
+            $map_key = 'destid' . $count++;
+            $this->query->addField($alias, $map_key, "migrate_map_$map_key");
+          }
         }
         $this->query->addField($alias, 'source_row_status', 'migrate_map_source_row_status');
       }
-      // 3. If we are using highwater marks, also include rows above the mark.
-      //    But, include all rows if the highwater mark is not set.
-      if (isset($highwaterProperty['name']) && ($highwater = $this->migration->getHighwater()) !== '') {
-        if (isset($highwaterProperty['alias'])) {
-          $highwater = $highwaterProperty['alias'] . '.' . $highwaterProperty['name'];
+      // 3. If we are using high water marks, also include rows above the mark.
+      //    But, include all rows if the high water mark is not set.
+      if (isset($high_water_property['name']) && ($high_water = $this->migration->getHighWater()) !== '') {
+        if (isset($high_water_property['alias'])) {
+          $high_water = $high_water_property['alias'] . '.' . $high_water_property['name'];
         }
         else {
-          $highwater = $highwaterProperty['name'];
+          $high_water = $high_water_property['name'];
         }
-        $conditions->condition($highwater, $highwater, '>');
+        $conditions->condition($high_water, $high_water, '>');
         $condition_added = TRUE;
       }
       if ($condition_added) {
@@ -182,17 +204,14 @@ abstract class SqlBase extends SourcePluginBase {
   }
 
   /**
-   * Returns the iterator that will yield the row arrays to be processed.
+   * Check if we can join against the map table.
    *
-   * @return \Iterator
+   * This function specifically catches issues when we're migrating with
+   * unique sets of credentials for the source and destination database.
+   *
+   * @return bool
+   *   TRUE if we can join against the map table otherwise FALSE.
    */
-  public function getIterator() {
-    if (!isset($this->iterator)) {
-      $this->iterator = $this->runQuery();
-    }
-    return $this->iterator;
-  }
-
   protected function mapJoinable() {
     if (!$this->getIds()) {
       return FALSE;
@@ -204,10 +223,13 @@ abstract class SqlBase extends SourcePluginBase {
     $id_map_database_options = $id_map->getDatabase()->getConnectionOptions();
     $source_database_options = $this->getDatabase()->getConnectionOptions();
     foreach (array('username', 'password', 'host', 'port', 'namespace', 'driver') as $key) {
-      if ($id_map_database_options[$key] != $source_database_options[$key]) {
-        return FALSE;
+      if (isset($source_database_options[$key])) {
+        if ($id_map_database_options[$key] != $source_database_options[$key]) {
+          return FALSE;
+        }
       }
     }
     return TRUE;
   }
+
 }

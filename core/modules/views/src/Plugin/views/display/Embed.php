@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\display\Embed.
+ * Contains \Drupal\views\Plugin\views\display\Embed.
  */
 
 namespace Drupal\views\Plugin\views\display;
@@ -12,7 +12,7 @@ namespace Drupal\views\Plugin\views\display;
  *
  * @ingroup views_display_plugins
  *
- * @todo: Wait until annotations/plugins support access mehtods.
+ * @todo: Wait until annotations/plugins support access methods.
  * no_ui => !\Drupal::config('views.settings')->get('ui.show.display_embed'),
  *
  * @ViewsDisplay(
@@ -20,7 +20,7 @@ namespace Drupal\views\Plugin\views\display;
  *   title = @Translation("Embed"),
  *   help = @Translation("Provide a display which can be embedded using the views api."),
  *   theme = "views_view",
- *   uses_hook_menu = FALSE
+ *   uses_menu_links = FALSE
  * )
  */
 class Embed extends DisplayPluginBase {

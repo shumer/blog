@@ -10,6 +10,7 @@ namespace Drupal\update\Form;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\FileTransfer\Local;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\Core\Updater\Updater;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -18,6 +19,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Configure update settings for this site.
  */
 class UpdateReady extends FormBase {
+
+  /**
+   * The app root.
+   *
+   * @var string
+   */
+  protected $root;
 
   /**
    * The module handler.
@@ -34,22 +42,35 @@ class UpdateReady extends FormBase {
   protected $state;
 
   /**
+   * The Site path.
+   *
+   * @var string
+   */
+   protected $sitePath;
+
+  /**
    * Constructs a new UpdateReady object.
    *
+   * @param string $root
+   *   The app root.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The object that manages enabled modules in a Drupal installation.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
+   * @param string $site_path
+   *   The site path.
    */
-  public function __construct(ModuleHandlerInterface $module_handler, StateInterface $state) {
+  public function __construct($root, ModuleHandlerInterface $module_handler, StateInterface $state, $site_path) {
+    $this->root = $root;
     $this->moduleHandler = $module_handler;
     $this->state = $state;
+    $this->sitePath = $site_path;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getFormID() {
+  public function getFormId() {
     return 'update_manager_update_ready_form';
   }
 
@@ -58,15 +79,17 @@ class UpdateReady extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
+      $container->get('app.root'),
       $container->get('module_handler'),
-      $container->get('state')
+      $container->get('state'),
+      $container->get('site.path')
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $this->moduleHandler->loadInclude('update', 'inc', 'update.manager');
     if (!_update_manager_check_backends($form, 'update')) {
       return $form;
@@ -74,7 +97,7 @@ class UpdateReady extends FormBase {
 
     $form['backup'] = array(
       '#prefix' => '<strong>',
-      '#markup' => $this->t('Back up your database and site before you continue. <a href="@backup_url">Learn how</a>.', array('@backup_url' => url('http://drupal.org/node/22281'))),
+      '#markup' => $this->t('Back up your database and site before you continue. <a href="@backup_url">Learn how</a>.', array('@backup_url' => 'https://www.drupal.org/node/22281')),
       '#suffix' => '</strong>',
     );
 
@@ -96,10 +119,10 @@ class UpdateReady extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     // Store maintenance_mode setting so we can restore it when done.
     $_SESSION['maintenance_mode'] = $this->state->get('system.maintenance_mode');
-    if ($form_state['values']['maintenance_mode'] == TRUE) {
+    if ($form_state->getValue('maintenance_mode') == TRUE) {
       $this->state->set('system.maintenance_mode', TRUE);
     }
 
@@ -130,9 +153,9 @@ class UpdateReady extends FormBase {
       // trying to install the code, there's no need to prompt for FTP/SSH
       // credentials. Instead, we instantiate a Drupal\Core\FileTransfer\Local
       // and invoke update_authorize_run_update() directly.
-      if (fileowner($project_real_location) == fileowner(conf_path())) {
+      if (fileowner($project_real_location) == fileowner($this->sitePath)) {
         $this->moduleHandler->loadInclude('update', 'inc', 'update.authorize');
-        $filetransfer = new Local(DRUPAL_ROOT);
+        $filetransfer = new Local($this->root);
         update_authorize_run_update($filetransfer, $updates);
       }
       // Otherwise, go through the regular workflow to prompt for FTP/SSH
@@ -140,7 +163,7 @@ class UpdateReady extends FormBase {
       // whatever FileTransfer object authorize.php creates for us.
       else {
         system_authorized_init('update_authorize_run_update', drupal_get_path('module', 'update') . '/update.authorize.inc', array($updates), $this->t('Update manager'));
-        $form_state['redirect'] = system_authorized_get_url();
+        $form_state->setRedirectUrl(system_authorized_get_url());
       }
     }
   }

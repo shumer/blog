@@ -10,6 +10,7 @@ namespace Drupal\migrate\Plugin\migrate\destination;
 
 use Drupal\Core\Plugin\PluginBase;
 use Drupal\migrate\Entity\MigrationInterface;
+use Drupal\migrate\Exception\RequirementsException;
 use Drupal\migrate\Plugin\MigrateDestinationInterface;
 use Drupal\migrate\Plugin\RequirementsInterface;
 
@@ -20,6 +21,8 @@ use Drupal\migrate\Plugin\RequirementsInterface;
  * @see \Drupal\migrate\Plugin\MigrateDestinationPluginManager
  * @see \Drupal\migrate\Annotation\MigrateDestination
  * @see plugin_api
+ *
+ * @ingroup migration
  */
 abstract class DestinationBase extends PluginBase implements MigrateDestinationInterface, RequirementsInterface {
 
@@ -51,7 +54,9 @@ abstract class DestinationBase extends PluginBase implements MigrateDestinationI
    * {@inheritdoc}
    */
   public function checkRequirements() {
-    return $this->pluginDefinition['requirements_met'];
+    if (empty($this->pluginDefinition['requirements_met'])) {
+      throw new RequirementsException();
+    }
   }
 
   /**

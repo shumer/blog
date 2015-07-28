@@ -8,14 +8,17 @@
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Access\AccessibleInterface;
+use Drupal\Core\Cache\CacheableDependencyInterface;
 
 /**
  * Defines a common interface for all entity objects.
+ *
+ * @ingroup entity_api
  */
-interface EntityInterface extends AccessibleInterface {
+interface EntityInterface extends AccessibleInterface, CacheableDependencyInterface {
 
   /**
-   * Returns the entity UUID (Universally Unique Identifier).
+   * Gets the entity UUID (Universally Unique Identifier).
    *
    * The UUID is guaranteed to be unique and can be used to identify an entity
    * across multiple systems.
@@ -26,7 +29,7 @@ interface EntityInterface extends AccessibleInterface {
   public function uuid();
 
   /**
-   * Returns the identifier.
+   * Gets the identifier.
    *
    * @return string|int|null
    *   The entity identifier, or NULL if the object does not yet have an
@@ -35,7 +38,7 @@ interface EntityInterface extends AccessibleInterface {
   public function id();
 
   /**
-   * Returns the language of the entity.
+   * Gets the language of the entity.
    *
    * @return \Drupal\Core\Language\LanguageInterface
    *   The language object.
@@ -43,7 +46,7 @@ interface EntityInterface extends AccessibleInterface {
   public function language();
 
   /**
-   * Returns whether the entity is new.
+   * Determines whether the entity is new.
    *
    * Usually an entity is new if no ID exists for it yet. However, entities may
    * be enforced to be new with existing IDs too.
@@ -72,7 +75,7 @@ interface EntityInterface extends AccessibleInterface {
   public function enforceIsNew($value = TRUE);
 
   /**
-   * Returns the ID of the type of the entity.
+   * Gets the ID of the type of the entity.
    *
    * @return string
    *   The entity type ID.
@@ -80,7 +83,7 @@ interface EntityInterface extends AccessibleInterface {
   public function getEntityTypeId();
 
   /**
-   * Returns the bundle of the entity.
+   * Gets the bundle of the entity.
    *
    * @return string
    *   The bundle of the entity. Defaults to the entity type ID if the entity
@@ -89,7 +92,7 @@ interface EntityInterface extends AccessibleInterface {
   public function bundle();
 
   /**
-   * Returns the label of the entity.
+   * Gets the label of the entity.
    *
    * @return string|null
    *   The label of the entity, or NULL if there is no label defined.
@@ -97,15 +100,15 @@ interface EntityInterface extends AccessibleInterface {
   public function label();
 
   /**
-   * Returns the URI elements of the entity.
+   * Gets the URI elements of the entity.
    *
    * URI templates might be set in the links array in an annotation, for
    * example:
    * @code
    * links = {
-   *   "canonical" = "node.view",
-   *   "edit-form" = "node.page_edit",
-   *   "version-history" = "node.revision_overview"
+   *   "canonical" = "/node/{node}",
+   *   "edit-form" = "/node/{node}/edit",
+   *   "version-history" = "/node/{node}/revisions"
    * }
    * @endcode
    * or specified in a callback function set like:
@@ -119,13 +122,16 @@ interface EntityInterface extends AccessibleInterface {
    *
    * @param string $rel
    *   The link relationship type, for example: canonical or edit-form.
+   * @param array $options
+   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
+   *   the available options.
    *
    * @return \Drupal\Core\Url
    */
-  public function urlInfo($rel = 'canonical');
+  public function urlInfo($rel = 'canonical', array $options = array());
 
   /**
-   * Returns the public URL for this entity.
+   * Gets the public URL for this entity.
    *
    * @param string $rel
    *   The link relationship type, for example: canonical or edit-form.
@@ -139,18 +145,21 @@ interface EntityInterface extends AccessibleInterface {
   public function url($rel = 'canonical', $options = array());
 
   /**
-   * Returns the internal path for this entity.
+   * Generates the HTML for a link to this entity.
    *
-   * self::url() will return the full path including any prefixes, fragments, or
-   * query strings. This path does not include those.
-   *
+   * @param string|null $text
+   *   (optional) The link text for the anchor tag as a translated string.
+   *   If NULL, it will use the entity's label. Defaults to NULL.
    * @param string $rel
-   *   The link relationship type, for example: canonical or edit-form.
+   *   (optional) The link relationship type. Defaults to 'canonical'.
+   * @param array $options
+   *   See \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
+   *   the available options.
    *
    * @return string
-   *   The internal path for this entity.
+   *   An HTML string containing a link to the entity.
    */
-  public function getSystemPath($rel = 'canonical');
+  public function link($text = NULL, $rel = 'canonical', array $options = []);
 
   /**
    * Indicates if a link template exists for a given key.
@@ -164,7 +173,7 @@ interface EntityInterface extends AccessibleInterface {
   public function hasLinkTemplate($key);
 
   /**
-   * Returns a list of URI relationships supported by this entity.
+   * Gets a list of URI relationships supported by this entity.
    *
    * @return string[]
    *   An array of link relationships supported by this entity.
@@ -315,7 +324,7 @@ interface EntityInterface extends AccessibleInterface {
   public function createDuplicate();
 
   /**
-   * Returns the entity type definition.
+   * Gets the entity type definition.
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface
    *   The entity type definition.
@@ -323,7 +332,7 @@ interface EntityInterface extends AccessibleInterface {
   public function getEntityType();
 
   /**
-   * Returns a list of entities referenced by this entity.
+   * Gets a list of entities referenced by this entity.
    *
    * @return \Drupal\Core\Entity\EntityInterface[]
    *   An array of entities.
@@ -331,7 +340,7 @@ interface EntityInterface extends AccessibleInterface {
   public function referencedEntities();
 
   /**
-   * Returns the original ID.
+   * Gets the original ID.
    *
    * @return int|string|null
    *   The original ID, or NULL if no ID was set or for entity types that do not
@@ -351,7 +360,7 @@ interface EntityInterface extends AccessibleInterface {
   public function setOriginalId($id);
 
   /**
-   * Returns an array of all property values.
+   * Gets an array of all property values.
    *
    * @return mixed[]
    *   An array of property values, keyed by property name.
@@ -359,22 +368,52 @@ interface EntityInterface extends AccessibleInterface {
   public function toArray();
 
   /**
-   * The unique cache tag associated with this entity.
+   * Gets a typed data object for this entity object.
    *
-   * @return array
-   *   An array of cache tags.
+   * The returned typed data object wraps this entity and allows dealing with
+   * entities based on the generic typed data API.
+   *
+   * @return \Drupal\Core\TypedData\ComplexDataInterface
+   *   The typed data object for this entity.
+   *
+   * @see \Drupal\Core\TypedData\TypedDataInterface
    */
-  public function getCacheTag();
+  public function getTypedData();
 
   /**
-   * The list cache tags associated with this entity.
+   * Gets the key that is used to store configuration dependencies.
    *
-   * Enables code listing entities of this type to ensure that newly created
-   * entities show up immediately.
+   * @return string
+   *   The key to be used in configuration dependencies when storing
+   *   dependencies on entities of this type.
    *
-   * @return array
-   *   An array of cache tags.
+   * @see \Drupal\Core\Entity\EntityTypeInterface::getConfigDependencyKey()
    */
-  public function getListCacheTags();
+  public function getConfigDependencyKey();
+
+  /**
+   * Gets the configuration dependency name.
+   *
+   * Configuration entities can depend on content and configuration entities.
+   * They store an array of content and config dependency names in their
+   * "dependencies" key.
+   *
+   * @return string
+   *   The configuration dependency name.
+   *
+   * @see \Drupal\Core\Config\Entity\ConfigDependencyManager
+   */
+  public function getConfigDependencyName();
+
+  /**
+   * Gets the configuration target identifier for the entity.
+   *
+   * Used to supply the correct format for storing a reference targeting this
+   * entity in configuration.
+   *
+   * @return string
+   *   The configuration target identifier.
+   */
+  public function getConfigTarget();
 
 }

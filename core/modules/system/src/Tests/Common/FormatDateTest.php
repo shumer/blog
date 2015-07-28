@@ -2,13 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Common\FormatDateTest.
+ * Contains \Drupal\system\Tests\Common\FormatDateTest.
  */
 
 namespace Drupal\system\Tests\Common;
 
-use Drupal\Core\Language\Language;
-use Drupal\Core\Language\LanguageInterface;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -30,10 +29,10 @@ class FormatDateTest extends WebTestBase {
    */
   const LANGCODE = 'xx';
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp('language');
 
-    \Drupal::config('system.date')
+    $this->config('system.date')
       ->set('timezone.user.configurable', 1)
       ->save();
     $formats = $this->container->get('entity.manager')
@@ -49,8 +48,7 @@ class FormatDateTest extends WebTestBase {
       'Long month name' => array('March' => 'marzo'),
     ));
 
-    $language = new Language(array('id' => static::LANGCODE));
-    language_save($language);
+    ConfigurableLanguage::createFromLangcode(static::LANGCODE)->save();
     $this->resetAll();
   }
 
@@ -58,9 +56,8 @@ class FormatDateTest extends WebTestBase {
    * Tests admin-defined formats in format_date().
    */
   function testAdminDefinedFormatDate() {
-    // Create an admin user.
-    $this->admin_user = $this->drupalCreateUser(array('administer site configuration'));
-    $this->drupalLogin($this->admin_user);
+    // Create and log in an admin user.
+    $this->drupalLogin($this->drupalCreateUser(array('administer site configuration')));
 
     // Add new date format.
     $edit = array(
@@ -80,8 +77,8 @@ class FormatDateTest extends WebTestBase {
     $this->assertText(t('Custom date format added.'));
 
     $timestamp = strtotime('2007-03-10T00:00:00+00:00');
-    $this->assertIdentical(format_date($timestamp, 'example_style', '', 'America/Los_Angeles'), '9 Mar 07', 'Test format_date() using an admin-defined date type.');
-    $this->assertIdentical(format_date($timestamp, 'example_style_uppercase', '', 'America/Los_Angeles'), '9 Mar 2007', 'Test format_date() using an admin-defined date type with different case.');
+    $this->assertIdentical(format_date($timestamp, 'example_style', '', 'America/Los_Angeles'), '9 Mar 07');
+    $this->assertIdentical(format_date($timestamp, 'example_style_uppercase', '', 'America/Los_Angeles'), '9 Mar 2007');
     $this->assertIdentical(format_date($timestamp, 'undefined_style'), format_date($timestamp, 'fallback'), 'Test format_date() defaulting to `fallback` when $type not found.');
   }
 
@@ -89,10 +86,6 @@ class FormatDateTest extends WebTestBase {
    * Tests the format_date() function.
    */
   function testFormatDate() {
-    global $user;
-
-    $language_interface = \Drupal::languageManager()->getCurrentLanguage();
-
     $timestamp = strtotime('2007-03-26T00:00:00+00:00');
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'America/Los_Angeles', 'en'), 'Sunday, 25-Mar-07 17:00:00 PDT', 'Test all parameters.');
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'America/Los_Angeles', self::LANGCODE), 'domingo, 25-Mar-07 17:00:00 PDT', 'Test translated format.');
@@ -101,36 +94,13 @@ class FormatDateTest extends WebTestBase {
     $this->assertIdentical(format_date($timestamp, 'custom', '\\\\\\l, d-M-y H:i:s T', 'America/Los_Angeles', self::LANGCODE), '\\l, 25-Mar-07 17:00:00 PDT', 'Test format containing backslash followed by escaped format string.');
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'Europe/London', 'en'), 'Monday, 26-Mar-07 01:00:00 BST', 'Test a different time zone.');
 
-    // Create an admin user and add Spanish language.
-    $admin_user = $this->drupalCreateUser(array('administer languages'));
-    $this->drupalLogin($admin_user);
-    $edit = array(
-      'predefined_langcode' => 'custom',
-      'langcode' => self::LANGCODE,
-      'name' => self::LANGCODE,
-      'direction' => LanguageInterface::DIRECTION_LTR,
-    );
-    $this->drupalPostForm('admin/config/regional/language/add', $edit, t('Add custom language'));
+    // Change the default language and timezone.
+    $this->config('system.site')->set('default_langcode', static::LANGCODE)->save();
+    date_default_timezone_set('America/Los_Angeles');
 
-    // Set language prefix.
-    $edit = array('prefix[' . self::LANGCODE . ']' => self::LANGCODE);
-    $this->drupalPostForm('admin/config/regional/language/detection/url', $edit, t('Save configuration'));
-
-    // Create a test user to carry out the tests.
-    $test_user = $this->drupalCreateUser();
-    $this->drupalLogin($test_user);
-    $edit = array('preferred_langcode' => self::LANGCODE, 'mail' => $test_user->getEmail(), 'timezone' => 'America/Los_Angeles');
-    $this->drupalPostForm('user/' . $test_user->id() . '/edit', $edit, t('Save'));
-
-    // Disable session saving as we are about to modify the global $user.
-    \Drupal::service('session_manager')->disable();
-    // Save the original user and language and then replace it with the test user and language.
-    $real_user = $user;
-    $user = user_load($test_user->id(), TRUE);
-    $real_language = $language_interface->id;
-    $language_interface->id = $user->getPreferredLangcode();
-    // Simulate a Drupal bootstrap with the logged-in user.
-    date_default_timezone_set(drupal_get_user_timezone());
+    // Reset the language manager so new negotiations attempts will fall back on
+    // on the new language.
+    $this->container->get('language_manager')->reset();
 
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'America/Los_Angeles', 'en'), 'Sunday, 25-Mar-07 17:00:00 PDT', 'Test a different language.');
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'Europe/London'), 'Monday, 26-Mar-07 01:00:00 BST', 'Test a different time zone.');
@@ -147,12 +117,5 @@ class FormatDateTest extends WebTestBase {
     $this->assertIdentical(format_date($timestamp, 'html_week'), '2007-W12', 'Test html_week date format.');
     $this->assertIdentical(format_date($timestamp, 'html_month'), '2007-03', 'Test html_month date format.');
     $this->assertIdentical(format_date($timestamp, 'html_year'), '2007', 'Test html_year date format.');
-
-    // Restore the original user and language, and enable session saving.
-    $user = $real_user;
-    $language_interface->id = $real_language;
-    // Restore default time zone.
-    date_default_timezone_set(drupal_get_user_timezone());
-    \Drupal::service('session_manager')->enable();
   }
 }

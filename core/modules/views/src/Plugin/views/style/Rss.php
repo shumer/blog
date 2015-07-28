@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\style\Rss.
+ * Contains \Drupal\views\Plugin\views\style\Rss.
  */
 
 namespace Drupal\views\Plugin\views\style;
 
-use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /**
  * Default style plugin to render an RSS feed.
@@ -31,8 +32,7 @@ class Rss extends StylePluginBase {
    */
   protected $usesRowPlugin = TRUE;
 
-  public function attachTo($display_id, $path, $title) {
-    $display = $this->view->displayHandlers->get($display_id);
+  public function attachTo(array &$build, $display_id, Url $feed_url, $title) {
     $url_options = array();
     $input = $this->view->getExposedInput();
     if ($input) {
@@ -40,48 +40,40 @@ class Rss extends StylePluginBase {
     }
     $url_options['absolute'] = TRUE;
 
-    $url = url($this->view->getUrl(NULL, $path), $url_options);
-    if ($display->hasPath()) {
-      if (empty($this->preview)) {
-        $build['#attached']['drupal_add_feed'][] = array($url, $title);
-        drupal_render($build);
-      }
-    }
-    else {
-      if (empty($this->view->feed_icon)) {
-        $this->view->feed_icon = '';
-      }
-      $feed_icon = array(
-        '#theme' => 'feed_icon',
-        '#url' => $url,
-        '#title' => $title,
-      );
-      $feed_icon['#attached']['drupal_add_html_head_link'][][] = array(
-        'rel' => 'alternate',
-        'type' => 'application/rss+xml',
-        'title' => $title,
-        'href' => $url,
-      );
-      $this->view->feed_icon .= drupal_render($feed_icon);
-    }
+    $url = $feed_url->setOptions($url_options)->toString();
+
+    // Add the RSS icon to the view.
+    $this->view->feedIcons[] = [
+      '#theme' => 'feed_icon',
+      '#url' => $url,
+      '#title' => $title,
+    ];
+
+    // Attach a link to the RSS feed, which is an alternate representation.
+    $build['#attached']['html_head_link'][][] = array(
+      'rel' => 'alternate',
+      'type' => 'application/rss+xml',
+      'title' => $title,
+      'href' => $url,
+    );
   }
 
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['description'] = array('default' => '', 'translatable' => TRUE);
+    $options['description'] = array('default' => '');
 
     return $options;
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['description'] = array(
       '#type' => 'textfield',
-      '#title' => t('RSS description'),
+      '#title' => $this->t('RSS description'),
       '#default_value' => $this->options['description'],
-      '#description' => t('This will appear in the RSS feed itself.'),
+      '#description' => $this->t('This will appear in the RSS feed itself.'),
       '#maxlength' => 1024,
     );
   }
@@ -90,7 +82,7 @@ class Rss extends StylePluginBase {
    * Return an array of additional XHTML elements to add to the channel.
    *
    * @return
-   *   An array that can be passed to format_xml_elements().
+   *   A render array.
    */
   protected function getChannelElements() {
     return array();
@@ -114,9 +106,9 @@ class Rss extends StylePluginBase {
   public function render() {
     if (empty($this->view->rowPlugin)) {
       debug('Drupal\views\Plugin\views\style\Rss: Missing row plugin');
-      return;
+      return array();
     }
-    $rows = '';
+    $rows = [];
 
     // This will be filled in by the row plugin and is used later on in the
     // theming output.
@@ -133,17 +125,17 @@ class Rss extends StylePluginBase {
 
     foreach ($this->view->result as $row_index => $row) {
       $this->view->row_index = $row_index;
-      $rows .= $this->view->rowPlugin->render($row);
+      $rows[] = $this->view->rowPlugin->render($row);
     }
 
     $build = array(
       '#theme' => $this->themeFunctions(),
       '#view' => $this->view,
       '#options' => $this->options,
-      '#rows' => SafeMarkup::set($rows),
+      '#rows' => $rows,
     );
     unset($this->view->row_index);
-    return drupal_render($build);
+    return $build;
   }
 
 }

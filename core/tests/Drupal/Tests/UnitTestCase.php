@@ -7,9 +7,10 @@
 
 namespace Drupal\Tests;
 
+use Drupal\Component\FileCache\FileCacheFactory;
 use Drupal\Component\Utility\Random;
-use Drupal\Component\Utility\String;
-use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 
 /**
@@ -27,13 +28,26 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
   protected $randomGenerator;
 
   /**
+   * The app root.
+   *
+   * @var string
+   */
+  protected $root;
+
+  /**
    * {@inheritdoc}
    */
   protected function setUp() {
     parent::setUp();
     // Ensure that an instantiated container in the global state of \Drupal from
     // a previous test does not leak into this test.
-    \Drupal::setContainer(NULL);
+    \Drupal::unsetContainer();
+
+    // Ensure that the NullFileCache implementation is used for the FileCache as
+    // unit tests should not be relying on caches implicitly.
+    FileCacheFactory::setConfiguration(['default' => ['class' => '\Drupal\Component\FileCache\NullFileCache']]);
+
+    $this->root = dirname(dirname(substr(__DIR__, 0, -strlen(__NAMESPACE__))));
   }
 
   /**
@@ -47,7 +61,7 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
    *
    * @see \Drupal\Component\Utility\Random::name()
    */
-  public function randomName($length = 8) {
+  public function randomMachineName($length = 8) {
     return $this->getRandomGenerator()->name($length, TRUE);
   }
 
@@ -92,13 +106,11 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
    *   A MockBuilder object for the ConfigFactory with the desired return values.
    */
   public function getConfigFactoryStub(array $configs = array()) {
-    $config_map = array();
+    $config_get_map = array();
+    $config_editable_map = array();
     // Construct the desired configuration object stubs, each with its own
     // desired return map.
     foreach ($configs as $config_name => $config_values) {
-      $config_object = $this->getMockBuilder('Drupal\Core\Config\Config')
-        ->disableOriginalConstructor()
-        ->getMock();
       $map = array();
       foreach ($config_values as $key => $value) {
         $map[] = array($key, $value);
@@ -106,18 +118,31 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
       // Also allow to pass in no argument.
       $map[] = array('', $config_values);
 
-      $config_object->expects($this->any())
+      $immutable_config_object = $this->getMockBuilder('Drupal\Core\Config\ImmutableConfig')
+        ->disableOriginalConstructor()
+        ->getMock();
+      $immutable_config_object->expects($this->any())
         ->method('get')
         ->will($this->returnValueMap($map));
+      $config_get_map[] = array($config_name, $immutable_config_object);
 
-      $config_map[] = array($config_name, $config_object);
+      $mutable_config_object = $this->getMockBuilder('Drupal\Core\Config\Config')
+        ->disableOriginalConstructor()
+        ->getMock();
+      $mutable_config_object->expects($this->any())
+        ->method('get')
+        ->will($this->returnValueMap($map));
+      $config_editable_map[] = array($config_name, $mutable_config_object);
     }
     // Construct a config factory with the array of configuration object stubs
     // as its return map.
     $config_factory = $this->getMock('Drupal\Core\Config\ConfigFactoryInterface');
     $config_factory->expects($this->any())
       ->method('get')
-      ->will($this->returnValueMap($config_map));
+      ->will($this->returnValueMap($config_get_map));
+    $config_factory->expects($this->any())
+      ->method('getEditable')
+      ->will($this->returnValueMap($config_editable_map));
     return $config_factory;
   }
 
@@ -157,7 +182,7 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
    *   The mocked block.
    */
   protected function getBlockMockWithMachineName($machine_name) {
-    $plugin = $this->getMockBuilder('Drupal\block\BlockBase')
+    $plugin = $this->getMockBuilder('Drupal\Core\Block\BlockBase')
       ->disableOriginalConstructor()
       ->getMock();
     $plugin->expects($this->any())
@@ -183,29 +208,30 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
     $translation = $this->getMock('Drupal\Core\StringTranslation\TranslationInterface');
     $translation->expects($this->any())
       ->method('translate')
-      ->will($this->returnCallback('Drupal\Component\Utility\String::format'));
+      ->will($this->returnCallback('Drupal\Component\Utility\SafeMarkup::format'));
+    $translation->expects($this->any())
+      ->method('formatPlural')
+      ->willReturnCallback(function ($count, $singular, $plural, array $args = [], array $options = []) {
+        return $count === 1 ? SafeMarkup::format($singular, $args) : SafeMarkup::format($plural, $args + ['@count' => $count]);
+      });
     return $translation;
   }
 
   /**
-   * Sets up a container with cache bins.
+   * Sets up a container with a cache tags invalidator.
    *
-   * @param \Drupal\Core\Cache\CacheBackendInterface $backend
-   *   The cache backend to set up.
+   * @param \Drupal\Core\Cache\CacheTagsInvalidatorInterface $cache_tags_validator
+   *   The cache tags invalidator.
    *
    * @return \Symfony\Component\DependencyInjection\ContainerInterface|\PHPUnit_Framework_MockObject_MockObject
-   *   The container with the cache bins set up.
+   *   The container with the cache tags invalidator service.
    */
-  protected function getContainerWithCacheBins(CacheBackendInterface $backend) {
+  protected function getContainerWithCacheTagsInvalidator(CacheTagsInvalidatorInterface $cache_tags_validator) {
     $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerInterface');
     $container->expects($this->any())
-      ->method('getParameter')
-      ->with('cache_bins')
-      ->will($this->returnValue(array('cache.test' => 'test')));
-    $container->expects($this->any())
       ->method('get')
-      ->with('cache.test')
-      ->will($this->returnValue($backend));
+      ->with('cache_tags.invalidator')
+      ->will($this->returnValue($cache_tags_validator));
 
     \Drupal::setContainer($container);
     return $container;

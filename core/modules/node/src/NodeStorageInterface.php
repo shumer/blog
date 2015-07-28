@@ -2,21 +2,22 @@
 
 /**
  * @file
- * Contains \Drupal\node\NodeStorageControllerInterface.
+ * Contains \Drupal\node\NodeStorageInterface.
  */
 
 namespace Drupal\node;
 
 use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /**
- * Defines a common interface for node entity controller classes.
+ * Defines an interface for node entity storage classes.
  */
 interface NodeStorageInterface extends EntityStorageInterface {
 
   /**
-   * Returns a list of node revision IDs for a specific node.
+   * Gets a list of node revision IDs for a specific node.
    *
    * @param \Drupal\node\NodeInterface
    *   The node entity.
@@ -27,7 +28,7 @@ interface NodeStorageInterface extends EntityStorageInterface {
   public function revisionIds(NodeInterface $node);
 
   /**
-   * Returns a list of revision IDs having a given user as node author.
+   * Gets a list of revision IDs having a given user as node author.
    *
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The user entity.
@@ -36,6 +37,17 @@ interface NodeStorageInterface extends EntityStorageInterface {
    *   Node revision IDs (in ascending order).
    */
   public function userRevisionIds(AccountInterface $account);
+
+  /**
+   * Counts the number of revisions in the default language.
+   *
+   * @param \Drupal\node\NodeInterface
+   *   The node entity.
+   *
+   * @return int
+   *   The number of revisions in the default language.
+   */
+  public function countDefaultLanguageRevisions(NodeInterface $node);
 
   /**
    * Updates all nodes of one type to be of another type.
@@ -53,8 +65,8 @@ interface NodeStorageInterface extends EntityStorageInterface {
   /**
    * Unsets the language for all nodes with the given language.
    *
-   * @param $language
+   * @param \Drupal\Core\Language\LanguageInterface $language
    *  The language object.
    */
-  public function clearRevisionsLanguage($language);
+  public function clearRevisionsLanguage(LanguageInterface $language);
 }

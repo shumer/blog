@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\entity\Tests\ContentTestTranslationUITest.
+ * Contains \Drupal\content_translation\Tests\ContentTestTranslationUITest.
  */
 
 namespace Drupal\content_translation\Tests;
@@ -12,7 +12,7 @@ namespace Drupal\content_translation\Tests;
  *
  * @group content_translation
  */
-class ContentTestTranslationUITest extends ContentTranslationUITest {
+class ContentTestTranslationUITest extends ContentTranslationUITestBase {
 
   /**
    * Modules to enable.
@@ -24,28 +24,17 @@ class ContentTestTranslationUITest extends ContentTranslationUITest {
   /**
    * Overrides \Drupal\simpletest\WebTestBase::setUp().
    */
-  function setUp() {
+  protected function setUp() {
     // Use the entity_test_mul as this has multilingual property support.
-    $this->entityTypeId = 'entity_test_mul';
+    $this->entityTypeId = 'entity_test_mul_changed';
     parent::setUp();
   }
 
   /**
-   * Overrides \Drupal\content_translation\Tests\ContentTranslationUITest::getTranslatorPermission().
+   * Overrides \Drupal\content_translation\Tests\ContentTranslationUITestBase::getTranslatorPermission().
    */
   protected function getTranslatorPermissions() {
     return array_merge(parent::getTranslatorPermissions(), array('administer entity_test content'));
-  }
-
-  /**
-   * Overrides \Drupal\content_translation\Tests\ContentTranslationUITest::getNewEntityValues().
-   */
-  protected function getNewEntityValues($langcode) {
-    $user = $this->drupalCreateUser();
-    return array(
-      'name' => $this->randomName(),
-      'user_id' => $user->id(),
-    ) + parent::getNewEntityValues($langcode);
   }
 
 }

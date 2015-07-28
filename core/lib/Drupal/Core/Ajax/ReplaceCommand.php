@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\ReplaceCommand.
+ * Contains \Drupal\Core\Ajax\ReplaceCommand.
  */
 
 namespace Drupal\Core\Ajax;
@@ -21,6 +21,8 @@ use Drupal\Core\Ajax\InsertCommand;
  *
  * See
  * @link http://docs.jquery.com/Manipulation/replaceWith#content jQuery replaceWith command @endlink
+ *
+ * @ingroup ajax
  */
 class ReplaceCommand extends InsertCommand {
 
@@ -33,7 +35,7 @@ class ReplaceCommand extends InsertCommand {
       'command' => 'insert',
       'method' => 'replaceWith',
       'selector' => $this->selector,
-      'data' => $this->html,
+      'data' => $this->getRenderedContent(),
       'settings' => $this->settings,
     );
   }

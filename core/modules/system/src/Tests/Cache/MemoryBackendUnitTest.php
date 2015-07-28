@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Cache\MemoryBackendUnitTest.
+ * Contains \Drupal\system\Tests\Cache\MemoryBackendUnitTest.
  */
 
 namespace Drupal\system\Tests\Cache;
@@ -23,6 +23,8 @@ class MemoryBackendUnitTest extends GenericCacheBackendUnitTestBase {
    *   A new MemoryBackend object.
    */
   protected function createCacheBackend($bin) {
-    return new MemoryBackend($bin);
+    $backend = new MemoryBackend($bin);
+    \Drupal::service('cache_tags.invalidator')->addInvalidator($backend);
+    return $backend;
   }
 }

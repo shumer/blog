@@ -26,10 +26,11 @@ class OpCodeCache {
   public static function invalidate($pathname) {
     clearstatcache(TRUE, $pathname);
 
-    if (extension_loaded('Zend OPcache')) {
+    // Check if the Zend OPcache is enabled and if so invalidate the file.
+    if (function_exists('opcache_invalidate')) {
       opcache_invalidate($pathname, TRUE);
     }
-    // If apcu extenstion is enabled in PHP 5.5 or greater it emulates apc.
+    // If apcu extension is enabled in PHP 5.5 or greater it emulates apc.
     // This is to provide an easy upgrade path if you are using apc's user
     // caching however the emulation does not extend to opcode caching.
     // Therefore we need to check if the function exists as well.

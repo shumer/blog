@@ -19,7 +19,18 @@ abstract class MigrateDrupalTestBase extends MigrateTestBase {
    *
    * @var array
    */
-  public static $modules = array('migrate_drupal');
+  public static $modules = array('system', 'user', 'field', 'migrate_drupal', 'options');
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
+    parent::setUp();
+    $this->loadDumps([$this->getDumpDirectory() . '/System.php']);
+
+    $this->installEntitySchema('user');
+    $this->installConfig(['migrate_drupal', 'system']);
+  }
 
   /**
    * Returns the path to the dump directory.
@@ -28,7 +39,7 @@ abstract class MigrateDrupalTestBase extends MigrateTestBase {
    *   A string that represents the dump directory path.
    */
   protected function getDumpDirectory() {
-    return __DIR__ . '/Dump';
+    return __DIR__ . '/Table';
   }
 
 }

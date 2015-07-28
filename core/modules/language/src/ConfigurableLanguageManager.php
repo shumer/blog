@@ -7,15 +7,16 @@
 
 namespace Drupal\language;
 
-use Drupal\Core\Language\LanguageInterface as BaseLanguageInterface;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\PhpStorage\PhpStorageFactory;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Language\LanguageDefault;
 use Drupal\Core\Language\LanguageManager;
+use Drupal\Core\Url;
 use Drupal\language\Config\LanguageConfigFactoryOverrideInterface;
-use Symfony\Component\HttpFoundation\Request;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -75,9 +76,16 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * An array of language objects keyed by language type.
    *
-   * @var array
+   * @var \Drupal\Core\Language\LanguageInterface[]
    */
   protected $negotiatedLanguages;
+
+  /**
+   * An array of language negotiation method IDs keyed by language type.
+   *
+   * @var array
+   */
+  protected $negotiatedMethods;
 
   /**
    * Whether or not the language manager has been initialized.
@@ -111,15 +119,15 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
    *   The module handler service.
    * @param \Drupal\language\Config\LanguageConfigFactoryOverrideInterface $config_override
    *   The language configuration override service.
-   * @param \Drupal\Core\Config\StorageInterface $config_storage
-   *   The configuration storage engine.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   *   The request stack object.
    */
-  public function __construct(LanguageDefault $default_language, ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler, LanguageConfigFactoryOverrideInterface $config_override, RequestStack $requestStack) {
+  public function __construct(LanguageDefault $default_language, ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler, LanguageConfigFactoryOverrideInterface $config_override, RequestStack $request_stack) {
     $this->defaultLanguage = $default_language;
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
     $this->configFactoryOverride = $config_override;
-    $this->requestStack = $requestStack;
+    $this->requestStack = $request_stack;
   }
 
   /**
@@ -138,7 +146,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
    * {@inheritdoc}
    */
   public function isMultilingual() {
-    return count($this->getLanguages(BaseLanguageInterface::STATE_CONFIGURABLE)) > 1;
+    return count($this->getLanguages(LanguageInterface::STATE_CONFIGURABLE)) > 1;
   }
 
   /**
@@ -184,10 +192,10 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   }
 
   /**
-   * Stores language types configuration.
+   * {@inheritdoc}
    */
   public function saveLanguageTypesConfiguration(array $values) {
-    $config = $this->configFactory->get('language.types');
+    $config = $this->configFactory->getEditable('language.types');
     if (isset($values['configurable'])) {
       $config->set('configurable', $values['configurable']);
     }
@@ -200,7 +208,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * {@inheritdoc}
    */
-  public function getCurrentLanguage($type = BaseLanguageInterface::TYPE_INTERFACE) {
+  public function getCurrentLanguage($type = LanguageInterface::TYPE_INTERFACE) {
     if (!isset($this->negotiatedLanguages[$type])) {
       // Ensure we have a valid value for this language type.
       $this->negotiatedLanguages[$type] = $this->getDefaultLanguage();
@@ -208,7 +216,9 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
       if ($this->negotiator && $this->isMultilingual()) {
         if (!$this->initializing) {
           $this->initializing = TRUE;
-          $this->negotiatedLanguages[$type] = $this->negotiator->initializeType($type);
+          $negotiation = $this->negotiator->initializeType($type);
+          $this->negotiatedLanguages[$type] = reset($negotiation);
+          $this->negotiatedMethods[$type] = key($negotiation);
           $this->initializing = FALSE;
         }
         // If the current interface language needs to be retrieved during
@@ -217,8 +227,8 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
         // original strings which can be translated by calling them again
         // afterwards. This can happen for instance while parsing negotiation
         // method definitions.
-        elseif ($type == BaseLanguageInterface::TYPE_INTERFACE) {
-          return new Language(array('id' => BaseLanguageInterface::LANGCODE_SYSTEM));
+        elseif ($type == LanguageInterface::TYPE_INTERFACE) {
+          return new Language(array('id' => LanguageInterface::LANGCODE_SYSTEM));
         }
       }
     }
@@ -233,15 +243,17 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
     if (!isset($type)) {
       $this->initialized = FALSE;
       $this->negotiatedLanguages = array();
+      $this->negotiatedMethods = array();
       $this->languageTypes = NULL;
       $this->languageTypesInfo = NULL;
-      $this->languages = NULL;
+      $this->languages = array();
       if ($this->negotiator) {
         $this->negotiator->reset();
       }
     }
     elseif (isset($this->negotiatedLanguages[$type])) {
       unset($this->negotiatedLanguages[$type]);
+      unset($this->negotiatedMethods[$type]);
     }
     return $this;
   }
@@ -265,78 +277,111 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * {@inheritdoc}
    */
-  public function getLanguages($flags = BaseLanguageInterface::STATE_CONFIGURABLE) {
-    if (!isset($this->languages)) {
-      // Prepopulate the language list with the default language to keep things
-      // working even if we have no configuration.
-      $default = $this->getDefaultLanguage();
-      $this->languages = array($default->id => $default);
-
-      // Retrieve the config storage to list available languages.
-      $prefix = 'language.entity.';
-      $config_ids = $this->configFactory->listAll($prefix);
-
-      // Instantiate languages from config objects.
-      $weight = 0;
-      foreach ($this->configFactory->loadMultiple($config_ids) as $config) {
-        $data = $config->get();
-        $langcode = $data['id'];
-        // Initialize default property so callers have an easy reference and can
-        // save the same object without data loss.
-        $data['default'] = ($langcode == $default->id);
-        $data['name'] = $data['label'];
-        $this->languages[$langcode] = new Language($data);
-        $weight = max(array($weight, $this->languages[$langcode]->weight));
-      }
-
-      // Add locked languages, they will be filtered later if needed.
-      $this->languages += $this->getDefaultLockedLanguages($weight);
-
-      // Sort the language list by weight then title.
-      Language::sort($this->languages);
+  public function getLanguages($flags = LanguageInterface::STATE_CONFIGURABLE) {
+    // If a config override is set, cache using that language's ID.
+    if ($override_language = $this->getConfigOverrideLanguage()) {
+      $static_cache_id = $override_language->getId();
+    }
+    else {
+      $static_cache_id = $this->getCurrentLanguage()->getId();
     }
 
-    return parent::getLanguages($flags);
+    if (!isset($this->languages[$static_cache_id][$flags])) {
+      // Initialize the language list with the default language and default
+      // locked languages. These cannot be removed. This serves as a fallback
+      // list if this method is invoked while the language module is installed
+      // and the configuration entities for languages are not yet fully
+      // imported.
+      $default = $this->getDefaultLanguage();
+      $languages = array($default->getId() => $default);
+      $languages += $this->getDefaultLockedLanguages($default->getWeight());
+
+      // Load configurable languages on top of the defaults. Ideally this could
+      // use the entity API to load and instantiate ConfigurableLanguage
+      // objects. However the entity API depends on the language system, so that
+      // would result in infinite loops. We use the configuration system
+      // directly and instantiate runtime Language objects. When language
+      // entities are imported those cover the default and locked languages, so
+      // site-specific configuration will prevail over the fallback values.
+      // Having them in the array already ensures if this is invoked in the
+      // middle of importing language configuration entities, the defaults are
+      // always present.
+      $config_ids = $this->configFactory->listAll('language.entity.');
+      foreach ($this->configFactory->loadMultiple($config_ids) as $config) {
+        $data = $config->get();
+        $data['name'] = $data['label'];
+        $languages[$data['id']] = new Language($data);
+      }
+      Language::sort($languages);
+
+      // Filter the full list of languages based on the value of $flags.
+      $this->languages[$static_cache_id][$flags] = $this->filterLanguages($languages, $flags);
+    }
+
+    return $this->languages[$static_cache_id][$flags];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getNativeLanguages() {
+    $languages = $this->getLanguages(LanguageInterface::STATE_CONFIGURABLE);
+    $natives = array();
+
+    $original_language = $this->getConfigOverrideLanguage();
+
+    foreach ($languages as $langcode => $language) {
+      $this->setConfigOverrideLanguage($language);
+      $natives[$langcode] = ConfigurableLanguage::load($langcode);
+    }
+    $this->setConfigOverrideLanguage($original_language);
+    Language::sort($natives);
+    return $natives;
   }
 
   /**
    * {@inheritdoc}
    */
   public function updateLockedLanguageWeights() {
-    $max_weight = 0;
+    // Get the weight of the last configurable language.
+    $configurable_languages = $this->getLanguages(LanguageInterface::STATE_CONFIGURABLE);
+    $max_weight = end($configurable_languages)->getWeight();
 
-    // Get maximum weight to update the system languages to keep them on bottom.
-    foreach ($this->getLanguages(BaseLanguageInterface::STATE_CONFIGURABLE) as $language) {
-      if (!$language->locked && $language->weight > $max_weight) {
-        $max_weight = $language->weight;
+    $locked_languages = $this->getLanguages(LanguageInterface::STATE_LOCKED);
+    // Update locked language weights to maintain the existing order, if
+    // necessary.
+    if (reset($locked_languages)->getWeight() <= $max_weight) {
+      foreach ($locked_languages as $language) {
+        // Update system languages weight.
+        $max_weight++;
+        ConfigurableLanguage::load($language->getId())
+          ->setWeight($max_weight)
+          ->save();
       }
-    }
-
-    // Loop locked languages to maintain the existing order.
-    $locked_languages = $this->getLanguages(BaseLanguageInterface::STATE_LOCKED);
-    $config_ids = array_map(function($language) { return 'language.entity.' . $language->id; }, $locked_languages);
-    foreach ($this->configFactory->loadMultiple($config_ids) as $config) {
-      // Update system languages weight.
-      $max_weight++;
-      $config->set('weight', $max_weight);
-      $config->save();
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getFallbackCandidates($langcode = NULL, array $context = array()) {
+  public function getFallbackCandidates(array $context = array()) {
     if ($this->isMultilingual()) {
-      // Get languages ordered by weight, add BaseLanguageInterface::LANGCODE_NOT_SPECIFIED
-      // at the end.
-      $candidates = array_keys($this->getLanguages());
-      $candidates[] = BaseLanguageInterface::LANGCODE_NOT_SPECIFIED;
-      $candidates = array_combine($candidates, $candidates);
+      $candidates = array();
+      if (empty($context['operation']) || $context['operation'] != 'locale_lookup') {
+        // If the fallback context is not locale_lookup, initialize the
+        // candidates with languages ordered by weight and add
+        // LanguageInterface::LANGCODE_NOT_SPECIFIED at the end. Interface
+        // translation fallback should only be based on explicit configuration
+        // gathered via the alter hooks below.
+        $candidates = array_keys($this->getLanguages());
+        $candidates[] = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+        $candidates = array_combine($candidates, $candidates);
 
-      // The first candidate should always be the desired language if specified.
-      if (!empty($langcode)) {
-        $candidates = array($langcode => $langcode) + $candidates;
+        // The first candidate should always be the desired language if
+        // specified.
+        if (!empty($context['langcode'])) {
+          $candidates = array($context['langcode'] => $context['langcode']) + $candidates;
+        }
       }
 
       // Let other modules hook in and add/change candidates.
@@ -349,7 +394,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
       $this->moduleHandler->alter($types, $candidates, $context);
     }
     else {
-      $candidates = parent::getFallbackCandidates($langcode, $context);
+      $candidates = parent::getFallbackCandidates($context);
     }
 
     return $candidates;
@@ -358,7 +403,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * {@inheritdoc}
    */
-  public function getLanguageSwitchLinks($type, $path) {
+  public function getLanguageSwitchLinks($type, Url $url) {
     $links = FALSE;
 
     if ($this->negotiator) {
@@ -366,7 +411,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
         $reflector = new \ReflectionClass($method['class']);
 
         if ($reflector->implementsInterface('\Drupal\language\LanguageSwitcherInterface')) {
-          $result = $this->negotiator->getNegotiationMethodInstance($method_id)->getLanguageSwitchLinks($this->requestStack->getCurrentRequest(), $type, $path);
+          $result = $this->negotiator->getNegotiationMethodInstance($method_id)->getLanguageSwitchLinks($this->requestStack->getCurrentRequest(), $type, $url);
 
           if (!empty($result)) {
             // Allow modules to provide translations for specific links.
@@ -384,7 +429,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * {@inheritdoc}
    */
-  public function setConfigOverrideLanguage(BaseLanguageInterface $language = NULL) {
+  public function setConfigOverrideLanguage(LanguageInterface $language = NULL) {
     $this->configFactoryOverride->setLanguage($language);
     return $this;
   }
@@ -425,6 +470,15 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
     }
     asort($predefined);
     return $predefined;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getNegotiatedLanguageMethod($type = LanguageInterface::TYPE_INTERFACE) {
+    if (isset($this->negotiatedLanguages[$type]) && isset($this->negotiatedMethods[$type])) {
+      return $this->negotiatedMethods[$type];
+    }
   }
 
 }

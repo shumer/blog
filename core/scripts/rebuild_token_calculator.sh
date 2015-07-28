@@ -11,14 +11,11 @@ use Drupal\Core\DrupalKernel;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpFoundation\Request;
 
-// Check for $_SERVER['argv'] instead of PHP_SAPI === 'cli' to allow this script
-// to be tested with the Simpletest UI test runner.
-// @see \Drupal\system\Tests\System\ScriptTest
-if (!isset($_SERVER['argv']) || !is_array($_SERVER['argv'])) {
+if (PHP_SAPI !== 'cli') {
   return;
 }
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../../autoload.php';
 require_once __DIR__ . '/../includes/bootstrap.inc';
 
 $request = Request::createFromGlobals();

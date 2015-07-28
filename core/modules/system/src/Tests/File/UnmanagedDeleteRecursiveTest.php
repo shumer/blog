@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\File\UnmanagedDeleteRecursiveTest.
+ * Contains \Drupal\system\Tests\File\UnmanagedDeleteRecursiveTest.
  */
 
 namespace Drupal\system\Tests\File;
@@ -18,7 +18,7 @@ class UnmanagedDeleteRecursiveTest extends FileTestBase {
    */
   function testSingleFile() {
     // Create a file for testing
-    $filepath = file_default_scheme() . '://' . $this->randomName();
+    $filepath = file_default_scheme() . '://' . $this->randomMachineName();
     file_put_contents($filepath, '');
 
     // Delete the file.

@@ -45,7 +45,7 @@ interface CommentInterface extends ContentEntityInterface, EntityChangedInterfac
   /**
    * Returns the entity to which the comment is attached.
    *
-   * @return \Drupal\Core\Entity\EntityInterface
+   * @return \Drupal\Core\Entity\FieldableEntityInterface
    *   The entity on which the comment is attached.
    */
   public function getCommentedEntity();
@@ -197,20 +197,20 @@ interface CommentInterface extends ContentEntityInterface, EntityChangedInterfac
   public function setCreatedTime($created);
 
   /**
-   * Returns the timestamp of when the comment was updated.
-   *
-   * @return int
-   *   The timestamp of when the comment was updated.
-   */
-  public function getChangedTime();
-
-  /**
    * Checks if the comment is published.
    *
    * @return bool
    *   TRUE if the comment is published.
    */
   public function isPublished();
+
+  /**
+   * Returns the comment's status.
+   *
+   * @return int
+   *   One of CommentInterface::PUBLISHED or CommentInterface::NOT_PUBLISHED
+   */
+  public function getStatus();
 
   /**
    * Sets the published status of the comment entity.

@@ -7,13 +7,17 @@
 
   "use strict";
 
-  /**
-   * Backbone view for the aural feedback of the toolbar.
-   */
-  Drupal.toolbar.ToolbarAuralView = Backbone.View.extend({
+  Drupal.toolbar.ToolbarAuralView = Backbone.View.extend(/** @lends Drupal.toolbar.ToolbarAuralView# */{
 
     /**
-     * {@inheritdoc}
+     * Backbone view for the aural feedback of the toolbar.
+     *
+     * @constructs
+     *
+     * @augments Backbone.View
+     *
+     * @param {object} options
+     * @param {object} options.strings
      */
     initialize: function (options) {
       this.strings = options.strings;
@@ -25,8 +29,8 @@
     /**
      * Announces an orientation change.
      *
-     * @param Drupal.Toolbar.ToolbarModel model
-     * @param String orientation
+     * @param {Drupal.toolbar.ToolbarModel} model
+     * @param {string} orientation
      *   The new value of the orientation attribute in the model.
      */
     onOrientationChange: function (model, orientation) {
@@ -38,19 +42,22 @@
     /**
      * Announces a changed active tray.
      *
-     * @param Drupal.Toolbar.ToolbarModel model
-     * @param Element orientation
+     * @param {Drupal.toolbar.ToolbarModel} model
+     * @param {HTMLElement} tray
      *   The new value of the tray attribute in the model.
      */
     onActiveTrayChange: function (model, tray) {
       var relevantTray = (tray === null) ? model.previous('activeTray') : tray;
-      var trayName = relevantTray.querySelector('.toolbar-tray-name').textContent;
+      var action = (tray === null) ? Drupal.t('closed') : Drupal.t('opened');
+      var trayNameElement = relevantTray.querySelector('.toolbar-tray-name');
       var text;
-      if (tray === null) {
-        text = Drupal.t('Tray "@tray" closed.', { '@tray': trayName });
+      if (trayNameElement !== null) {
+        text = Drupal.t('Tray "@tray" @action.', {
+          '@tray': trayNameElement.textContent, '@action': action
+        });
       }
       else {
-        text = Drupal.t('Tray "@tray" opened.', { '@tray': trayName });
+        text = Drupal.t('Tray @action.', {'@action': action});
       }
       Drupal.announce(text);
     }

@@ -10,10 +10,11 @@ namespace Drupal\comment\Form;
 use Drupal\comment\CommentInterface;
 use Drupal\comment\CommentStorageInterface;
 use Drupal\Component\Utility\Unicode;
-use Drupal\Core\Datetime\Date as DateFormatter;
+use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -38,7 +39,7 @@ class CommentAdminOverview extends FormBase {
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
@@ -56,7 +57,7 @@ class CommentAdminOverview extends FormBase {
    *   The entity manager service.
    * @param \Drupal\comment\CommentStorageInterface $comment_storage
    *   The comment storage.
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
@@ -75,7 +76,7 @@ class CommentAdminOverview extends FormBase {
     return new static(
       $container->get('entity.manager'),
       $container->get('entity.manager')->getStorage('comment'),
-      $container->get('date'),
+      $container->get('date.formatter'),
       $container->get('module_handler')
     );
   }
@@ -83,7 +84,7 @@ class CommentAdminOverview extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function getFormID() {
+  public function getFormId() {
     return 'comment_admin_overview';
   }
 
@@ -92,15 +93,15 @@ class CommentAdminOverview extends FormBase {
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    * @param string $type
    *   The type of the overview form ('approval' or 'new').
    *
    * @return array
    *   The form structure.
    */
-  public function buildForm(array $form, array &$form_state, $type = 'new') {
+  public function buildForm(array $form, FormStateInterface $form_state, $type = 'new') {
 
     // Build an 'Update options' form.
     $form['options'] = array(
@@ -165,7 +166,7 @@ class CommentAdminOverview extends FormBase {
 
     // Build a table listing the appropriate comments.
     $options = array();
-    $destination = drupal_get_destination();
+    $destination = $this->getDestinationArray();
 
     $commented_entity_ids = array();
     $commented_entities = array();
@@ -181,52 +182,47 @@ class CommentAdminOverview extends FormBase {
     foreach ($comments as $comment) {
       /** @var $commented_entity \Drupal\Core\Entity\EntityInterface */
       $commented_entity = $commented_entities[$comment->getCommentedEntityTypeId()][$comment->getCommentedEntityId()];
-      $username = array(
-        '#theme' => 'username',
-        '#account' => comment_prepare_author($comment),
-      );
-      $body = '';
-      if (!empty($comment->comment_body->value)) {
-        $body = $comment->comment_body->value;
-      }
       $comment_permalink = $comment->permalink();
-      $attributes = $comment_permalink->getOption('attributes') ?: array();
-      $attributes += array('title' => Unicode::truncate($body, 128));
-      $comment_permalink->setOption('attributes', $attributes);
+      if ($comment->hasField('comment_body') && ($body = $comment->get('comment_body')->value)) {
+        $attributes = $comment_permalink->getOption('attributes') ?: array();
+        $attributes += array('title' => Unicode::truncate($body, 128));
+        $comment_permalink->setOption('attributes', $attributes);
+      }
       $options[$comment->id()] = array(
         'title' => array('data' => array('#title' => $comment->getSubject() ?: $comment->id())),
         'subject' => array(
           'data' => array(
             '#type' => 'link',
             '#title' => $comment->getSubject(),
-          ) + $comment_permalink->toRenderArray(),
+            '#url' => $comment_permalink,
+          ),
         ),
-        'author' => drupal_render($username),
+        'author' => array(
+          'data' => array(
+            '#theme' => 'username',
+            '#account' => $comment->getOwner(),
+          ),
+        ),
         'posted_in' => array(
           'data' => array(
             '#type' => 'link',
             '#title' => $commented_entity->label(),
             '#access' => $commented_entity->access('view'),
-          ) + $commented_entity->urlInfo()->toRenderArray(),
+            '#url' => $commented_entity->urlInfo(),
+          ),
         ),
-        'changed' => $this->dateFormatter->format($comment->getChangedTime(), 'short'),
+        'changed' => $this->dateFormatter->format($comment->getChangedTimeAcrossTranslations(), 'short'),
       );
-      $comment_uri_options = $comment->urlInfo()->getOptions();
+      $comment_uri_options = $comment->urlInfo()->getOptions() + ['query' => $destination];
       $links = array();
       $links['edit'] = array(
         'title' => $this->t('Edit'),
-        'route_name' => 'comment.edit_page',
-        'route_parameters' => array('comment' => $comment->id()),
-        'options' => $comment_uri_options,
-        'query' => $destination,
+        'url' => $comment->urlInfo('edit-form', $comment_uri_options),
       );
-      if ($this->moduleHandler->invoke('content_translation', 'translate_access', array($comment))) {
+      if ($this->moduleHandler->moduleExists('content_translation') && $this->moduleHandler->invoke('content_translation', 'translate_access', array($comment))->isAllowed()) {
         $links['translate'] = array(
           'title' => $this->t('Translate'),
-          'route_name' => 'content_translation.translation_overview_comment',
-          'route_parameters' => array('comment' => $comment->id()),
-          'options' => $comment_uri_options,
-          'query' => $destination,
+          'url' => $comment->urlInfo('drupal:content-translation-overview', $comment_uri_options),
         );
       }
       $options[$comment->id()]['operations']['data'] = array(
@@ -242,7 +238,7 @@ class CommentAdminOverview extends FormBase {
       '#empty' => $this->t('No comments available.'),
     );
 
-    $form['pager'] = array('#theme' => 'pager');
+    $form['pager'] = array('#type' => 'pager');
 
     return $form;
   }
@@ -250,20 +246,20 @@ class CommentAdminOverview extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
-    $form_state['values']['comments'] = array_diff($form_state['values']['comments'], array(0));
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    $form_state->setValue('comments', array_diff($form_state->getValue('comments'), array(0)));
     // We can't execute any 'Update options' if no comments were selected.
-    if (count($form_state['values']['comments']) == 0) {
-      $this->setFormError('', $form_state, $this->t('Select one or more comments to perform the update on.'));
+    if (count($form_state->getValue('comments')) == 0) {
+      $form_state->setErrorByName('', $this->t('Select one or more comments to perform the update on.'));
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $operation = $form_state['values']['operation'];
-    $cids = $form_state['values']['comments'];
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $operation = $form_state->getValue('operation');
+    $cids = $form_state->getValue('comments');
 
     foreach ($cids as $cid) {
       // Delete operation handled in \Drupal\comment\Form\ConfirmDeleteMultiple
@@ -280,9 +276,7 @@ class CommentAdminOverview extends FormBase {
       }
     }
     drupal_set_message($this->t('The update has been performed.'));
-    $form_state['redirect_route'] = array(
-      'route_name' => 'comment.admin',
-    );
+    $form_state->setRedirect('comment.admin');
   }
 
 }

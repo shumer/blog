@@ -7,9 +7,19 @@
 
 namespace Drupal\block;
 
+use Drupal\block\Event\BlockContextEvent;
+use Drupal\block\Event\BlockEvents;
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Executable\ExecutableManagerInterface;
+use Drupal\Core\Extension\ThemeHandlerInterface;
+use Drupal\Core\Form\FormState;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\Core\Plugin\ContextAwarePluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Provides form for block instance forms.
@@ -31,13 +41,53 @@ class BlockForm extends EntityForm {
   protected $storage;
 
   /**
+   * The condition plugin manager.
+   *
+   * @var \Drupal\Core\Condition\ConditionManager
+   */
+  protected $manager;
+
+  /**
+   * The event dispatcher service.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   */
+  protected $dispatcher;
+
+  /**
+   * The language manager service.
+   *
+   * @var \Drupal\Core\Language\LanguageManagerInterface
+   */
+  protected $language;
+
+  /**
+   * The theme handler.
+   *
+   * @var \Drupal\Core\Extension\ThemeHandler
+   */
+  protected $themeHandler;
+
+  /**
    * Constructs a BlockForm object.
    *
    * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
    *   The entity manager.
+   * @param \Drupal\Core\Executable\ExecutableManagerInterface $manager
+   *   The ConditionManager for building the visibility UI.
+   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $dispatcher
+   *   The EventDispatcher for gathering administrative contexts.
+   * @param \Drupal\Core\Language\LanguageManagerInterface $language
+   *   The language manager.
+   * @param \Drupal\Core\Extension\ThemeHandlerInterface $theme_handler
+   * The theme handler.
    */
-  public function __construct(EntityManagerInterface $entity_manager) {
+  public function __construct(EntityManagerInterface $entity_manager, ExecutableManagerInterface $manager, EventDispatcherInterface $dispatcher, LanguageManagerInterface $language, ThemeHandlerInterface $theme_handler) {
     $this->storage = $entity_manager->getStorage('block');
+    $this->manager = $manager;
+    $this->dispatcher = $dispatcher;
+    $this->language = $language;
+    $this->themeHandler = $theme_handler;
   }
 
   /**
@@ -45,24 +95,33 @@ class BlockForm extends EntityForm {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('entity.manager')
+      $container->get('entity.manager'),
+      $container->get('plugin.manager.condition'),
+      $container->get('event_dispatcher'),
+      $container->get('language_manager'),
+      $container->get('theme_handler')
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $entity = $this->entity;
 
     // Store theme settings in $form_state for use below.
-    if (!$theme = $entity->get('theme')) {
+    if (!$theme = $entity->getTheme()) {
       $theme = $this->config('system.theme')->get('default');
     }
-    $form_state['block_theme'] = $theme;
+    $form_state->set('block_theme', $theme);
+
+    // Store the gathered contexts in the form state for other objects to use
+    // during form building.
+    $form_state->setTemporaryValue('gathered_contexts', $this->dispatcher->dispatch(BlockEvents::ADMINISTRATIVE_CONTEXT, new BlockContextEvent())->getContexts());
 
     $form['#tree'] = TRUE;
     $form['settings'] = $entity->getPlugin()->buildConfigurationForm(array(), $form_state);
+    $form['visibility'] = $this->buildVisibilityInterface([], $form_state);
 
     // If creating a new block, calculate a safe default machine name.
     $form['id'] = array(
@@ -80,7 +139,7 @@ class BlockForm extends EntityForm {
     );
 
     // Theme settings.
-    if ($entity->get('theme')) {
+    if ($entity->getTheme()) {
       $form['theme'] = array(
         '#type' => 'value',
         '#value' => $theme,
@@ -88,7 +147,7 @@ class BlockForm extends EntityForm {
     }
     else {
       $theme_options = array();
-      foreach (list_themes() as $theme_name => $theme_info) {
+      foreach ($this->themeHandler->listInfo() as $theme_name => $theme_info) {
         if (!empty($theme_info->status)) {
           $theme_options[$theme_name] = $theme_info->info['name'];
         }
@@ -99,7 +158,7 @@ class BlockForm extends EntityForm {
         '#title' => t('Theme'),
         '#default_value' => $theme,
         '#ajax' => array(
-          'callback' => array($this, 'themeSwitch'),
+          'callback' => '::themeSwitch',
           'wrapper' => 'edit-block-region-wrapper',
         ),
       );
@@ -110,30 +169,102 @@ class BlockForm extends EntityForm {
       '#type' => 'select',
       '#title' => $this->t('Region'),
       '#description' => $this->t('Select the region where this block should be displayed.'),
-      '#default_value' => $entity->get('region'),
+      '#default_value' => $entity->getRegion(),
       '#empty_value' => BlockInterface::BLOCK_REGION_NONE,
       '#options' => system_region_list($theme, REGIONS_VISIBLE),
       '#prefix' => '<div id="edit-block-region-wrapper">',
       '#suffix' => '</div>',
     );
-    $form['#attached']['css'] = array(
-      drupal_get_path('module', 'block') . '/css/block.admin.css',
-    );
+    $form['#attached']['library'][] = 'block/drupal.block.admin';
     return $form;
   }
 
   /**
    * Handles switching the available regions based on the selected theme.
    */
-  public function themeSwitch($form, &$form_state) {
-    $form['region']['#options'] = system_region_list($form_state['values']['theme'], REGIONS_VISIBLE);
+  public function themeSwitch($form, FormStateInterface $form_state) {
+    $form['region']['#options'] = system_region_list($form_state->getValue('theme'), REGIONS_VISIBLE);
     return $form['region'];
+  }
+
+  /**
+   * Helper function for building the visibility UI form.
+   *
+   * @param array $form
+   *   An associative array containing the structure of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   *
+   * @return array
+   *   The form array with the visibility UI added in.
+   */
+  protected function buildVisibilityInterface(array $form, FormStateInterface $form_state) {
+    $form['visibility_tabs'] = [
+      '#type' => 'vertical_tabs',
+      '#title' => $this->t('Visibility'),
+      '#parents' => ['visibility_tabs'],
+      '#attached' => [
+        'library' => [
+          'block/drupal.block',
+        ],
+      ],
+    ];
+    // @todo Allow list of conditions to be configured in
+    //   https://www.drupal.org/node/2284687.
+    $visibility = $this->entity->getVisibility();
+    foreach ($this->manager->getDefinitions() as $condition_id => $definition) {
+      // Don't display the current theme condition.
+      if ($condition_id == 'current_theme') {
+        continue;
+      }
+      // Don't display the language condition until we have multiple languages.
+      if ($condition_id == 'language' && !$this->language->isMultilingual()) {
+        continue;
+      }
+      /** @var \Drupal\Core\Condition\ConditionInterface $condition */
+      $condition = $this->manager->createInstance($condition_id, isset($visibility[$condition_id]) ? $visibility[$condition_id] : []);
+      $form_state->set(['conditions', $condition_id], $condition);
+      $condition_form = $condition->buildConfigurationForm([], $form_state);
+      $condition_form['#type'] = 'details';
+      $condition_form['#title'] = $condition->getPluginDefinition()['label'];
+      $condition_form['#group'] = 'visibility_tabs';
+      $form[$condition_id] = $condition_form;
+    }
+
+    if (isset($form['node_type'])) {
+      $form['node_type']['#title'] = $this->t('Content types');
+      $form['node_type']['bundles']['#title'] = $this->t('Content types');
+      $form['node_type']['negate']['#type'] = 'value';
+      $form['node_type']['negate']['#title_display'] = 'invisible';
+      $form['node_type']['negate']['#value'] = $form['node_type']['negate']['#default_value'];
+    }
+    if (isset($form['user_role'])) {
+      $form['user_role']['#title'] = $this->t('Roles');
+      unset($form['user_role']['roles']['#description']);
+      $form['user_role']['negate']['#type'] = 'value';
+      $form['user_role']['negate']['#value'] = $form['user_role']['negate']['#default_value'];
+    }
+    if (isset($form['request_path'])) {
+      $form['request_path']['#title'] = $this->t('Pages');
+      $form['request_path']['negate']['#type'] = 'radios';
+      $form['request_path']['negate']['#default_value'] = (int) $form['request_path']['negate']['#default_value'];
+      $form['request_path']['negate']['#title_display'] = 'invisible';
+      $form['request_path']['negate']['#options'] = [
+        $this->t('Show for the listed pages'),
+        $this->t('Hide for the listed pages'),
+      ];
+    }
+    if (isset($form['language'])) {
+      $form['language']['negate']['#type'] = 'value';
+      $form['language']['negate']['#value'] = $form['language']['negate']['#default_value'];
+    }
+    return $form;
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     $actions = parent::actions($form, $form_state);
     $actions['submit']['#value'] = $this->t('Save block');
     return $actions;
@@ -142,48 +273,92 @@ class BlockForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function validate(array $form, array &$form_state) {
+  public function validate(array $form, FormStateInterface $form_state) {
     parent::validate($form, $form_state);
 
     // The Block Entity form puts all block plugin form elements in the
     // settings form element, so just pass that to the block for validation.
-    $settings = array(
-      'values' => &$form_state['values']['settings']
-    );
+    $settings = (new FormState())->setValues($form_state->getValue('settings'));
     // Call the plugin validate handler.
     $this->entity->getPlugin()->validateConfigurationForm($form, $settings);
+    // Update the original form values.
+    $form_state->setValue('settings', $settings->getValues());
+    $this->validateVisibility($form, $form_state);
+  }
+
+  /**
+   * Helper function to independently validate the visibility UI.
+   *
+   * @param array $form
+   *   A nested array form elements comprising the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
+   */
+  protected function validateVisibility(array $form, FormStateInterface $form_state) {
+    // Validate visibility condition settings.
+    foreach ($form_state->getValue('visibility') as $condition_id => $values) {
+      // All condition plugins use 'negate' as a Boolean in their schema.
+      // However, certain form elements may return it as 0/1. Cast here to
+      // ensure the data is in the expected type.
+      if (array_key_exists('negate', $values)) {
+        $values['negate'] = (bool) $values['negate'];
+      }
+
+      // Allow the condition to validate the form.
+      $condition = $form_state->get(['conditions', $condition_id]);
+      $condition_values = (new FormState())
+        ->setValues($values);
+      $condition->validateConfigurationForm($form, $condition_values);
+      // Update the original form values.
+      $form_state->setValue(['visibility', $condition_id], $condition_values->getValues());
+    }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submit(array $form, array &$form_state) {
-    parent::submit($form, $form_state);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    parent::submitForm($form, $form_state);
 
     $entity = $this->entity;
     // The Block Entity form puts all block plugin form elements in the
     // settings form element, so just pass that to the block for submission.
     // @todo Find a way to avoid this manipulation.
-    $settings = array(
-      'values' => &$form_state['values']['settings'],
-      'errors' => $form_state['errors'],
-    );
+    $settings = (new FormState())->setValues($form_state->getValue('settings'));
 
     // Call the plugin submit handler.
     $entity->getPlugin()->submitConfigurationForm($form, $settings);
+    // Update the original form values.
+    $form_state->setValue('settings', $settings->getValues());
+
+    // Submit visibility condition settings.
+    foreach ($form_state->getValue('visibility') as $condition_id => $values) {
+      // Allow the condition to submit the form.
+      $condition = $form_state->get(['conditions', $condition_id]);
+      $condition_values = (new FormState())
+        ->setValues($values);
+      $condition->submitConfigurationForm($form, $condition_values);
+      if ($condition instanceof ContextAwarePluginInterface) {
+        $context_mapping = isset($values['context_mapping']) ? $values['context_mapping'] : [];
+        $condition->setContextMapping($context_mapping);
+      }
+      // Update the original form values.
+      $condition_configuration = $condition->getConfiguration();
+      $form_state->setValue(['visibility', $condition_id], $condition_configuration);
+      // Update the visibility conditions on the block.
+      $entity->getVisibilityConditions()->addInstanceId($condition_id, $condition_configuration);
+    }
 
     // Save the settings of the plugin.
     $entity->save();
 
     drupal_set_message($this->t('The block configuration has been saved.'));
-    $form_state['redirect_route'] = array(
-      'route_name' => 'block.admin_display_theme',
-      'route_parameters' => array(
-        'theme' => $form_state['values']['theme'],
+    $form_state->setRedirect(
+      'block.admin_display_theme',
+      array(
+        'theme' => $form_state->getValue('theme'),
       ),
-      'options' => array(
-        'query' => array('block-placement' => drupal_html_class($this->entity->id()))
-      ),
+      array('query' => array('block-placement' => Html::getClass($this->entity->id())))
     );
   }
 
@@ -210,7 +385,7 @@ class BlockForm extends EntityForm {
     }, $block_ids);
 
     // Iterate through potential IDs until we get a new one. E.g.
-    // 'plugin', 'plugin_2', 'plugin_3'...
+    // 'plugin', 'plugin_2', 'plugin_3', etc.
     $count = 1;
     $machine_default = $suggestion;
     while (in_array($machine_default, $block_ids)) {

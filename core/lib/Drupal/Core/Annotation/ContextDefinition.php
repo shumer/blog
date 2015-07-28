@@ -8,11 +8,13 @@
 namespace Drupal\Core\Annotation;
 
 use Drupal\Component\Annotation\Plugin;
+use Drupal\Core\StringTranslation\TranslationWrapper;
 
 /**
- * @defgroup plugin_context context definition plugin metadata
- *
+ * @defgroup plugin_context Annotation for context definition
  * @{
+ * Describes how to use ContextDefinition annotation.
+ *
  * When providing plugin annotations, contexts can be defined to support UI
  * interactions through providing limits, and mapping contexts to appropriate
  * plugins. Context definitions can be provided as such:
@@ -47,6 +49,19 @@ use Drupal\Component\Annotation\Plugin;
  *     "album" = @ContextDefinition("entity:node", label = @Translation("Album"))
  *   }
  * @endcode
+ *
+ * Specifying a default value for the context definition:
+ * @code
+ *   context = {
+ *     "message" = @ContextDefinition("string",
+ *       label = @Translation("Message"),
+ *       default_value = @Translation("Checkout complete! Thank you for your purchase.")
+ *     )
+ *   }
+ * @endcode
+ *
+ * @see annotation
+ *
  * @}
  */
 
@@ -80,6 +95,8 @@ class ContextDefinition extends Plugin {
    *   - required: (optional) Whether the context definition is required.
    *   - multiple: (optional) Whether the context definition is multivalue.
    *   - description: (optional) The UI description of this context definition.
+   *   - default_value: (optional) The default value in case the underlying
+   *     value is not set.
    *   - class: (optional) A custom ContextDefinitionInterface class.
    *
    * @throws \Exception
@@ -90,14 +107,24 @@ class ContextDefinition extends Plugin {
     $values += array(
       'required' => TRUE,
       'multiple' => FALSE,
-      'label' => NULL,
-      'description' => NULL,
+      'default_value' => NULL,
     );
+    // Annotation classes extract data from passed annotation classes directly
+    // used in the classes they pass to.
+    foreach (['label', 'description'] as $key) {
+      // @todo Remove this workaround in https://www.drupal.org/node/2362727.
+      if (isset($values[$key]) && $values[$key] instanceof TranslationWrapper) {
+        $values[$key] = (string) $values[$key]->get();
+      }
+      else {
+        $values[$key] = NULL;
+      }
+    }
     if (isset($values['class']) && !in_array('Drupal\Core\Plugin\Context\ContextDefinitionInterface', class_implements($values['class']))) {
       throw new \Exception('ContextDefinition class must implement \Drupal\Core\Plugin\Context\ContextDefinitionInterface.');
     }
     $class = isset($values['class']) ? $values['class'] : 'Drupal\Core\Plugin\Context\ContextDefinition';
-    $this->definition = new $class($values['value'], $values['label'], $values['required'], $values['multiple'], $values['description']);
+    $this->definition = new $class($values['value'], $values['label'], $values['required'], $values['multiple'], $values['description'], $values['default_value']);
   }
 
   /**

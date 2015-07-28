@@ -8,7 +8,7 @@
 namespace Drupal\image\Form;
 
 use Drupal\Core\Entity\EntityConfirmFormBase;
-use Drupal\Core\Url;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form controller for image style flush.
@@ -40,16 +40,16 @@ class ImageStyleFlushForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getCancelUrl() {
-    return new Url('image.style_list');
+    return $this->entity->urlInfo('collection');
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submit(array $form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->entity->flush();
     drupal_set_message($this->t('The image style %name has been flushed.', array('%name' => $this->entity->label())));
-    $form_state['redirect_route'] = $this->getCancelUrl();
+    $form_state->setRedirectUrl($this->getCancelUrl());
   }
 
 }

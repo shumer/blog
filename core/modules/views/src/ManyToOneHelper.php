@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\ManyToOneHelper.
+ * Contains \Drupal\views\ManyToOneHelper.
  */
 
 namespace Drupal\views;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\HandlerBase;
 
 /**
@@ -30,10 +31,10 @@ class ManyToOneHelper {
   }
 
   public static function defineOptions(&$options) {
-    $options['reduce_duplicates'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['reduce_duplicates'] = array('default' => FALSE);
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     $form['reduce_duplicates'] = array(
       '#type' => 'checkbox',
       '#title' => t('Reduce duplicates'),
@@ -309,6 +310,7 @@ class ManyToOneHelper {
       else {
         $placeholder = $this->placeholder();
         if (count($this->handler->value) > 1) {
+          $placeholder .= '[]';
           $this->handler->query->addWhereExpression(0, "$field $operator($placeholder)", array($placeholder => $value));
         }
         else {

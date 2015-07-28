@@ -9,11 +9,12 @@ namespace Drupal\Core\Menu;
 
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Component\Plugin\DerivativeInspectionInterface;
+use Drupal\Core\Cache\CacheableDependencyInterface;
 
 /**
  * Defines an interface for classes providing a type of menu link.
  */
-interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspectionInterface {
+interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspectionInterface, CacheableDependencyInterface {
 
   /**
    * Returns the weight of the menu link.
@@ -64,12 +65,12 @@ interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspect
   public function getParent();
 
   /**
-   * Returns whether the menu link is hidden.
+   * Returns whether the menu link is enabled (not hidden).
    *
    * @return bool
-   *   TRUE for hidden, FALSE otherwise.
+   *   TRUE for enabled, FALSE otherwise.
    */
-  public function isHidden();
+  public function isEnabled();
 
   /**
    * Returns whether the child menu links should always been shown.
@@ -107,6 +108,22 @@ interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspect
   public function isDeletable();
 
   /**
+   * Returns the route name, if available.
+   *
+   * @return string
+   *   The name of the route this menu link links to.
+   */
+  public function getRouteName();
+
+  /**
+   * Returns the route parameters, if available.
+   *
+   * @return array
+   *   An array of parameter names and values.
+   */
+  public function getRouteParameters();
+
+  /**
    * Returns a URL object containing either the external path or route.
    *
    * @param bool $title_attribute
@@ -122,7 +139,7 @@ interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspect
    * Returns the options for this link.
    *
    * @return array
-   *   The options for the menu link.
+   *   An associative array of options.
    */
   public function getOptions();
 
@@ -133,20 +150,6 @@ interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspect
    *   The metadata for the menu link.
    */
   public function getMetaData();
-
-  /**
-   * Returns whether the rendered link can be cached.
-   *
-   * The plugin class may make some or all of the data used in the Url object
-   * and build array dynamic. For example, it could include the current user
-   * name in the title, the current time in the description, or a destination
-   * query string. In addition the route parameters may be dynamic so an access
-   * check should be performed for each user.
-   *
-   * @return bool
-   *   TRUE if the link can be cached, FALSE otherwise.
-   */
-  public function isCacheable();
 
   /**
    * Updates the definition values for a menu link.
@@ -202,9 +205,9 @@ interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspect
   /**
    * Returns route information for a route to delete the menu link.
    *
-   * @return array|null
-   *   An array with keys route_name and route_parameters, or NULL if there is
-   *   no route (e.g. when the link is not deletable).
+   * @return \Drupal\Core\Url|null
+   *   A Url object, or NULL if there is no route (e.g. when the link is not
+   *   deletable).
    */
   public function getDeleteRoute();
 
@@ -215,18 +218,18 @@ interface MenuLinkInterface extends PluginInspectionInterface, DerivativeInspect
    * they need to define additional local tasks, local actions, etc. that are
    * visible from the edit form.
    *
-   * @return array|null
-   *   An array with keys route_name and route_parameters, or NULL if there is
-   *   no route because there is no custom edit route for this instance.
+   * @return \Drupal\Core\Url|null
+   *   A Url object, or NULL if there is no route because there is no custom
+   *   edit route for this instance.
    */
   public function getEditRoute();
 
   /**
    * Returns route information for a route to translate the menu link.
    *
-   * @return array
-   *   An array with keys route_name and route_parameters, or NULL if there is
-   *   no route (e.g. when the link is not translatable).
+   * @return \Drupal\Core\Url|null
+   *   A Url object, or NULL if there is no route (e.g. when the link is not
+   *   translatable).
    */
   public function getTranslateRoute();
 

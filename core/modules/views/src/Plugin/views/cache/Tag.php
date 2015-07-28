@@ -7,6 +7,8 @@
 
 namespace Drupal\views\Plugin\views\cache;
 
+use Drupal\Core\Cache\CacheBackendInterface;
+
 /**
  * Simple caching of query results for Views displays.
  *
@@ -24,7 +26,7 @@ class Tag extends CachePluginBase {
    * {@inheritdoc}
    */
   public function summaryTitle() {
-    return t('Tag');
+    return $this->t('Tag');
   }
 
   /**
@@ -32,6 +34,13 @@ class Tag extends CachePluginBase {
    */
   protected function cacheExpire($type) {
     return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getDefaultCacheMaxAge() {
+    return CacheBackendInterface::CACHE_PERMANENT;
   }
 
 }

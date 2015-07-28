@@ -24,7 +24,7 @@ Interface TypedConfigManagerInterface extends PluginManagerInterface, CachedDisc
    * @param string $name
    *   Configuration object name.
    *
-   * @return \Drupal\Core\Config\Schema\Element
+   * @return \Drupal\Core\TypedData\TraversableTypedDataInterface
    *   Typed configuration element.
    */
   public function get($name);
@@ -80,7 +80,7 @@ Interface TypedConfigManagerInterface extends PluginManagerInterface, CachedDisc
    *   The base type definition array, for which a data definition should be
    *   created.
    * @param $value
-   *   Optional value of the configuraiton element.
+   *   Optional value of the configuration element.
    * @param string $name
    *   Optional name of the configuration element.
    * @param object $parent
@@ -101,5 +101,21 @@ Interface TypedConfigManagerInterface extends PluginManagerInterface, CachedDisc
    *   TRUE if configuration schema exists, FALSE otherwise.
    */
   public function hasConfigSchema($name);
+
+  /**
+   * Gets a specific plugin definition.
+   *
+   * @param string $plugin_id
+   *   A plugin id.
+   * @param bool $exception_on_invalid
+   *   Ignored with TypedConfigManagerInterface. Kept for compatibility with
+   *   DiscoveryInterface.
+   *
+   * @return array
+   *   A plugin definition array. If the given plugin id does not have typed
+   *   configuration definition assigned, the definition of an undefined
+   *   element type is returned.
+   */
+  public function getDefinition($plugin_id, $exception_on_invalid = TRUE);
 
 }

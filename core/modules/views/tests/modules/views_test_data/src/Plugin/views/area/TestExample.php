@@ -2,11 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\views_test_data\Plugin\views\area\TestExample
+ * Contains \Drupal\views_test_data\Plugin\views\area\TestExample.
  */
 
 namespace Drupal\views_test_data\Plugin\views\area;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\views\Plugin\views\area\AreaPluginBase;
 
 /**
@@ -19,11 +21,19 @@ use Drupal\views\Plugin\views\area\AreaPluginBase;
 class TestExample extends AreaPluginBase {
 
   /**
+   * {@inheritdoc}
+   */
+  public function access(AccountInterface $account) {
+    return $this->options['custom_access'];
+  }
+
+  /**
    * Overrides Drupal\views\Plugin\views\area\AreaPluginBase::option_definition().
    */
   public function defineOptions() {
     $options = parent::defineOptions();
     $options['string'] = array('default' => '');
+    $options['custom_access'] = array('default' => TRUE);
 
     return $options;
   }
@@ -31,7 +41,7 @@ class TestExample extends AreaPluginBase {
   /**
    * Overrides Drupal\views\Plugin\views\area\AreaPluginBase::buildOptionsForm()
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
     $this->globalTokenForm($form, $form_state);
   }

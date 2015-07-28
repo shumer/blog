@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Entity\EntityFormBuilderTest.
+ */
+
 namespace Drupal\Tests\Core\Entity;
 
 use Drupal\Core\Entity\EntityFormBuilder;
@@ -46,7 +51,7 @@ class EntityFormBuilderTest extends UnitTestCase {
   /**
    * Tests the getForm() method.
    *
-   * @covers ::getForm()
+   * @covers ::getForm
    */
   public function testGetForm() {
     $form_controller = $this->getMock('Drupal\Core\Entity\EntityFormInterface');
@@ -60,7 +65,7 @@ class EntityFormBuilderTest extends UnitTestCase {
 
     $this->formBuilder->expects($this->once())
       ->method('buildForm')
-      ->with($form_controller, $this->isType('array'))
+      ->with($form_controller, $this->isInstanceOf('Drupal\Core\Form\FormStateInterface'))
       ->will($this->returnValue('the form contents'));
 
     $entity = $this->getMock('Drupal\Core\Entity\EntityInterface');

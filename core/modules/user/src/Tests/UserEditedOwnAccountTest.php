@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\user\Tests\UserEditedOwnAccountTest.
+ * Contains \Drupal\user\Tests\UserEditedOwnAccountTest.
  */
 
 namespace Drupal\user\Tests;
@@ -19,7 +19,7 @@ class UserEditedOwnAccountTest extends WebTestBase {
   function testUserEditedOwnAccount() {
     // Change account setting 'Who can register accounts?' to Administrators
     // only.
-    \Drupal::config('user.settings')->set('register', USER_REGISTER_ADMINISTRATORS_ONLY)->save();
+    $this->config('user.settings')->set('register', USER_REGISTER_ADMINISTRATORS_ONLY)->save();
 
     // Create a new user account and log in.
     $account = $this->drupalCreateUser(array('change own username'));
@@ -27,7 +27,7 @@ class UserEditedOwnAccountTest extends WebTestBase {
 
     // Change own username.
     $edit = array();
-    $edit['name'] = $this->randomName();
+    $edit['name'] = $this->randomMachineName();
     $this->drupalPostForm('user/' . $account->id() . '/edit', $edit, t('Save'));
 
     // Log out.

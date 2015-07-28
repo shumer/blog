@@ -7,11 +7,13 @@
 
 namespace Drupal\aggregator\Plugin\Block;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\aggregator\FeedStorageInterface;
 use Drupal\aggregator\ItemStorageInterface;
-use Drupal\block\BlockBase;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Block\BlockBase;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\Query\QueryInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Session\AccountInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -95,13 +97,6 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
     return array(
       'block_count' => 10,
       'feed' => NULL,
-      // Modify the default max age for the 'Aggregator Feed' blocks:
-      // modifications made to feeds or feed items will automatically invalidate
-      // corresponding cache tags, therefore allowing us to cache these blocks
-      // forever.
-      'cache' => array(
-        'max_age' => \Drupal\Core\Cache\Cache::PERMANENT,
-      ),
     );
   }
 
@@ -110,13 +105,13 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
    */
   protected function blockAccess(AccountInterface $account) {
     // Only grant access to users with the 'access news feeds' permission.
-    return $account->hasPermission('access news feeds');
+    return AccessResult::allowedIfHasPermission($account, 'access news feeds');
   }
 
   /**
-   * Overrides \Drupal\block\BlockBase::blockForm().
+   * {@inheritdoc}
    */
-  public function blockForm($form, &$form_state) {
+  public function blockForm($form, FormStateInterface $form_state) {
     $feeds = $this->feedStorage->loadMultiple();
     $options = array();
     foreach ($feeds as $feed) {
@@ -124,14 +119,14 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
     }
     $form['feed'] = array(
       '#type' => 'select',
-      '#title' => t('Select the feed that should be displayed'),
+      '#title' => $this->t('Select the feed that should be displayed'),
       '#default_value' => $this->configuration['feed'],
       '#options' => $options,
     );
     $range = range(2, 20);
     $form['block_count'] = array(
       '#type' => 'select',
-      '#title' => t('Number of news items in block'),
+      '#title' => $this->t('Number of news items in block'),
       '#default_value' => $this->configuration['block_count'],
       '#options' => array_combine($range, $range),
     );
@@ -139,11 +134,11 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
   }
 
   /**
-   * Overrides \Drupal\block\BlockBase::blockSubmit().
+   * {@inheritdoc}
    */
-  public function blockSubmit($form, &$form_state) {
-    $this->configuration['block_count'] = $form_state['values']['block_count'];
-    $this->configuration['feed'] = $form_state['values']['feed'];
+  public function blockSubmit($form, FormStateInterface $form_state) {
+    $this->configuration['block_count'] = $form_state->getValue('block_count');
+    $this->configuration['feed'] = $form_state->getValue('feed');
   }
 
   /**
@@ -162,16 +157,17 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
       $items = $this->itemStorage->loadMultiple($result);
 
       $more_link = array(
-        '#theme' => 'more_link',
-        '#url' => 'aggregator/sources/' . $feed->id(),
-        '#title' => t("View this feed's recent news."),
+        '#type' => 'more_link',
+        '#url' => $feed->urlInfo(),
+        '#attributes' => array('title' => $this->t("View this feed's recent news.")),
       );
       $read_more = drupal_render($more_link);
       $rendered_items = array();
       foreach ($items as $item) {
         $aggregator_block_item = array(
-          '#theme' => 'aggregator_block_item',
-          '#item' => $item,
+          '#type' => 'link',
+          '#url' => $item->urlInfo(),
+          '#title' => $item->label(),
         );
         $rendered_items[] = drupal_render($aggregator_block_item);
       }
@@ -194,8 +190,7 @@ class AggregatorFeedBlock extends BlockBase implements ContainerFactoryPluginInt
   public function getCacheTags() {
     $cache_tags = parent::getCacheTags();
     $feed = $this->feedStorage->load($this->configuration['feed']);
-    $cache_tags = NestedArray::mergeDeep($cache_tags, $feed->getCacheTag());
-    return $cache_tags;
+    return Cache::mergeTags($cache_tags, $feed->getCacheTags());
   }
 
 }

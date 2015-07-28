@@ -9,6 +9,7 @@ namespace Drupal\filter\Plugin;
 
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Defines the interface for text processing filter plugins.
@@ -45,8 +46,8 @@ use Drupal\Component\Plugin\ConfigurablePluginInterface;
  * - declare cache tags that the resulting filtered text depends upon, so when
  *   either of those cache tags is invalidated, the render-cached HTML that the
  *   filtered text is part of should also be invalidated;
- * - declare #post_render_cache callbacks to apply uncacheable filtering, for
- *   example because it differs per user.
+ * - create placeholders to apply uncacheable filtering, for example because it
+ *   changes every few seconds.
  *
  * @see \Drupal\filter\Plugin\FilterInterface::process()
  *
@@ -132,14 +133,14 @@ interface FilterInterface extends ConfigurablePluginInterface, PluginInspectionI
    *
    * @param array $form
    *   A minimally prepopulated form array.
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The state of the (entire) configuration form.
    *
    * @return array
    *   The $form array with additional form elements for the settings of this
    *   filter. The submitted form values should match $this->settings.
    */
-  public function settingsForm(array $form, array &$form_state);
+  public function settingsForm(array $form, FormStateInterface $form_state);
 
   /**
    * Prepares the text for processing.
@@ -168,7 +169,7 @@ interface FilterInterface extends ConfigurablePluginInterface, PluginInspectionI
    *
    * @return \Drupal\filter\FilterProcessResult
    *   The filtered text, wrapped in a FilterProcessResult object, and possibly
-   *   with associated assets, cache tags and #post_render_cache callbacks.
+   *   with associated assets, cacheability metadata and placeholders.
    *
    * @see \Drupal\filter\FilterProcessResult
    */

@@ -18,6 +18,16 @@ namespace Drupal\Core\Session;
 interface AccountInterface {
 
   /**
+   * Role ID for anonymous users.
+   */
+  const ANONYMOUS_ROLE = 'anonymous';
+
+  /**
+   * Role ID for authenticated users.
+   */
+  const AUTHENTICATED_ROLE = 'authenticated';
+
+  /**
    * Returns the user ID or 0 for anonymous.
    *
    * @return int
@@ -48,30 +58,6 @@ interface AccountInterface {
   public function hasPermission($permission);
 
   /**
-   * Returns the session ID.
-   *
-   * @return string|null
-   *   The session ID or NULL if this user does not have an active session.
-   */
-  public function getSessionId();
-
-  /**
-   * Returns the secure session ID.
-   *
-   * @return string|null
-   *   The session ID or NULL if this user does not have an active secure session.
-   */
-  public function getSecureSessionId();
-
-  /**
-   * Returns the session data.
-   *
-   * @return array
-   *   Array with the session data that belongs to this object.
-   */
-  public function getSessionData();
-
-  /**
    * Returns TRUE if the account is authenticated.
    *
    * @return bool
@@ -90,28 +76,34 @@ interface AccountInterface {
   /**
    * Returns the preferred language code of the account.
    *
-   * @param string $default
-   *   (optional) Default language code to return if the account
-   *   has no valid language, defaults to the site default language.
+   * @param bool $fallback_to_default
+   *   (optional) Whether the return value will fall back to the site default
+   *   language if the user has no language preference.
    *
    * @return string
-   *   The language code that is preferred by the account.
+   *   The language code that is preferred by the account. If the preferred
+   *   language is not set or is a language not configured anymore on the site,
+   *   the site default is returned or an empty string is returned (if
+   *   $fallback_to_default is FALSE).
    */
-  public function getPreferredLangcode($default = NULL);
+  public function getPreferredLangcode($fallback_to_default = TRUE);
 
   /**
    * Returns the preferred administrative language code of the account.
    *
    * Defines which language is used on administrative pages.
    *
-   * @param string $default
-   *   (optional) Default language code to return if the account
-   *   has no valid language, defaults to the site default language.
+   * @param bool $fallback_to_default
+   *   (optional) Whether the return value will fall back to the site default
+   *   language if the user has no administration language preference.
    *
    * @return string
-   *   The language code that is preferred by the account.
+   *   The language code that is preferred by the account for administration
+   *   pages. If the preferred language is not set or is a language not
+   *   configured anymore on the site, the site default is returned or an empty
+   *   string is returned (if $fallback_to_default is FALSE).
    */
-  public function getPreferredAdminLangcode($default = NULL);
+  public function getPreferredAdminLangcode($fallback_to_default = TRUE);
 
   /**
    * Returns the username of this account.
@@ -125,7 +117,7 @@ interface AccountInterface {
    *
    * @return
    *   An unsanitized string with the username to display. The code receiving
-   *   this result must ensure that \Drupal\Component\Utility\String::checkPlain()
+   *   this result must ensure that \Drupal\Component\Utility\SafeMarkup::checkPlain()
    *   is called on it before it is
    *   printed to the page.
    */
@@ -156,12 +148,5 @@ interface AccountInterface {
    *   Timestamp of the last access.
    */
   public function getLastAccessedTime();
-
-  /**
-   * Returns the session hostname.
-   *
-   * @return string
-   */
-  public function getHostname();
 
 }

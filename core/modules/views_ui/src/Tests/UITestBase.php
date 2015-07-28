@@ -33,8 +33,11 @@ abstract class UITestBase extends ViewTestBase {
    *
    * @var array
    */
-  public static $modules = array('node', 'views_ui', 'block');
+  public static $modules = array('node', 'views_ui', 'block', 'taxonomy');
 
+  /**
+   * {@inheritdoc}
+   */
   protected function setUp() {
     parent::setUp();
 
@@ -42,7 +45,13 @@ abstract class UITestBase extends ViewTestBase {
 
     $this->adminUser = $this->drupalCreateUser(array('administer views'));
 
-    $this->fullAdminUser = $this->drupalCreateUser(array('administer views', 'administer blocks', 'bypass node access', 'access user profiles', 'view all revisions'));
+    $this->fullAdminUser = $this->drupalCreateUser(array('administer views',
+      'administer blocks',
+      'bypass node access',
+      'access user profiles',
+      'view all revisions',
+      'administer permissions',
+    ));
     $this->drupalLogin($this->fullAdminUser);
   }
 
@@ -52,9 +61,9 @@ abstract class UITestBase extends ViewTestBase {
   public function randomView(array $view = array()) {
     // Create a new view in the UI.
     $default = array();
-    $default['label'] = $this->randomName(16);
-    $default['id'] = strtolower($this->randomName(16));
-    $default['description'] = $this->randomName(16);
+    $default['label'] = $this->randomMachineName(16);
+    $default['id'] = strtolower($this->randomMachineName(16));
+    $default['description'] = $this->randomMachineName(16);
     $default['page[create]'] = TRUE;
     $default['page[path]'] = $default['id'];
 

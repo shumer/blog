@@ -8,7 +8,7 @@
 namespace Drupal\menu_link_content\Plugin\Menu;
 
 use Drupal\Component\Plugin\Exception\PluginException;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Menu\MenuLinkBase;
@@ -37,7 +37,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
     'parent' => 1,
     'weight' => 1,
     'expanded' => 1,
-    'hidden' => 1,
+    'enabled' => 1,
     'title' => 1,
     'description' => 1,
     'route_name' => 1,
@@ -49,7 +49,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
   /**
    * The menu link content entity connected to this plugin instance.
    *
-   * @var \Drupal\menu_link_content\Entity\MenuLinkContentInterface
+   * @var \Drupal\menu_link_content\MenuLinkContentInterface
    */
   protected $entity;
 
@@ -92,7 +92,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
     }
 
     $this->entityManager = $entity_manager;
-    $this->langaugeManager = $language_manager;
+    $this->languageManager = $language_manager;
   }
 
   /**
@@ -111,7 +111,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
   /**
    * Loads the entity associated with this menu link.
    *
-   * @return \Drupal\menu_link_content\Entity\MenuLinkContentInterface
+   * @return \Drupal\menu_link_content\MenuLinkContentInterface
    *   The menu link content entity.
    *
    * @throws \Drupal\Component\Plugin\Exception\PluginException
@@ -124,7 +124,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
       if (!empty($this->pluginDefinition['metadata']['entity_id'])) {
         $entity_id = $this->pluginDefinition['metadata']['entity_id'];
         // Make sure the current ID is in the list, since each plugin empties
-        // the list after calling loadMultple(). Note that the list may include
+        // the list after calling loadMultiple(). Note that the list may include
         // multiple IDs added earlier in each plugin's constructor.
         static::$entityIdsToLoad[$entity_id] = $entity_id;
         $entities = $storage->loadMultiple(array_values(static::$entityIdsToLoad));
@@ -133,17 +133,17 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
       }
       if (!$entity) {
         // Fallback to the loading by the UUID.
-        $uuid = $this->getDerivativeId();
+        $uuid = $this->getUuid();
         $loaded_entities = $storage->loadByProperties(array('uuid' => $uuid));
         $entity = reset($loaded_entities);
       }
       if (!$entity) {
-        throw new PluginException(String::format('Entity not found through the menu link plugin definition and could not fallback on UUID @uuid', array('@uuid' => $uuid)));
+        throw new PluginException(SafeMarkup::format('Entity not found through the menu link plugin definition and could not fallback on UUID @uuid', array('@uuid' => $uuid)));
       }
       // Clone the entity object to avoid tampering with the static cache.
       $this->entity = clone $entity;
       $the_entity = $this->entityManager->getTranslationFromContext($this->entity);
-      /** @var \Drupal\menu_link_content\Entity\MenuLinkContentInterface $the_entity */
+      /** @var \Drupal\menu_link_content\MenuLinkContentInterface $the_entity */
       $this->entity = $the_entity;
       $this->entity->setInsidePlugin();
     }
@@ -157,7 +157,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
     // We only need to get the title from the actual entity if it may be a
     // translation based on the current language context. This can only happen
     // if the site is configured to be multilingual.
-    if ($this->langaugeManager->isMultilingual()) {
+    if ($this->languageManager->isMultilingual()) {
       return $this->getEntity()->getTitle();
     }
     return $this->pluginDefinition['title'];
@@ -170,7 +170,7 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
     // We only need to get the description from the actual entity if it may be a
     // translation based on the current language context. This can only happen
     // if the site is configured to be multilingual.
-    if ($this->langaugeManager->isMultilingual()) {
+    if ($this->languageManager->isMultilingual()) {
       return $this->getEntity()->getDescription();
     }
     return $this->pluginDefinition['description'];
@@ -180,31 +180,31 @@ class MenuLinkContent extends MenuLinkBase implements ContainerFactoryPluginInte
    * {@inheritdoc}
    */
   public function getDeleteRoute() {
-    return array(
-      'route_name' => 'menu_link_content.link_delete',
-      'route_parameters' => array('menu_link_content' => $this->getEntity()->id()),
-    );
+    return $this->getEntity()->urlInfo('delete-form');
   }
 
   /**
    * {@inheritdoc}
    */
   public function getEditRoute() {
-    return array(
-      'route_name' => 'menu_link_content.link_edit',
-      'route_parameters' => array('menu_link_content' => $this->getEntity()->id()),
-    );
+    return $this->getEntity()->urlInfo();
   }
 
   /**
    * {@inheritdoc}
    */
   public function getTranslateRoute() {
-    $entity_type = 'menu_link_content';
-    return array(
-      'route_name' => 'content_translation.translation_overview_' . $entity_type,
-      'route_parameters' => array( $entity_type => $this->getEntity()->id()),
-    );
+    return $this->getEntity()->urlInfo('drupal:content-translation-overview');
+  }
+
+  /**
+   * Returns the unique ID representing the menu link.
+   *
+   * @return string
+   *   The menu link ID.
+   */
+  protected function getUuid() {
+    $this->getDerivativeId();
   }
 
   /**

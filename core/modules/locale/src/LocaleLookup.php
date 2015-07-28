@@ -12,6 +12,7 @@ use Drupal\Core\Cache\CacheCollector;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Lock\LockBackendInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * A cache collector to allow for dynamic building of the locale cache.
@@ -68,6 +69,13 @@ class LocaleLookup extends CacheCollector {
   protected $languageManager;
 
   /**
+   * The request stack.
+   *
+   * @var \Symfony\Component\HttpFoundation\RequestStack
+   */
+  protected $requestStack;
+
+  /**
    * Constructs a LocaleLookup object.
    *
    * @param string $langcode
@@ -84,20 +92,45 @@ class LocaleLookup extends CacheCollector {
    *   The config factory.
    * @param \Drupal\Core\Language\LanguageManagerInterface $language_manager
    *   The language manager.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   *   The request stack.
    */
-  public function __construct($langcode, $context, StringStorageInterface $string_storage, CacheBackendInterface $cache, LockBackendInterface $lock, ConfigFactoryInterface $config_factory, LanguageManagerInterface $language_manager) {
+  public function __construct($langcode, $context, StringStorageInterface $string_storage, CacheBackendInterface $cache, LockBackendInterface $lock, ConfigFactoryInterface $config_factory, LanguageManagerInterface $language_manager, RequestStack $request_stack) {
     $this->langcode = $langcode;
     $this->context = (string) $context;
     $this->stringStorage = $string_storage;
     $this->configFactory = $config_factory;
     $this->languageManager = $language_manager;
 
-    // Add the current user's role IDs to the cache key, this ensures that, for
-    // example, strings for admin menu items and settings forms are not cached
-    // for anonymous users.
-    $user = \Drupal::currentUser();
-    $rids = $user ? implode(':', array_keys($user->getRoles())) : '0';
-    parent::__construct("locale:$langcode:$context:$rids", $cache, $lock, array('locale' => TRUE));
+    $this->cache = $cache;
+    $this->lock = $lock;
+    $this->tags = array('locale');
+    $this->requestStack = $request_stack;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getCid() {
+    if (!isset($this->cid)) {
+      // Add the current user's role IDs to the cache key, this ensures that,
+      // for example, strings for admin menu items and settings forms are not
+      // cached for anonymous users.
+      $user = \Drupal::currentUser();
+      $rids = $user ? implode(':', array_keys($user->getRoles())) : '0';
+      $this->cid = "locale:{$this->langcode}:{$this->context}:$rids";
+
+      // Getting the roles from the current user might have resulted in t()
+      // calls that attempted to get translations from the locale cache. In that
+      // case they would not go into this method again as
+      // CacheCollector::lazyLoadCache() already set the loaded flag. They would
+      // however call resolveCacheMiss() and add that string to the list of
+      // cache misses that need to be written into the cache. Prevent that by
+      // resetting that list. All that happens in such a case are a few uncached
+      // translation lookups.
+      $this->keysToPersist = array();
+    }
+    return $this->cid;
   }
 
   /**
@@ -120,14 +153,14 @@ class LocaleLookup extends CacheCollector {
         'source' => $offset,
         'context' => $this->context,
         'version' => \Drupal::VERSION,
-      ))->addLocation('path', $this->requestUri())->save();
+      ))->addLocation('path', $this->requestStack->getCurrentRequest()->getRequestUri())->save();
       $value = TRUE;
     }
 
     // If there is no translation available for the current language then use
     // language fallback to try other translations.
     if ($value === TRUE) {
-      $fallbacks = $this->languageManager->getFallbackCandidates($this->langcode, array('operation' => 'locale_lookup', 'data' => $offset));
+      $fallbacks = $this->languageManager->getFallbackCandidates(array('langcode' => $this->langcode, 'operation' => 'locale_lookup', 'data' => $offset));
       if (!empty($fallbacks)) {
         foreach ($fallbacks as $langcode) {
           $translation = $this->stringStorage->findTranslation(array(
@@ -153,13 +186,6 @@ class LocaleLookup extends CacheCollector {
       $this->persist($offset);
     }
     return $value;
-  }
-
-  /**
-   * Wraps request_uri().
-   */
-  protected function requestUri($omit_query_string = FALSE) {
-    return request_uri($omit_query_string);
   }
 
 }

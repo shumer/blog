@@ -2,17 +2,17 @@
 
 /**
  * @file
- * Contains \Drupal\entity\Tests\ContentTranslationTestBase.
+ * Contains \Drupal\content_translation\Tests\ContentTranslationTestBase.
  */
 
 namespace Drupal\content_translation\Tests;
 
-use Drupal\Core\Entity\ContentEntityDatabaseStorage;
-use Drupal\Core\Language\Language;
+use Drupal\Core\Entity\Sql\SqlContentEntityStorage;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
- * Tests content translation workflows.
+ * Base class for content translation tests.
  */
 abstract class ContentTranslationTestBase extends WebTestBase {
 
@@ -79,7 +79,12 @@ abstract class ContentTranslationTestBase extends WebTestBase {
    */
   protected $controller;
 
-  function setUp() {
+  /**
+   * @var \Drupal\content_translation\ContentTranslationManagerInterface
+   */
+  protected $manager;
+
+  protected function setUp() {
     parent::setUp();
 
     $this->setupLanguages();
@@ -88,7 +93,8 @@ abstract class ContentTranslationTestBase extends WebTestBase {
     $this->setupUsers();
     $this->setupTestFields();
 
-    $this->controller = content_translation_controller($this->entityTypeId);
+    $this->manager = $this->container->get('content_translation.manager');
+    $this->controller = $this->manager->getTranslationHandler($this->entityTypeId);
 
     // Rebuild the container so that the new languages are picked up by services
     // that hold a list of languages.
@@ -101,9 +107,9 @@ abstract class ContentTranslationTestBase extends WebTestBase {
   protected function setupLanguages() {
     $this->langcodes = array('it', 'fr');
     foreach ($this->langcodes as $langcode) {
-      language_save(new Language(array('id' => $langcode)));
+      ConfigurableLanguage::createFromLangcode($langcode)->save();
     }
-    array_unshift($this->langcodes, \Drupal::languageManager()->getDefaultLanguage()->id);
+    array_unshift($this->langcodes, \Drupal::languageManager()->getDefaultLanguage()->getId());
   }
 
   /**
@@ -163,26 +169,27 @@ abstract class ContentTranslationTestBase extends WebTestBase {
   protected function enableTranslation() {
     // Enable translation for the current entity type and ensure the change is
     // picked up.
-    content_translation_set_config($this->entityTypeId, $this->bundle, 'enabled', TRUE);
+    \Drupal::service('content_translation.manager')->setEnabled($this->entityTypeId, $this->bundle, TRUE);
     drupal_static_reset();
     \Drupal::entityManager()->clearCachedDefinitions();
     \Drupal::service('router.builder')->rebuild();
+    \Drupal::service('entity.definition_update_manager')->applyUpdates();
   }
 
   /**
    * Creates the test fields.
    */
   protected function setupTestFields() {
-    $this->fieldName = 'field_test_et_ui_test';
-
+    if (empty($this->fieldName)) {
+      $this->fieldName = 'field_test_et_ui_test';
+    }
     entity_create('field_storage_config', array(
-      'name' => $this->fieldName,
-      'type' => 'text',
+      'field_name' => $this->fieldName,
+      'type' => 'string',
       'entity_type' => $this->entityTypeId,
       'cardinality' => 1,
-      'translatable' => TRUE,
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => $this->entityTypeId,
       'field_name' => $this->fieldName,
       'bundle' => $this->bundle,
@@ -190,7 +197,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
     ))->save();
     entity_get_form_display($this->entityTypeId, $this->bundle, 'default')
       ->setComponent($this->fieldName, array(
-        'type' => 'text_textfield',
+        'type' => 'string_textfield',
         'weight' => 0,
       ))
       ->save();
@@ -207,7 +214,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
    *   (optional) The entity bundle, if the entity uses bundles. Defaults to
    *   NULL. If left NULL, $this->bundle will be used.
    *
-   * @return
+   * @return string
    *   The entity id.
    */
   protected function createEntity($values, $langcode, $bundle_name = NULL) {
@@ -218,7 +225,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
       $entity_values[$bundle_key] = $bundle_name ?: $this->bundle;
     }
     $controller = $this->container->get('entity.manager')->getStorage($this->entityTypeId);
-    if (!($controller instanceof ContentEntityDatabaseStorage)) {
+    if (!($controller instanceof SqlContentEntityStorage)) {
       foreach ($values as $property => $value) {
         if (is_array($value)) {
           $entity_values[$property] = array($langcode => $value);

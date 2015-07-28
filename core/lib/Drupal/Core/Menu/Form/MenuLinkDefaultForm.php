@@ -8,6 +8,7 @@
 namespace Drupal\Core\Menu\Form;
 
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Menu\MenuLinkInterface;
 use Drupal\Core\Menu\MenuLinkManagerInterface;
 use Drupal\Core\Menu\MenuParentFormSelectorInterface;
@@ -101,18 +102,19 @@ class MenuLinkDefaultForm implements MenuLinkFormInterface, ContainerInjectionIn
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form['#title'] = $this->t('Edit menu link %title', array('%title' => $this->menuLink->getTitle()));
 
     $provider = $this->menuLink->getProvider();
     $form['info'] = array(
       '#type' => 'item',
-      '#title' => $this->t('This link is provided by the @name module. The title and path cannot be edited.', array('@name' => $this->getModuleName($provider))),
+      '#title' => $this->t('This link is provided by the @name module. The title and path cannot be edited.', array('@name' => $this->moduleHandler->getName($provider))),
     );
     $link = array(
       '#type' => 'link',
       '#title' => $this->menuLink->getTitle(),
-    ) + $this->menuLink->getUrlObject()->toRenderArray();
+      '#url' => $this->menuLink->getUrlObject(),
+    );
     $form['path'] = array(
       'link' => $link,
       '#type' => 'item',
@@ -123,7 +125,7 @@ class MenuLinkDefaultForm implements MenuLinkFormInterface, ContainerInjectionIn
       '#type' => 'checkbox',
       '#title' => $this->t('Enable menu link'),
       '#description' => $this->t('Menu links that are not enabled will not be listed in any menu.'),
-      '#default_value' => !$this->menuLink->isHidden(),
+      '#default_value' => $this->menuLink->isEnabled(),
     );
 
     $form['expanded'] = array(
@@ -155,12 +157,12 @@ class MenuLinkDefaultForm implements MenuLinkFormInterface, ContainerInjectionIn
   /**
    * {@inheritdoc}
    */
-  public function extractFormValues(array &$form, array &$form_state) {
+  public function extractFormValues(array &$form, FormStateInterface $form_state) {
     $new_definition = array();
-    $new_definition['hidden'] = $form_state['values']['enabled'] ? 0 : 1;
-    $new_definition['weight'] = (int) $form_state['values']['weight'];
-    $new_definition['expanded'] = $form_state['values']['expanded'] ? 1 : 0;
-    list($menu_name, $parent) = explode(':', $form_state['values']['menu_parent'], 2);
+    $new_definition['enabled'] = $form_state->getValue('enabled') ? 1 : 0;
+    $new_definition['weight'] = (int) $form_state->getValue('weight');
+    $new_definition['expanded'] = $form_state->getValue('expanded') ? 1 : 0;
+    list($menu_name, $parent) = explode(':', $form_state->getValue('menu_parent'), 2);
     if (!empty($menu_name)) {
       $new_definition['menu_name'] = $menu_name;
     }
@@ -173,43 +175,16 @@ class MenuLinkDefaultForm implements MenuLinkFormInterface, ContainerInjectionIn
   /**
    * {@inheritdoc}
    */
-  public function validateConfigurationForm(array &$form, array &$form_state) {
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, array &$form_state) {
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     $new_definition = $this->extractFormValues($form, $form_state);
 
     return $this->menuLinkManager->updateDefinition($this->menuLink->getPluginId(), $new_definition);
-  }
-
-  /**
-   * Gets the name of the module.
-   *
-   * @param string $module
-   *   The machine name of a module.
-   *
-   * @todo This function is horrible, but core has nothing better until we add a
-   * a method to the ModuleHandler that handles this nicely.
-   * https://drupal.org/node/2281989
-   *
-   * @return string
-   *   The human-readable, localized module name, or the machine name passed in
-   *   if no matching module is found.
-   */
-  protected function getModuleName($module) {
-    // Gather module data.
-    if (!isset($this->moduleData)) {
-      $this->moduleData = system_get_info('module');
-    }
-    // If the module exists, return its human-readable name.
-    if (isset($this->moduleData[$module])) {
-      return $this->t($this->moduleData[$module]['name']);
-    }
-    // Otherwise, return the machine name.
-    return $module;
   }
 
 }

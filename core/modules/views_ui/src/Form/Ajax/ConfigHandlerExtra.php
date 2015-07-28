@@ -7,7 +7,8 @@
 
 namespace Drupal\views_ui\Form\Ajax;
 
-use Drupal\views\ViewStorageInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\ViewEntityInterface;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -16,7 +17,7 @@ use Drupal\views\ViewExecutable;
 class ConfigHandlerExtra extends ViewsFormBase {
 
   /**
-   * Constucts a new ConfigHandlerExtra object.
+   * Constructs a new ConfigHandlerExtra object.
    */
   public function __construct($type = NULL, $id = NULL) {
     $this->setType($type);
@@ -33,7 +34,7 @@ class ConfigHandlerExtra extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getForm(ViewStorageInterface $view, $display_id, $js, $type = NULL, $id = NULL) {
+  public function getForm(ViewEntityInterface $view, $display_id, $js, $type = NULL, $id = NULL) {
     $this->setType($type);
     $this->setID($id);
     return parent::getForm($view, $display_id, $js);
@@ -49,11 +50,11 @@ class ConfigHandlerExtra extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
-    $view = $form_state['view'];
-    $display_id = $form_state['display_id'];
-    $type = $form_state['type'];
-    $id = $form_state['id'];
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
+    $type = $form_state->get('type');
+    $id = $form_state->get('id');
 
     $form = array(
       'options' => array(
@@ -63,7 +64,10 @@ class ConfigHandlerExtra extends ViewsFormBase {
       ),
     );
     $executable = $view->getExecutable();
-    $executable->setDisplay($display_id);
+    if (!$executable->setDisplay($display_id)) {
+      $form['markup'] = array('#markup' => $this->t('Invalid display id @display', array('@display' => $display_id)));
+      return $form;
+    }
     $item = $executable->getHandler($display_id, $type, $id);
 
     if ($item) {
@@ -81,7 +85,7 @@ class ConfigHandlerExtra extends ViewsFormBase {
 
         // Get form from the handler.
         $handler->buildExtraOptionsForm($form['options'], $form_state);
-        $form_state['handler'] = $handler;
+        $form_state->set('handler', $handler);
       }
 
       $view->getStandardButtons($form, $form_state, 'views_ui_config_item_extra_form');
@@ -92,28 +96,30 @@ class ConfigHandlerExtra extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
-    $form_state['handler']->validateExtraOptionsForm($form['options'], $form_state);
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    $form_state->get('handler')->validateExtraOptionsForm($form['options'], $form_state);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $handler = $form_state->get('handler');
     // Run it through the handler's submit function.
-    $form_state['handler']->submitExtraOptionsForm($form['options'], $form_state);
-    $item = $form_state['handler']->options;
+    $handler->submitExtraOptionsForm($form['options'], $form_state);
+    $item = $handler->options;
 
     // Store the data we're given.
-    foreach ($form_state['values']['options'] as $key => $value) {
+    foreach ($form_state->getValue('options') as $key => $value) {
       $item[$key] = $value;
     }
 
     // Store the item back on the view
-    $form_state['view']->getExecutable()->setHandler($form_state['display_id'], $form_state['type'], $form_state['id'], $item);
+    $view->getExecutable()->setHandler($form_state->get('display_id'), $form_state->get('type'), $form_state->get('id'), $item);
 
     // Write to cache
-    $form_state['view']->cacheSet();
+    $view->cacheSet();
   }
 
 }

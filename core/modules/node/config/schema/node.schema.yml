@@ -1,12 +1,9 @@
 # Schema for the configuration files of the node module.
 
 node.settings:
-  type: mapping
+  type: config_object
   label: 'Node settings'
   mapping:
-    items_per_page:
-      type: integer
-      label: 'Number of posts on front page'
     use_admin_theme:
       type: boolean
       label: 'Use admin theme when editing or creating content'
@@ -27,40 +24,13 @@ node.type.*:
     help:
       type: text
       label: 'Explanation or submission guidelines'
-    title_label:
-      type: label
-      label: 'Title field label'
-    settings:
-      type: mapping
-      label: 'Settings'
-      mapping:
-        node:
-          type: node.settings.node
-
-node.settings.node:
-  type: mapping
-  label: 'Content type settings'
-  mapping:
-    preview:
+    new_revision:
+      type: boolean
+      label: 'Whether a new revision should be created by default'
+    preview_mode:
       type: integer
       label: 'Preview before submitting'
-    options:
-      type: mapping
-      label: 'Publishing options'
-      mapping:
-        status:
-          type: boolean
-          label: 'Published'
-        promote:
-          type: boolean
-          label: 'Promoted to front page'
-        sticky:
-          type: boolean
-          label: 'Sticky at top of lists'
-        revision:
-          type: boolean
-          label: 'Create new revision'
-    submitted:
+    display_submitted:
       type: boolean
       label: 'Display setting for author and date Submitted by post information'
 
@@ -73,8 +43,8 @@ search.plugin.node_search:
       type: sequence
       label: 'Content ranking'
       sequence:
-        - type: integer
-          label: 'Influence'
+        type: integer
+        label: 'Influence'
 
 action.configuration.node_assign_owner_action:
   type: mapping
@@ -124,8 +94,8 @@ action.configuration.node_unpublish_by_keyword_action:
       type: sequence
       label: 'Keywords'
       sequence:
-        - type: sequence
-          label: 'Keyword'
+        type: string
+        label: 'Keyword'
 
 block.settings.node_syndicate_block:
   type: block_settings
@@ -141,4 +111,4 @@ condition.plugin.node_type:
     bundles:
       type: sequence
       sequence:
-        - type: string
+        type: string

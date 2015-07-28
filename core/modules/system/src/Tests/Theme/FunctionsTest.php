@@ -7,11 +7,11 @@
 
 namespace Drupal\system\Tests\Theme;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Serialization\Json;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Session\UserSession;
+use Drupal\Core\Url;
 use Drupal\simpletest\WebTestBase;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Tests for common theme functions.
@@ -28,7 +28,7 @@ class FunctionsTest extends WebTestBase {
   public static $modules = array('router_test');
 
   /**
-   * Tests theme_item_list().
+   * Tests item-list.html.twig.
    */
   function testItemList() {
     // Verify that empty items produce no output.
@@ -54,6 +54,22 @@ class FunctionsTest extends WebTestBase {
     $variables['empty'] = 'No items found.';
     $expected = '<div class="item-list"><h3>Some title</h3>No items found.</div>';
     $this->assertThemeOutput('item_list', $variables, $expected, 'Empty %callback generates empty string with title.');
+
+    // Verify that title set to 0 is output.
+    $variables = array();
+    $variables['title'] = 0;
+    $variables['empty'] = 'No items found.';
+    $expected = '<div class="item-list"><h3>0</h3>No items found.</div>';
+    $this->assertThemeOutput('item_list', $variables, $expected, '%callback with title set to 0 generates a title.');
+
+    // Verify that title set to a render array is output.
+    $variables = array();
+    $variables['title'] = array(
+      '#markup' => '<span>Render array</span>',
+    );
+    $variables['empty'] = 'No items found.';
+    $expected = '<div class="item-list"><h3><span>Render array</span></h3>No items found.</div>';
+    $this->assertThemeOutput('item_list', $variables, $expected, '%callback with title set to a render array generates a title.');
 
     // Verify that empty text is not displayed when there are list items.
     $variables = array();
@@ -155,7 +171,7 @@ class FunctionsTest extends WebTestBase {
    * Tests links.html.twig.
    */
   function testLinks() {
-    // Turn off the query for the l() function to compare the active
+    // Turn off the query for the _l() function to compare the active
     // link correctly.
     $original_query = \Drupal::request()->query->all();
     \Drupal::request()->query->replace(array());
@@ -175,28 +191,40 @@ class FunctionsTest extends WebTestBase {
     $variables['links'] = array(
       'a link' => array(
         'title' => 'A <link>',
-        'href' => 'a/link',
+        'url' => Url::fromUri('base:a/link'),
       ),
       'plain text' => array(
         'title' => 'Plain "text"',
       ),
+      'html text' => array(
+        'title' => SafeMarkup::format('<span class="unescaped">@text</span>', array('@text' => 'potentially unsafe text that <should> be escaped')),
+      ),
       'front page' => array(
         'title' => 'Front page',
-        'href' => '<front>',
+        'url' => Url::fromRoute('<front>'),
       ),
       'router-test' => array(
         'title' => 'Test route',
-        'route_name' => 'router_test.1',
-        'route_parameters' => array(),
+        'url' => Url::fromRoute('router_test.1'),
+      ),
+      'query-test' => array(
+        'title' => 'Query test route',
+        'url' => Url::fromRoute('router_test.1'),
+        'query' => array(
+          'key' => 'value',
+        )
       ),
     );
 
     $expected_links = '';
     $expected_links .= '<ul id="somelinks">';
-    $expected_links .= '<li class="a-link"><a href="' . url('a/link') . '">' . String::checkPlain('A <link>') . '</a></li>';
-    $expected_links .= '<li class="plain-text">' . String::checkPlain('Plain "text"') . '</li>';
-    $expected_links .= '<li class="front-page"><a href="' . url('<front>') . '">' . String::checkPlain('Front page') . '</a></li>';
-    $expected_links .= '<li class="router-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1') . '">' . String::checkPlain('Test route') . '</a></li>';
+    $expected_links .= '<li class="a-link"><a href="' . Url::fromUri('base:a/link')->toString() . '">' . SafeMarkup::checkPlain('A <link>') . '</a></li>';
+    $expected_links .= '<li class="plain-text">' . SafeMarkup::checkPlain('Plain "text"') . '</li>';
+    $expected_links .= '<li class="html-text"><span class="unescaped">' . SafeMarkup::checkPlain('potentially unsafe text that <should> be escaped') . '</span></li>';
+    $expected_links .= '<li class="front-page"><a href="' . Url::fromRoute('<front>')->toString() . '">' . SafeMarkup::checkPlain('Front page') . '</a></li>';
+    $expected_links .= '<li class="router-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1') . '">' . SafeMarkup::checkPlain('Test route') . '</a></li>';
+    $query = array('key' => 'value');
+    $expected_links .= '<li class="query-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1', $query) . '">' . SafeMarkup::checkPlain('Query test route') . '</a></li>';
     $expected_links .= '</ul>';
 
     // Verify that passing a string as heading works.
@@ -209,7 +237,11 @@ class FunctionsTest extends WebTestBase {
     \Drupal::request()->query->replace($original_query);
 
     // Verify that passing an array as heading works (core support).
-    $variables['heading'] = array('text' => 'Links heading', 'level' => 'h3', 'class' => 'heading');
+    $variables['heading'] = array(
+      'text' => 'Links heading',
+      'level' => 'h3',
+      'attributes' => array('class' => array('heading')),
+    );
     $expected_heading = '<h3 class="heading">Links heading</h3>';
     $expected = $expected_heading . $expected_links;
     $this->assertThemeOutput('links', $variables, $expected);
@@ -221,18 +253,18 @@ class FunctionsTest extends WebTestBase {
     $this->assertThemeOutput('links', $variables, $expected);
 
     // Verify that passing attributes for the links work.
-    $variables['links']['a link']['attributes'] = array(
-      'class' => array('a/class'),
-    );
     $variables['links']['plain text']['attributes'] = array(
       'class' => array('a/class'),
     );
     $expected_links = '';
     $expected_links .= '<ul id="somelinks">';
-    $expected_links .= '<li class="a-link"><a href="' . url('a/link') . '" class="a/class">' . String::checkPlain('A <link>') . '</a></li>';
-    $expected_links .= '<li class="plain-text"><span class="a/class">' . String::checkPlain('Plain "text"') . '</span></li>';
-    $expected_links .= '<li class="front-page"><a href="' . url('<front>') . '">' . String::checkPlain('Front page') . '</a></li>';
-    $expected_links .= '<li class="router-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1') . '">' . String::checkPlain('Test route') . '</a></li>';
+    $expected_links .= '<li class="a-link"><a href="' . Url::fromUri('base:a/link')->toString() . '">' . SafeMarkup::checkPlain('A <link>') . '</a></li>';
+    $expected_links .= '<li class="plain-text"><span class="a/class">' . SafeMarkup::checkPlain('Plain "text"') . '</span></li>';
+    $expected_links .= '<li class="html-text"><span class="unescaped">' . SafeMarkup::checkPlain('potentially unsafe text that <should> be escaped') . '</span></li>';
+    $expected_links .= '<li class="front-page"><a href="' . Url::fromRoute('<front>')->toString() . '">' . SafeMarkup::checkPlain('Front page') . '</a></li>';
+    $expected_links .= '<li class="router-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1') . '">' . SafeMarkup::checkPlain('Test route') . '</a></li>';
+    $query = array('key' => 'value');
+    $expected_links .= '<li class="query-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1', $query) . '">' . SafeMarkup::checkPlain('Query test route') . '</a></li>';
     $expected_links .= '</ul>';
     $expected = $expected_heading . $expected_links;
     $this->assertThemeOutput('links', $variables, $expected);
@@ -242,10 +274,14 @@ class FunctionsTest extends WebTestBase {
     $variables['set_active_class'] = TRUE;
     $expected_links = '';
     $expected_links .= '<ul id="somelinks">';
-    $expected_links .= '<li class="a-link" data-drupal-link-system-path="a/link"><a href="' . url('a/link') . '" class="a/class" data-drupal-link-system-path="a/link">' . String::checkPlain('A <link>') . '</a></li>';
-    $expected_links .= '<li class="plain-text"><span class="a/class">' . String::checkPlain('Plain "text"') . '</span></li>';
-    $expected_links .= '<li class="front-page" data-drupal-link-system-path="&lt;front&gt;"><a href="' . url('<front>') . '" data-drupal-link-system-path="&lt;front&gt;">' . String::checkPlain('Front page') . '</a></li>';
-    $expected_links .= '<li class="router-test" data-drupal-link-system-path="router_test/test1"><a href="' . \Drupal::urlGenerator()->generate('router_test.1') . '" data-drupal-link-system-path="router_test/test1">' . String::checkPlain('Test route') . '</a></li>';
+    $expected_links .= '<li class="a-link"><a href="' . Url::fromUri('base:a/link')->toString() . '">' . SafeMarkup::checkPlain('A <link>') . '</a></li>';
+    $expected_links .= '<li class="plain-text"><span class="a/class">' . SafeMarkup::checkPlain('Plain "text"') . '</span></li>';
+    $expected_links .= '<li class="html-text"><span class="unescaped">' . SafeMarkup::checkPlain('potentially unsafe text that <should> be escaped') . '</span></li>';
+    $expected_links .= '<li data-drupal-link-system-path="&lt;front&gt;" class="front-page"><a href="' . Url::fromRoute('<front>')->toString() . '" data-drupal-link-system-path="&lt;front&gt;">' . SafeMarkup::checkPlain('Front page') . '</a></li>';
+    $expected_links .= '<li data-drupal-link-system-path="router_test/test1" class="router-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1') . '" data-drupal-link-system-path="router_test/test1">' . SafeMarkup::checkPlain('Test route') . '</a></li>';
+    $query = array('key' => 'value');
+    $encoded_query = SafeMarkup::checkPlain(Json::encode($query));
+    $expected_links .= '<li data-drupal-link-query="'.$encoded_query.'" data-drupal-link-system-path="router_test/test1" class="query-test"><a href="' . \Drupal::urlGenerator()->generate('router_test.1', $query) . '" data-drupal-link-query="'.$encoded_query.'" data-drupal-link-system-path="router_test/test1">' . SafeMarkup::checkPlain('Query test route') . '</a></li>';
     $expected_links .= '</ul>';
     $expected = $expected_heading . $expected_links;
     $this->assertThemeOutput('links', $variables, $expected);
@@ -263,7 +299,7 @@ class FunctionsTest extends WebTestBase {
       '#links' => array(
         'parent_link' => array(
           'title' => 'Parent link original',
-          'href' => 'parent-link-original',
+          'url' => Url::fromRoute('router_test.1'),
         ),
       ),
       'first_child' => array(
@@ -274,12 +310,12 @@ class FunctionsTest extends WebTestBase {
           // one of the parent's links).
           'parent_link' => array(
             'title' => 'Parent link copy',
-            'href' => 'parent-link-copy',
+            'url' => Url::fromRoute('router_test.6'),
           ),
           // This should always be rendered.
           'first_child_link' => array(
             'title' => 'First child link',
-            'href' => 'first-child-link',
+            'url' => Url::fromRoute('router_test.7'),
           ),
         ),
       ),
@@ -289,7 +325,7 @@ class FunctionsTest extends WebTestBase {
         '#links' => array(
           'second_child_link' => array(
             'title' => 'Second child link',
-            'href' => 'second-child-link',
+            'url' => Url::fromRoute('router_test.8'),
           ),
         ),
       ),
@@ -300,7 +336,7 @@ class FunctionsTest extends WebTestBase {
         '#links' => array(
           'third_child_link' => array(
             'title' => 'Third child link',
-            'href' => 'third-child-link',
+            'url' => Url::fromRoute('router_test.9'),
           ),
         ),
         '#access' => FALSE,
@@ -311,7 +347,7 @@ class FunctionsTest extends WebTestBase {
     // thing. We expect a single <ul> with appropriate links contained within
     // it.
     $render_array = $base_array;
-    $html = drupal_render($render_array);
+    $html = \Drupal::service('renderer')->renderRoot($render_array);
     $dom = new \DOMDocument();
     $dom->loadHTML($html);
     $this->assertEqual($dom->getElementsByTagName('ul')->length, 1, 'One "ul" tag found in the rendered HTML.');
@@ -327,8 +363,8 @@ class FunctionsTest extends WebTestBase {
     // sure we get two separate <ul>'s with the appropriate links contained
     // within each.
     $render_array = $base_array;
-    $child_html = drupal_render($render_array['first_child']);
-    $parent_html = drupal_render($render_array);
+    $child_html = \Drupal::service('renderer')->renderRoot($render_array['first_child']);
+    $parent_html = \Drupal::service('renderer')->renderRoot($render_array);
     // First check the child HTML.
     $dom = new \DOMDocument();
     $dom->loadHTML($child_html);
@@ -348,4 +384,17 @@ class FunctionsTest extends WebTestBase {
     $this->assertIdentical(strpos($parent_html, 'First child link'), FALSE, '"First child link" link not found.');
     $this->assertIdentical(strpos($parent_html, 'Third child link'), FALSE, '"Third child link" link not found.');
   }
+
+  /**
+   * Tests theme_image().
+   */
+  function testImage() {
+    // Test that data URIs work with theme_image().
+    $variables = array();
+    $variables['uri'] = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==';
+    $variables['alt'] = 'Data URI image of a red dot';
+    $expected = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Data URI image of a red dot" />' . "\n";
+    $this->assertThemeOutput('image', $variables, $expected);
+  }
+
 }

@@ -8,6 +8,7 @@
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form constructor to test the #required property.
@@ -24,9 +25,9 @@ class FormTestValidateRequiredForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $options = array('foo' => 'foo', 'bar' => 'bar');
-    $validate = array(array($this, 'elementValidateRequired'));
+    $validate = array('::elementValidateRequired');
 
     $form['textfield'] = array(
       '#type' => 'textfield',
@@ -75,17 +76,17 @@ class FormTestValidateRequiredForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function elementValidateRequired($element, &$form_state) {
+  public function elementValidateRequired($element, FormStateInterface $form_state) {
     // Set a custom validation error on the #required element.
     if (!empty($element['#required_but_empty']) && isset($element['#form_test_required_error'])) {
-      form_error($element, $form_state, $element['#form_test_required_error']);
+      $form_state->setError($element, $element['#form_test_required_error']);
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     drupal_set_message('The form_test_validate_required_form form was submitted successfully.');
   }
 

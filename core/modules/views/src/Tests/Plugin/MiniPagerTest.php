@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\views\Tests\Plugin\MiniPagerTest.
+ * Contains \Drupal\views\Tests\Plugin\MiniPagerTest.
  */
 
 namespace Drupal\views\Tests\Plugin;
@@ -41,6 +41,7 @@ class MiniPagerTest extends PluginTestBase {
   protected function setUp() {
     parent::setUp();
 
+    $this->drupalCreateContentType(array('type' => 'page'));
     // Create a bunch of test nodes.
     for ($i = 0; $i < 20; $i++) {
       $this->nodes[] = $this->drupalCreateNode();

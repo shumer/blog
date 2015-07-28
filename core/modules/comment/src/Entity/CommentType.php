@@ -17,7 +17,7 @@ use Drupal\comment\CommentTypeInterface;
  * @ConfigEntityType(
  *   id = "comment_type",
  *   label = @Translation("Comment type"),
- *   controllers = {
+ *   handlers = {
  *     "form" = {
  *       "default" = "Drupal\comment\CommentTypeForm",
  *       "add" = "Drupal\comment\CommentTypeForm",
@@ -34,9 +34,16 @@ use Drupal\comment\CommentTypeInterface;
  *     "label" = "label"
  *   },
  *   links = {
- *     "delete-form" = "comment.type_delete",
- *     "edit-form" = "comment.type_edit",
- *     "add-form" = "comment.type_add"
+ *     "delete-form" = "/admin/structure/comment/manage/{comment_type}/delete",
+ *     "edit-form" = "/admin/structure/comment/manage/{comment_type}",
+ *     "add-form" = "/admin/structure/comment/types/add",
+ *     "collection" = "/admin/structure/comment/types",
+ *   },
+ *   config_export = {
+ *     "id",
+ *     "label",
+ *     "target_entity_type_id",
+ *     "description",
  *   }
  * )
  */
@@ -90,16 +97,6 @@ class CommentType extends ConfigEntityBundleBase implements CommentTypeInterface
    */
   public function getTargetEntityTypeId() {
     return $this->target_entity_type_id;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
-    parent::postSave($storage, $update);
-    if (!$update && !$this->isSyncing()) {
-      \Drupal::service('comment.manager')->addBodyField($this->id());
-    }
   }
 
 }

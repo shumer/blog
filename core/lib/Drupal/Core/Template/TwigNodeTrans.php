@@ -51,7 +51,7 @@ class TwigNodeTrans extends \Twig_Node {
     }
 
     // Start writing with the function to be called.
-    $compiler->write('echo ' . (empty($plural) ? 't' : 'format_plural') . '(');
+    $compiler->write('echo ' . (empty($plural) ? 't' : '\Drupal::translation()->formatPlural') . '(');
 
     // Move the count to the beginning of the parameters list.
     if (!empty($plural)) {
@@ -82,20 +82,7 @@ class TwigNodeTrans extends \Twig_Node {
     // Write function closure.
     $compiler->raw(')');
 
-    // Append translation debug markup, if necessary.
-    if (Settings::get('twig_debug', FALSE)) {
-      $compiler->raw(" . '\n<!-- TRANSLATION: ");
-      $compiler->subcompile($singular);
-      if (!empty($plural)) {
-        $compiler->raw(', PLURAL: ')->subcompile($plural);
-      }
-      if (!empty($options)) {
-        foreach ($options->getKeyValuePairs() as $pair) {
-          $compiler->raw(', ' . Unicode::strtoupper($pair['key']->getAttribute('value')) . ': ')->subcompile($pair['value']);
-        }
-      }
-      $compiler->raw(" -->\n'");
-    }
+    // @todo Add debug output, see https://www.drupal.org/node/2512672
 
     // End writing.
     $compiler->raw(";\n");
@@ -136,7 +123,7 @@ class TwigNodeTrans extends \Twig_Node {
 
           $args = $n;
 
-          // Support twig_render_var function in chain.
+          // Support TwigExtension->renderVar() function in chain.
           if ($args instanceof \Twig_Node_Expression_Function) {
             $args = $n->getNode('arguments')->getNode(0);
           }

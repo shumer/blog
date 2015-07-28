@@ -1,23 +1,27 @@
+langcode: en
+status: true
+dependencies: {  }
+id: test_page_display_menu
+label: 'Test page menu'
+module: views
+description: ''
+tag: ''
 base_table: views_test_data
 base_field: id
 core: '8'
-description: ''
-status: '1'
 display:
   default:
     display_options:
       defaults:
-        fields: '0'
-        pager: '0'
-        pager_options: '0'
-        sorts: '0'
+        fields: false
+        pager: false
+        sorts: false
       fields:
         id:
           id: id
           table: views_test_data
           field: id
           plugin_id: numeric
-          provider: views_test_data
     display_plugin: default
     display_title: Master
     id: default
@@ -30,17 +34,17 @@ display:
         type: 'default tab'
         title: 'Test default tab'
         description: ''
-        name: tools
-        weight: '-10'
+        menu_name: tools
+        weight: -10
         context: '0'
       tab_options:
         type: normal
         title: 'Test parent path'
         description: ''
-        name: tools
-        weight: '0'
+        menu_name: tools
+        weight: 0
       defaults:
-        title: '0'
+        title: false
     display_plugin: page
     display_title: Page
     id: page_1
@@ -53,15 +57,65 @@ display:
         type: tab
         title: 'Test local tab'
         description: ''
-        name: tools
-        weight: '0'
+        menu_name: tools
+        weight: 0
         context: '0'
       defaults:
-        title: '0'
+        title: false
     display_plugin: page
     display_title: Page
     id: page_2
     position: 0
-label: 'Test page menu'
-id: test_page_display_menu
-tag: ''
+  page_3:
+    display_options:
+      path: test_page_display_menu_link
+      title: 'Test menu link'
+      menu:
+        type: normal
+        title: 'Test menu link'
+        description: ''
+        menu_name: tools
+        weight: 0
+        context: '0'
+      defaults:
+        title: false
+    display_plugin: page
+    display_title: Page
+    id: page_3
+    position: 0
+  page_4:
+    display_options:
+      path: test_page_display_menu/child
+      title: 'Test page as child'
+      menu:
+        type: normal
+        title: 'Test child (with parent)'
+        parent: system.admin
+        description: ''
+        menu_name: admin
+        weight: 0
+        context: '0'
+      defaults:
+        title: false
+    display_plugin: page
+    display_title: Page
+    id: page_4
+    position: 0
+  page_5:
+    display_options:
+      path: test-path
+      title: 'Tests a menu with a non-existing parent'
+      menu:
+        type: normal
+        title: 'Test child with non-existing parent'
+        parent: llamasarelame
+        description: ''
+        menu_name: admin
+        weight: 0
+        context: '0'
+      defaults:
+        title: false
+    display_plugin: page
+    display_title: Page
+    id: page_5
+    position: 0

@@ -9,18 +9,18 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Extension\ExtensionDiscovery;
 
 /**
- * Builds a list of enabled themes.
+ * Builds a list of installed themes.
  *
  * @param $type
  *   The type of list to return:
- *   - theme: All enabled themes.
+ *   - theme: All installed themes.
  *
  * @return
  *   An associative array of themes, keyed by name.
  *   For $type 'theme', the array values are objects representing the
  *   respective database row, with the 'info' property already unserialized.
  *
- * @see list_themes()
+ * @see \Drupal\Core\Extension\ThemeHandler::listInfo()
  */
 function system_list($type) {
   $lists = &drupal_static(__FUNCTION__);
@@ -45,7 +45,7 @@ function system_list($type) {
     \Drupal::cache('bootstrap')->set('system_list', $lists);
   }
   // To avoid a separate database lookup for the filepath, prime the
-  // drupal_get_filename() static cache with all enabled modules and themes.
+  // drupal_get_filename() static cache with all enabled themes.
   foreach ($lists['filepaths'] as $item) {
     system_register($item['type'], $item['name'], $item['filepath']);
   }
@@ -60,16 +60,6 @@ function system_list_reset() {
   drupal_static_reset('system_list');
   drupal_static_reset('system_rebuild_module_data');
   \Drupal::cache('bootstrap')->delete('system_list');
-
-  // Clear the library info cache.
-  // Libraries may be provided by all extension types, and may be altered by any
-  // other extensions (types) due to the nature of
-  // \Drupal\Core\Extension\ModuleHandler::alter() and the fact that profiles
-  // are recorded and handled as modules.
-  // @todo Trigger an event upon module install/uninstall and theme
-  //   enable/disable, and move this into an event subscriber.
-  // @see https://drupal.org/node/2206347
-  Cache::invalidateTags(array('extension' => TRUE));
 }
 
 /**
@@ -152,121 +142,10 @@ function module_load_include($type, $module, $name = NULL) {
 }
 
 /**
- * Installs a given list of modules.
- *
- * @see \Drupal\Core\Extension\ModuleHandlerInterface::install()
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0. Use
- *   \Drupal::moduleHandler()->install($module_list, $enable_dependencies = TRUE).
- */
-function module_install($module_list, $enable_dependencies = TRUE) {
-  return \Drupal::moduleHandler()->install($module_list, $enable_dependencies);
-}
-
-/**
- * Installs a given list of modules.
- *
- * @see \Drupal\Core\Extension\ModuleHandlerInterface::module_install()
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0. Use
- *   \Drupal::moduleHandler()->uninstall($module_list, $enable_dependencies = TRUE).
- */
-function module_uninstall($module_list = array(), $uninstall_dependents = TRUE) {
-  return \Drupal::moduleHandler()->uninstall($module_list, $uninstall_dependents);
-}
-
-/**
- * @defgroup hooks Hooks
- * @{
- * Define functions that alter the behavior of Drupal core.
- *
- * One way for modules to alter the core behavior of Drupal (or another module)
- * is to use hooks. Hooks are specially-named functions that a module defines
- * (this is known as "implementing the hook"), which are discovered and called
- * at specific times to alter or add to the base behavior or data (this is
- * known as "invoking the hook"). Each hook has a name (example:
- * hook_batch_alter()), a defined set of parameters, and a defined return value.
- * Your modules can implement hooks that are defined by Drupal core or other
- * modules that they interact with. Your modules can also define their own
- * hooks, in order to let other modules interact with them.
- *
- * To implement a hook:
- * - Locate the documentation for the hook. Hooks are documented in *.api.php
- *   files, by defining functions whose name starts with "hook_" (these
- *   files and their functions are never loaded by Drupal -- they exist solely
- *   for documentation). The function should have a documentation header, as
- *   well as a sample function body. For example, in the core file
- *   system.api.php, you can find hooks such as hook_batch_alter(). Also, if
- *   you are viewing this documentation on an API reference site, the Core
- *   hooks will be listed in this topic.
- * - Copy the function to your module's .module file.
- * - Change the name of the function, substituting your module's short name
- *   (name of the module's directory, and .info.yml file without the extension)
- *   for the "hook" part of the sample function name. For instance, to implemnt
- *   hook_batch_alter(), you would rename it to my_module_batch_alter().
- * - Edit the documentation for the function (normally, your implementation
- *   should just have one line saying "Implements hook_batch_alter().").
- * - Edit the body of the function, substituting in what you need your module
- *   to do.
- *
- * To define a hook:
- * - Choose a unique name for your hook. It should start with "hook_", followed
- *   by your module's short name.
- * - Provide documentation in a *.api.php file in your module's main
- *   directory. See the "implementing" section above for details of what this
- *   should contain (parameters, return value, and sample function body).
- * - Invoke the hook in your module's code.
- *
- * To invoke a hook, use methods on
- * \Drupal\Core\Extension\ModuleHandlerInterface such as alter(), invoke(),
- * and invokeAll(). You can obtain a module handler by calling
- * \Drupal::moduleHandler(), or getting the 'module_handler' service on an
- * injected container.
- *
- * @see extending
- * @see themeable
- * @see callbacks
- * @see \Drupal\Core\Extension\ModuleHandlerInterface
- * @see \Drupal::moduleHandler()
- *
- * @}
- */
-
-/**
- * @defgroup callbacks Callbacks
- * @{
- * Callback function signatures.
- *
- * Drupal's API sometimes uses callback functions to allow you to define how
- * some type of processing happens. A callback is a function with a defined
- * signature, which you define in a module. Then you pass the function name as
- * a parameter to a Drupal API function or return it as part of a hook
- * implementation return value, and your function is called at an appropriate
- * time. For instance, when setting up batch processing you might need to
- * provide a callback function for each processing step and/or a callback for
- * when processing is finished; you would do that by defining these functions
- * and passing their names into the batch setup function.
- *
- * Callback function signatures, like hook definitions, are described by
- * creating and documenting dummy functions in a *.api.php file; normally, the
- * dummy callback function's name should start with "callback_", and you should
- * document the parameters and return value and provide a sample function body.
- * Then your API documentation can refer to this callback function in its
- * documentation. A user of your API can usually name their callback function
- * anything they want, although a standard name would be to replace "callback_"
- * with the module name.
- *
- * @see hooks
- * @see themeable
- *
- * @}
- */
-
-/**
  * Returns an array of modules required by core.
  */
 function drupal_required_modules() {
-  $listing = new ExtensionDiscovery();
+  $listing = new ExtensionDiscovery(\Drupal::root());
   $files = $listing->scan('module');
   $required = array();
 
@@ -298,13 +177,14 @@ function drupal_required_modules() {
  *   An integer representing the weight of the module.
  */
 function module_set_weight($module, $weight) {
-  // Update the module weight in the config file that contains it.
-  $extension_config = \Drupal::config('core.extension');
+  $extension_config = \Drupal::configFactory()->getEditable('core.extension');
   if ($extension_config->get("module.$module") !== NULL) {
+    // Pre-cast the $weight to an integer so that we can save this without using
+    // schema. This is a performance improvement for module installation.
     $extension_config
-      ->set("module.$module", $weight)
+      ->set("module.$module", (int) $weight)
       ->set('module', module_config_sort($extension_config->get('module')))
-      ->save();
+      ->save(TRUE);
 
     // Prepare the new module list, sorted by weight, including filenames.
     // @see \Drupal\Core\Extension\ModuleHandler::install()

@@ -2,16 +2,16 @@
 
 /**
  * @file
- * Contains Drupal\language\HttpKernel\PathProcessorLanguage.
+ * Contains \Drupal\language\HttpKernel\PathProcessorLanguage.
  */
 
 namespace Drupal\language\HttpKernel;
 
 use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\PathProcessor\InboundPathProcessorInterface;
 use Drupal\Core\PathProcessor\OutboundPathProcessorInterface;
-use Drupal\Core\Site\Settings;
 use Drupal\language\ConfigurableLanguageManagerInterface;
 use Drupal\language\LanguageNegotiatorInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,13 +28,6 @@ class PathProcessorLanguage implements InboundPathProcessorInterface, OutboundPa
    * @var \Drupal\Core\Config\ConfigFactoryInterface
    */
   protected $config;
-
-  /**
-   * Whether both secure and insecure session cookies can be used simultaneously.
-   *
-   * @var bool
-   */
-  protected $mixedModeSessions;
 
   /**
    * Language manager for retrieving the url language type.
@@ -69,8 +62,6 @@ class PathProcessorLanguage implements InboundPathProcessorInterface, OutboundPa
    *
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config
    *   A config factory object for retrieving configuration settings.
-   * @param \Drupal\Core\Site\Settings $settings
-   *   The settings instance.
    * @param \Drupal\language\ConfigurableLanguageManagerInterface $language_manager
    *   The configurable language manager.
    * @param \Drupal\language\LanguageNegotiatorInterface
@@ -78,9 +69,8 @@ class PathProcessorLanguage implements InboundPathProcessorInterface, OutboundPa
    * @param \Drupal\Core\Session\AccountInterface $current_user
    *   The current active user.
    */
-  public function __construct(ConfigFactoryInterface $config, Settings $settings, ConfigurableLanguageManagerInterface $language_manager, LanguageNegotiatorInterface $negotiator, AccountInterface $current_user) {
+  public function __construct(ConfigFactoryInterface $config, ConfigurableLanguageManagerInterface $language_manager, LanguageNegotiatorInterface $negotiator, AccountInterface $current_user) {
     $this->config = $config;
-    $this->mixedModeSessions = $settings->get('mixed_mode_sessions', FALSE);
     $this->languageManager = $language_manager;
     $this->negotiator = $negotiator;
     $this->negotiator->setCurrentUser($current_user);
@@ -105,7 +95,7 @@ class PathProcessorLanguage implements InboundPathProcessorInterface, OutboundPa
   /**
    * {@inheritdoc}
    */
-  public function processOutbound($path, &$options = array(), Request $request = NULL) {
+  public function processOutbound($path, &$options = array(), Request $request = NULL, CacheableMetadata $cacheable_metadata = NULL) {
     if (!isset($this->multilingual)) {
       $this->multilingual = $this->languageManager->isMultilingual();
     }
@@ -115,10 +105,8 @@ class PathProcessorLanguage implements InboundPathProcessorInterface, OutboundPa
       if (!isset($this->processors[$scope])) {
         $this->initProcessors($scope);
       }
-      // Execute outbound language processors.
-      $options['mixed_mode_sessions'] = $this->mixedModeSessions;
       foreach ($this->processors[$scope] as $instance) {
-        $path = $instance->processOutbound($path, $options, $request);
+        $path = $instance->processOutbound($path, $options, $request, $cacheable_metadata);
       }
       // No language dependent path allowed in this mode.
       if (empty($this->processors[$scope])) {

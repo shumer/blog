@@ -2,19 +2,19 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Theme\TableTest.
+ * Contains \Drupal\system\Tests\Theme\TableTest.
  */
 
 namespace Drupal\system\Tests\Theme;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests built-in table theme functions.
  *
  * @group Theme
  */
-class TableTest extends DrupalUnitTestBase {
+class TableTest extends KernelTestBase {
 
   /**
    * Modules to enable.
@@ -22,6 +22,16 @@ class TableTest extends DrupalUnitTestBase {
    * @var array
    */
   public static $modules = array('system');
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
+    parent::setUp();
+
+    $this->installSchema('system', 'router');
+    \Drupal::service('router.builder')->rebuild();
+  }
 
   /**
    * Tableheader.js provides 'sticky' table headers, and is included by default.
@@ -36,10 +46,8 @@ class TableTest extends DrupalUnitTestBase {
       '#sticky' => TRUE,
     );
     $this->render($table);
-    $js = _drupal_add_js();
-    $this->assertTrue(isset($js['core/misc/tableheader.js']), 'tableheader.js found.');
+    $this->assertTrue(in_array('core/drupal.tableheader', $table['#attached']['library']), 'tableheader asset library found.');
     $this->assertRaw('sticky-enabled');
-    drupal_static_reset('_drupal_add_js');
   }
 
   /**
@@ -61,10 +69,8 @@ class TableTest extends DrupalUnitTestBase {
       '#sticky' => FALSE,
     );
     $this->render($table);
-    $js = _drupal_add_js();
-    $this->assertFalse(isset($js['core/misc/tableheader.js']), 'tableheader.js not found.');
+    $this->assertFalse(in_array('core/drupal.tableheader', $table['#attached']['library']), 'tableheader asset library not found.');
     $this->assertNoRaw('sticky-enabled');
-    drupal_static_reset('_drupal_add_js');
   }
 
   /**
@@ -85,6 +91,11 @@ class TableTest extends DrupalUnitTestBase {
       '#rows' => array(),
       '#empty' => 'Empty row.',
     );
+
+    // Enable the Classy theme.
+    \Drupal::service('theme_handler')->install(['classy']);
+    $this->config('system.theme')->set('default', 'classy')->save();
+
     $this->render($table);
     $this->removeWhiteSpace();
     $this->assertRaw('<thead><tr><th>Header 1</th><th colspan="2">Header 2</th></tr>', 'Table header found.');
@@ -226,4 +237,75 @@ class TableTest extends DrupalUnitTestBase {
     $this->assertRaw('<td>6</td>', 'Cell 3: no priority classes were applied.');
   }
 
+  /**
+   * Tests header elements with a mix of string and render array values.
+   */
+  public function testThemeTableHeaderRenderArray() {
+    $header = array(
+      array (
+        'data' => array(
+          '#markup' => 'one',
+        ),
+      ),
+      'two',
+      array (
+        'data' => array(
+          '#type' => 'html_tag',
+          '#tag' => 'b',
+          '#value' => 'three',
+        ),
+      ),
+    );
+    $rows = array(array(1,2,3), array(4,5,6), array(7,8,9));
+    $table = array(
+      '#type' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#responsive' => FALSE,
+    );
+    $this->render($table);
+    $this->removeWhiteSpace();
+    $this->assertRaw('<thead><tr><th>one</th><th>two</th><th><b>three</b></th></tr>', 'Table header found.');
+  }
+
+  /**
+   * Tests row elements with a mix of string and render array values.
+   */
+  public function testThemeTableRowRenderArray() {
+    $header = array('one', 'two', 'three');
+    $rows = array(
+      array(
+        '1-one',
+        array(
+          'data' => '1-two'
+        ),
+        '1-three',
+      ),
+      array(
+        array (
+          'data' => array(
+            '#markup' => '2-one',
+          ),
+        ),
+        '2-two',
+        array (
+          'data' => array(
+            '#type' => 'html_tag',
+            '#tag' => 'b',
+            '#value' => '2-three',
+          ),
+        ),
+      ),
+    );
+    $table = array(
+      '#type' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#responsive' => FALSE,
+    );
+    $this->render($table);
+    $this->removeWhiteSpace();
+    $this->assertRaw('<tbody><tr><td>1-one</td><td>1-two</td><td>1-three</td></tr>', 'Table row 1 found.');
+    $this->assertRaw('<tr><td>2-one</td><td>2-two</td><td><b>2-three</b></td></tr></tbody>', 'Table row 2 found.');
+  }
 }

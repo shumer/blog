@@ -41,7 +41,7 @@ class HandlerArgumentUserUidTest extends UserTestBase {
     $view->destroy();
 
     // Tests the anonymous user.
-    $anonymous = $this->container->get('config.factory')->get('user.settings')->get('anonymous');
+    $anonymous = $this->config('user.settings')->get('anonymous');
     $this->executeView($view, array(0));
     $this->assertEqual($view->getTitle(), $anonymous);
     $view->destroy();
@@ -49,6 +49,11 @@ class HandlerArgumentUserUidTest extends UserTestBase {
     $view->getDisplay()->getHandler('argument', 'uid')->options['break_phrase'] = TRUE;
     $this->executeView($view, array($account->id() . ',0'));
     $this->assertEqual($view->getTitle(), $account->label() . ', ' . $anonymous);
+    $view->destroy();
+
+    $view->getDisplay()->getHandler('argument', 'uid')->options['break_phrase'] = TRUE;
+    $this->executeView($view, array('0,' . $account->id()));
+    $this->assertEqual($view->getTitle(), $anonymous . ', ' . $account->label());
     $view->destroy();
   }
 

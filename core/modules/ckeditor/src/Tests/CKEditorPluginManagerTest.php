@@ -2,12 +2,12 @@
 
 /**
  * @file
- * Definition of \Drupal\ckeditor\Tests\CKEditorPluginManagerTest.
+ * Contains \Drupal\ckeditor\Tests\CKEditorPluginManagerTest.
  */
 
 namespace Drupal\ckeditor\Tests;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 use Drupal\ckeditor\CKEditorPluginManager;
 
 /**
@@ -15,14 +15,14 @@ use Drupal\ckeditor\CKEditorPluginManager;
  *
  * @group ckeditor
  */
-class CKEditorPluginManagerTest extends DrupalUnitTestBase {
+class CKEditorPluginManagerTest extends KernelTestBase {
 
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('system', 'editor', 'ckeditor');
+  public static $modules = array('system', 'user', 'filter', 'editor', 'ckeditor');
 
   /**
    * The manager for "CKEditor plugin" plugins.
@@ -31,12 +31,11 @@ class CKEditorPluginManagerTest extends DrupalUnitTestBase {
    */
   protected $manager;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Install the Filter module.
     $this->installSchema('system', 'url_alias');
-    $this->enableModules(array('user', 'filter'));
 
     // Create text format, associate CKEditor.
     $filtered_html_format = entity_create('filter_format', array(

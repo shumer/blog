@@ -38,24 +38,24 @@ class ImageItemTest extends FieldUnitTestBase {
    */
   protected $imageFactory;
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->installEntitySchema('file');
     $this->installSchema('file', array('file_usage'));
 
     entity_create('field_storage_config', array(
-      'name' => 'image_test',
       'entity_type' => 'entity_test',
+      'field_name' => 'image_test',
       'type' => 'image',
       'cardinality' => FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'image_test',
       'bundle' => 'entity_test',
     ))->save();
-    file_unmanaged_copy(DRUPAL_ROOT . '/core/misc/druplicon.png', 'public://example.jpg');
+    file_unmanaged_copy(\Drupal::root() . '/core/misc/druplicon.png', 'public://example.jpg');
     $this->image = entity_create('file', array(
       'uri' => 'public://example.jpg',
     ));
@@ -70,9 +70,9 @@ class ImageItemTest extends FieldUnitTestBase {
     // Create a test entity with the image field set.
     $entity = entity_create('entity_test');
     $entity->image_test->target_id = $this->image->id();
-    $entity->image_test->alt = $alt = $this->randomName();
-    $entity->image_test->title = $title = $this->randomName();
-    $entity->name->value = $this->randomName();
+    $entity->image_test->alt = $alt = $this->randomMachineName();
+    $entity->image_test->title = $title = $this->randomMachineName();
+    $entity->name->value = $this->randomMachineName();
     $entity->save();
 
     $entity = entity_load('entity_test', $entity->id());
@@ -88,14 +88,14 @@ class ImageItemTest extends FieldUnitTestBase {
     $this->assertEqual($entity->image_test->entity->uuid(), $this->image->uuid());
 
     // Make sure the computed entity reflects updates to the referenced file.
-    file_unmanaged_copy(DRUPAL_ROOT . '/core/misc/feed.png', 'public://example-2.jpg');
+    file_unmanaged_copy(\Drupal::root() . '/core/misc/feed.png', 'public://example-2.jpg');
     $image2 = entity_create('file', array(
       'uri' => 'public://example-2.jpg',
     ));
     $image2->save();
 
     $entity->image_test->target_id = $image2->id();
-    $entity->image_test->alt = $new_alt = $this->randomName();
+    $entity->image_test->alt = $new_alt = $this->randomMachineName();
     // The width and height is only updated when width is not set.
     $entity->image_test->width = NULL;
     $entity->save();
@@ -112,8 +112,13 @@ class ImageItemTest extends FieldUnitTestBase {
 
     // Delete the image and try to save the entity again.
     $this->image->delete();
-    $entity = entity_create('entity_test', array('mame' => $this->randomName()));
+    $entity = entity_create('entity_test', array('mame' => $this->randomMachineName()));
     $entity->save();
+
+    // Test the generateSampleValue() method.
+    $entity = entity_create('entity_test');
+    $entity->image_test->generateSampleItems();
+    $this->entityValidateAndSave($entity);
   }
 
 }

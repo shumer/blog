@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Queue\QueueTest.
+ * Contains \Drupal\system\Tests\Queue\QueueTest.
  */
 
 namespace Drupal\system\Tests\Queue;
@@ -10,14 +10,14 @@ namespace Drupal\system\Tests\Queue;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Queue\DatabaseQueue;
 use Drupal\Core\Queue\Memory;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Queues and dequeues a set of items to check the basic queue functionality.
  *
  * @group Queue
  */
-class QueueTest extends DrupalUnitTestBase {
+class QueueTest extends KernelTestBase {
 
   /**
    * The modules to enable.
@@ -32,9 +32,9 @@ class QueueTest extends DrupalUnitTestBase {
   public function testSystemQueue() {
     $this->installSchema('system', 'queue');
     // Create two queues.
-    $queue1 = new DatabaseQueue($this->randomName(), Database::getConnection());
+    $queue1 = new DatabaseQueue($this->randomMachineName(), Database::getConnection());
     $queue1->createQueue();
-    $queue2 = new DatabaseQueue($this->randomName(), Database::getConnection());
+    $queue2 = new DatabaseQueue($this->randomMachineName(), Database::getConnection());
     $queue2->createQueue();
 
     $this->queueTest($queue1, $queue2);
@@ -45,9 +45,9 @@ class QueueTest extends DrupalUnitTestBase {
    */
   public function testMemoryQueue() {
     // Create two queues.
-    $queue1 = new Memory($this->randomName());
+    $queue1 = new Memory($this->randomMachineName());
     $queue1->createQueue();
-    $queue2 = new Memory($this->randomName());
+    $queue2 = new Memory($this->randomMachineName());
     $queue2->createQueue();
 
     $this->queueTest($queue1, $queue2);
@@ -65,7 +65,7 @@ class QueueTest extends DrupalUnitTestBase {
     // Create four items.
     $data = array();
     for ($i = 0; $i < 4; $i++) {
-      $data[] = array($this->randomName() => $this->randomName());
+      $data[] = array($this->randomMachineName() => $this->randomMachineName());
     }
 
     // Queue items 1 and 2 in the queue1.

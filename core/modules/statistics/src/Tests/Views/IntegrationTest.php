@@ -55,10 +55,11 @@ class IntegrationTest extends ViewTestBase {
     // Create a new user for viewing nodes.
     $this->webUser = $this->drupalCreateUser(array('access content'));
 
+    $this->drupalCreateContentType(array('type' => 'page'));
     $this->node = $this->drupalCreateNode(array('type' => 'page'));
 
     // Enable access logging.
-    $this->container->get('config.factory')->get('statistics.settings')
+    $this->config('statistics.settings')
       ->set('access_log.enabled', 1)
       ->set('count_content_views', 1)
       ->save();

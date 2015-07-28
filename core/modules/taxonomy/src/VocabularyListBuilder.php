@@ -9,6 +9,8 @@ namespace Drupal\taxonomy;
 
 use Drupal\Core\Config\Entity\DraggableListBuilder;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /**
  * Defines a class to build a listing of taxonomy vocabulary entities.
@@ -42,11 +44,13 @@ class VocabularyListBuilder extends DraggableListBuilder {
     $operations['list'] = array(
       'title' => t('List terms'),
       'weight' => 0,
-    ) + $entity->urlInfo('overview-form')->toArray();
+      'url' => $entity->urlInfo('overview-form'),
+    );
     $operations['add'] = array(
       'title' => t('Add terms'),
       'weight' => 10,
-    ) + $entity->urlInfo('add-form')->toArray();
+      'url' => Url::fromRoute('entity.taxonomy_term.add_form', ['taxonomy_vocabulary' => $entity->id()]),
+    );
     unset($operations['delete']);
 
     return $operations;
@@ -79,14 +83,14 @@ class VocabularyListBuilder extends DraggableListBuilder {
       unset($this->weightKey);
     }
     $build = parent::render();
-    $build['#empty'] = t('No vocabularies available. <a href="@link">Add vocabulary</a>.', array('@link' => url('admin/structure/taxonomy/add')));
+    $build['table']['#empty'] = t('No vocabularies available. <a href="@link">Add vocabulary</a>.', array('@link' => \Drupal::url('entity.taxonomy_vocabulary.add_form')));
     return $build;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
     $form['vocabularies']['#attributes'] = array('id' => 'taxonomy');
     $form['actions']['submit']['#value'] = t('Save');
@@ -97,7 +101,7 @@ class VocabularyListBuilder extends DraggableListBuilder {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     parent::submitForm($form, $form_state);
 
     drupal_set_message(t('The configuration options have been saved.'));

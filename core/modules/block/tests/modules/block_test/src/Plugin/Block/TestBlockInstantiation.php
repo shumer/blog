@@ -7,7 +7,9 @@
 
 namespace Drupal\block_test\Plugin\Block;
 
-use Drupal\block\BlockBase;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Block\BlockBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /**
@@ -33,16 +35,16 @@ class TestBlockInstantiation extends BlockBase {
    * {@inheritdoc}
    */
   protected function blockAccess(AccountInterface $account) {
-    return $account->hasPermission('access content');
+    return AccessResult::allowedIfHasPermission($account, 'access content');
   }
 
   /**
    * {@inheritdoc}
    */
-  public function blockForm($form, &$form_state) {
+  public function blockForm($form, FormStateInterface $form_state) {
     $form['display_message'] = array(
       '#type' => 'textfield',
-      '#title' => t('Display message'),
+      '#title' => $this->t('Display message'),
       '#default_value' => $this->configuration['display_message'],
     );
     return $form;
@@ -51,8 +53,8 @@ class TestBlockInstantiation extends BlockBase {
   /**
    * {@inheritdoc}
    */
-  public function blockSubmit($form, &$form_state) {
-    $this->configuration['display_message'] = $form_state['values']['display_message'];
+  public function blockSubmit($form, FormStateInterface $form_state) {
+    $this->configuration['display_message'] = $form_state->getValue('display_message');
   }
 
   /**

@@ -8,26 +8,21 @@
 namespace Drupal\link\Plugin\Validation\Constraint;
 
 use Drupal\link\LinkItemInterface;
-use Drupal\Core\Url;
-use Drupal\Core\Routing\MatchingRouteNotFoundException;
-use Drupal\Core\ParamConverter\ParamNotConvertedException;
-use Drupal\Component\Utility\UrlHelper;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidatorInterface;
 use Symfony\Component\Validator\ExecutionContextInterface;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Validation constraint for links receiving data allowed by its settings.
  *
- * @Plugin(
+ * @Constraint(
  *   id = "LinkType",
  *   label = @Translation("Link data valid for link type.", context = "Validation"),
  * )
  */
 class LinkTypeConstraint extends Constraint implements ConstraintValidatorInterface {
 
-  public $message = 'The URL %url is not valid.';
+  public $message = "The path '@uri' is invalid.";
 
   /**
    * @var \Symfony\Component\Validator\ExecutionContextInterface
@@ -53,39 +48,34 @@ class LinkTypeConstraint extends Constraint implements ConstraintValidatorInterf
    */
   public function validate($value, Constraint $constraint) {
     if (isset($value)) {
-      $url_is_valid = TRUE;
+      $uri_is_valid = TRUE;
+
       /** @var $link_item \Drupal\link\LinkItemInterface */
       $link_item = $value;
       $link_type = $link_item->getFieldDefinition()->getSetting('link_type');
-      $url_string = $link_item->url;
-      // Validate the url property.
-      if ($url_string !== '') {
-        try {
-          // @todo This shouldn't be needed, but massageFormValues() may not
-          //   run.
-          $parsed_url = UrlHelper::parse($url_string);
 
-          $url = Url::createFromPath($parsed_url['path']);
+      // Try to resolve the given URI to a URL. It may fail if it's schemeless.
+      try {
+        $url = $link_item->getUrl();
+      }
+      catch (\InvalidArgumentException $e) {
+        $uri_is_valid = FALSE;
+      }
 
-          if ($url->isExternal() && !UrlHelper::isValid($url_string, TRUE)) {
-            $url_is_valid = FALSE;
-          }
-          elseif ($url->isExternal() && !($link_type & LinkItemInterface::LINK_EXTERNAL)) {
-            $url_is_valid = FALSE;
-          }
+      // If the link field doesn't support both internal and external links,
+      // check whether the URL (a resolved URI) is in fact violating either
+      // restriction.
+      if ($uri_is_valid && $link_type !== LinkItemInterface::LINK_GENERIC) {
+        if (!($link_type & LinkItemInterface::LINK_EXTERNAL) && $url->isExternal()) {
+          $uri_is_valid = FALSE;
         }
-        catch (NotFoundHttpException $e) {
-          $url_is_valid = FALSE;
-        }
-        catch (MatchingRouteNotFoundException $e) {
-          $url_is_valid = FALSE;
-        }
-        catch (ParamNotConvertedException $e) {
-          $url_is_valid = FALSE;
+        if (!($link_type & LinkItemInterface::LINK_INTERNAL) && !$url->isExternal()) {
+          $uri_is_valid = FALSE;
         }
       }
-      if (!$url_is_valid) {
-        $this->context->addViolation($this->message, array('%url' => $url_string));
+
+      if (!$uri_is_valid) {
+        $this->context->addViolation($this->message, array('@uri' => $link_item->uri));
       }
     }
   }

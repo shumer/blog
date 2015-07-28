@@ -11,11 +11,15 @@ use Drupal\aggregator\ItemStorageInterface;
 use Drupal\aggregator\Plugin\AggregatorPluginSettingsBase;
 use Drupal\aggregator\Plugin\ProcessorInterface;
 use Drupal\aggregator\FeedInterface;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Datetime\Date as DateFormatter;
+use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Entity\Query\QueryInterface;
+use Drupal\Core\Form\ConfigFormBaseTrait;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Routing\UrlGeneratorTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -30,6 +34,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * )
  */
 class DefaultProcessor extends AggregatorPluginSettingsBase implements ProcessorInterface, ContainerFactoryPluginInterface {
+  use ConfigFormBaseTrait;
+  use UrlGeneratorTrait;
 
   /**
    * Contains the configuration object factory.
@@ -55,7 +61,7 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
@@ -74,7 +80,7 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
    *   The entity query object for feed items.
    * @param \Drupal\aggregator\ItemStorageInterface $item_storage
    *   The entity storage for feed items.
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, ConfigFactoryInterface $config, QueryInterface $item_query, ItemStorageInterface $item_storage, DateFormatter $date_formatter) {
@@ -98,19 +104,27 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
       $container->get('config.factory'),
       $container->get('entity.query')->get('aggregator_item'),
       $container->get('entity.manager')->getStorage('aggregator_item'),
-      $container->get('date')
+      $container->get('date.formatter')
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
-    $processors = $this->configuration['processors'];
+  protected function getEditableConfigNames() {
+    return ['aggregator.settings'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
+    $config = $this->config('aggregator.settings');
+    $processors = $config->get('processors');
     $info = $this->getPluginDefinition();
     $counts = array(3, 5, 10, 15, 20, 25);
     $items = array_map(function ($count) {
-      return $this->dateFormatter->formatInterval($count, '1 item', '@count items');
+      return $this->formatPlural($count, '1 item', '@count items');
     }, array_combine($counts, $counts));
     $intervals = array(3600, 10800, 21600, 32400, 43200, 86400, 172800, 259200, 604800, 1209600, 2419200, 4838400, 9676800);
     $period = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($intervals, $intervals));
@@ -130,7 +144,7 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
     $form['processors'][$info['id']]['aggregator_summary_items'] = array(
       '#type' => 'select',
       '#title' => t('Number of items shown in listing pages'),
-      '#default_value' => $this->configuration['source']['list_max'],
+      '#default_value' => $config->get('source.list_max'),
       '#empty_value' => 0,
       '#options' => $items,
     );
@@ -138,20 +152,20 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
     $form['processors'][$info['id']]['aggregator_clear'] = array(
       '#type' => 'select',
       '#title' => t('Discard items older than'),
-      '#default_value' => $this->configuration['items']['expire'],
+      '#default_value' => $config->get('items.expire'),
       '#options' => $period,
-      '#description' => t('Requires a correctly configured <a href="@cron">cron maintenance task</a>.', array('@cron' => url('admin/reports/status'))),
+      '#description' => t('Requires a correctly configured <a href="@cron">cron maintenance task</a>.', array('@cron' => $this->url('system.status'))),
     );
 
     $lengths = array(0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000);
     $options = array_map(function($length) {
-      return ($length == 0) ? t('Unlimited') : format_plural($length, '1 character', '@count characters');
+      return ($length == 0) ? t('Unlimited') : $this->formatPlural($length, '1 character', '@count characters');
     }, array_combine($lengths, $lengths));
 
     $form['processors'][$info['id']]['aggregator_teaser_length'] = array(
       '#type' => 'select',
       '#title' => t('Length of trimmed description'),
-      '#default_value' => $this->configuration['items']['teaser_length'],
+      '#default_value' => $config->get('items.teaser_length'),
       '#options' => $options,
       '#description' => t('The maximum number of characters used in the trimmed version of content.'),
     );
@@ -161,10 +175,10 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, array &$form_state) {
-    $this->configuration['items']['expire'] = $form_state['values']['aggregator_clear'];
-    $this->configuration['items']['teaser_length'] = $form_state['values']['aggregator_teaser_length'];
-    $this->configuration['source']['list_max'] = $form_state['values']['aggregator_summary_items'];
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->configuration['items']['expire'] = $form_state->getValue('aggregator_clear');
+    $this->configuration['items']['teaser_length'] = $form_state->getValue('aggregator_teaser_length');
+    $this->configuration['source']['list_max'] = $form_state->getValue('aggregator_summary_items');
     // @todo Refactor aggregator plugins to ConfigEntity so this is not needed.
     $this->setConfiguration($this->configuration);
   }
@@ -202,15 +216,15 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
         $entry = reset($entry);
       }
       else {
-        $entry = entity_create('aggregator_item', array('langcode' => $feed->language()->id));
+        $entry = entity_create('aggregator_item', array('langcode' => $feed->language()->getId()));
       }
       if ($item['timestamp']) {
         $entry->setPostedTime($item['timestamp']);
       }
 
       // Make sure the item title and author fit in the 255 varchar column.
-      $entry->setTitle(truncate_utf8($item['title'], 255, TRUE, TRUE));
-      $entry->setAuthor(truncate_utf8($item['author'], 255, TRUE, TRUE));
+      $entry->setTitle(Unicode::truncate($item['title'], 255, TRUE, TRUE));
+      $entry->setAuthor(Unicode::truncate($item['author'], 255, TRUE, TRUE));
 
       $entry->setFeedId($feed->id());
       $entry->setLink($item['link']);
@@ -270,7 +284,7 @@ class DefaultProcessor extends AggregatorPluginSettingsBase implements Processor
    * {@inheritdoc}
    */
   public function setConfiguration(array $configuration) {
-    $config = $this->configFactory->get('aggregator.settings');
+    $config = $this->config('aggregator.settings');
     foreach ($configuration as $key => $value) {
       $config->set($key, $value);
     }

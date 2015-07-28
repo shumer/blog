@@ -24,7 +24,7 @@ class UpdateDeleteFileIfStaleTest extends UpdateTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
   }
 
@@ -32,15 +32,14 @@ class UpdateDeleteFileIfStaleTest extends UpdateTestBase {
    * Tests the deletion of stale files.
    */
   function testUpdateDeleteFileIfStale() {
-    $file_name = file_unmanaged_save_data($this->randomName());
+    $file_name = file_unmanaged_save_data($this->randomMachineName());
     $this->assertNotNull($file_name);
 
     // During testing the file change and the stale checking occurs in the same
     // request, so the beginning of request will be before the file changes and
     // REQUEST_TIME - $filectime is negative. Set the maximum age to a number
     // even smaller than that.
-    $this->container->get('config.factory')
-      ->get('system.file')
+    $this->config('system.file')
       ->set('temporary_maximum_age', -100000)
       ->save();
 

@@ -2,12 +2,12 @@
 
 /**
  * @file
- * Contains \Drupal\entity\Tests\ContentTranslationSyncUnitTest.
+ * Contains \Drupal\content_translation\Tests\ContentTranslationSyncUnitTest.
  */
 
 namespace Drupal\content_translation\Tests;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 use Drupal\content_translation\FieldTranslationSynchronizer;
 
 /**
@@ -15,7 +15,7 @@ use Drupal\content_translation\FieldTranslationSynchronizer;
  *
  * @group content_translation
  */
-class ContentTranslationSyncUnitTest extends DrupalUnitTestBase {
+class ContentTranslationSyncUnitTest extends KernelTestBase {
 
   /**
    * The synchronizer class to be tested.
@@ -25,14 +25,14 @@ class ContentTranslationSyncUnitTest extends DrupalUnitTestBase {
   protected $synchronizer;
 
   /**
-   * The colums to be synchronized.
+   * The columns to be synchronized.
    *
    * @var array
    */
   protected $synchronized;
 
   /**
-   * All the field colums.
+   * All the field columns.
    *
    * @var array
    */
@@ -95,7 +95,7 @@ class ContentTranslationSyncUnitTest extends DrupalUnitTestBase {
     $field_values = $this->unchangedFieldValues;
     $item = array();
     foreach ($this->columns as $column) {
-      $item[$column] = $this->randomName();
+      $item[$column] = $this->randomMachineName();
     }
     $field_values[$sync_langcode][] = $item;
     $this->synchronizer->synchronizeItems($field_values, $unchanged_items, $sync_langcode, $this->langcodes, $this->synchronized);

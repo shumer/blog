@@ -8,14 +8,14 @@
 namespace Drupal\migrate_drupal\Tests\d6;
 
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
 
 /**
  * User picture entity display.
  *
  * @group migrate_drupal
  */
-class MigrateUserPictureEntityDisplayTest extends MigrateDrupalTestBase {
+class MigrateUserPictureEntityDisplayTest extends MigrateDrupal6TestBase {
 
   /**
    * Modules to enable.
@@ -27,7 +27,7 @@ class MigrateUserPictureEntityDisplayTest extends MigrateDrupalTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $id_mappings = array(
@@ -35,7 +35,7 @@ class MigrateUserPictureEntityDisplayTest extends MigrateDrupalTestBase {
         array(array(1), array('user', 'user', 'user_picture')),
       ),
     );
-    $this->prepareIdMappings($id_mappings);
+    $this->prepareMigrations($id_mappings);
 
     $migration = entity_load('migration', 'd6_user_picture_entity_display');
     $executable = new MigrateExecutable($migration, $this);
@@ -48,10 +48,10 @@ class MigrateUserPictureEntityDisplayTest extends MigrateDrupalTestBase {
   public function testUserPictureEntityDisplay() {
     $display = entity_get_display('user', 'user', 'default');
     $component = $display->getComponent('user_picture');
-    $this->assertEqual($component['type'], 'image');
-    $this->assertEqual($component['settings']['image_link'], 'content');
+    $this->assertIdentical('image', $component['type']);
+    $this->assertIdentical('content', $component['settings']['image_link']);
 
-    $this->assertEqual(array('user', 'user', 'default', 'user_picture'), entity_load('migration', 'd6_user_picture_entity_display')->getIdMap()->lookupDestinationID(array('')));
+    $this->assertIdentical(array('user', 'user', 'default', 'user_picture'), entity_load('migration', 'd6_user_picture_entity_display')->getIdMap()->lookupDestinationID(array('')));
   }
 
 }

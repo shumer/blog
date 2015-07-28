@@ -2,13 +2,16 @@
 
 /**
  * @file
- * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\EmailItem.
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldType\EmailItem.
  */
 
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
+use Drupal\Component\Utility\Random;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
+use Drupal\Core\Render\Element\Email;
 use Drupal\Core\TypedData\DataDefinition;
 
 /**
@@ -19,7 +22,7 @@ use Drupal\Core\TypedData\DataDefinition;
  *   label = @Translation("Email"),
  *   description = @Translation("An entity field containing an email value."),
  *   default_widget = "email_default",
- *   default_formatter = "string"
+ *   default_formatter = "basic_string"
  * )
  */
 class EmailItem extends FieldItemBase {
@@ -29,7 +32,8 @@ class EmailItem extends FieldItemBase {
    */
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('email')
-      ->setLabel(t('Email value'));
+      ->setLabel(t('E-mail'))
+      ->setRequired(TRUE);
 
     return $properties;
   }
@@ -42,8 +46,7 @@ class EmailItem extends FieldItemBase {
       'columns' => array(
         'value' => array(
           'type' => 'varchar',
-          'length' => EMAIL_MAX_LENGTH,
-          'not null' => FALSE,
+          'length' => Email::EMAIL_MAX_LENGTH,
         ),
       ),
     );
@@ -59,13 +62,22 @@ class EmailItem extends FieldItemBase {
     $constraints[] = $constraint_manager->create('ComplexData', array(
       'value' => array(
         'Length' => array(
-          'max' => EMAIL_MAX_LENGTH,
-          'maxMessage' => t('%name: the email address can not be longer than @max characters.', array('%name' => $this->getFieldDefinition()->getLabel(), '@max' => EMAIL_MAX_LENGTH)),
+          'max' => Email::EMAIL_MAX_LENGTH,
+          'maxMessage' => t('%name: the email address can not be longer than @max characters.', array('%name' => $this->getFieldDefinition()->getLabel(), '@max' => Email::EMAIL_MAX_LENGTH)),
         )
       ),
     ));
 
     return $constraints;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+    $random = new Random();
+    $values['value'] = $random->name() . '@example.com';
+    return $values;
   }
 
   /**

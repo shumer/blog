@@ -13,24 +13,6 @@ use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
-// @todo Remove once watchdog() is removed.
-if (!defined('WATCHDOG_EMERGENCY')) {
-  define('WATCHDOG_EMERGENCY', 0);
-  define('WATCHDOG_ALERT', 1);
-  define('WATCHDOG_CRITICAL', 2);
-  define('WATCHDOG_WARNING', 4);
-  define('WATCHDOG_INFO', 6);
-  define('WATCHDOG_DEBUG', 7);
-}
-// WATCHDOG_NOTICE is also defined in FormValidatorTest, so check independently.
-if (!defined('WATCHDOG_NOTICE')) {
-  define('WATCHDOG_NOTICE', 5);
-}
-// WATCHDOG_ERROR is also defined in FormBuilderTest, so check independently.
-if (!defined('WATCHDOG_ERROR')) {
-  define('WATCHDOG_ERROR', 3);
-}
-
 /**
  * @coversDefaultClass \Drupal\Core\Logger\LoggerChannel
  * @group Logger
@@ -55,7 +37,7 @@ class LoggerChannelTest extends UnitTestCase {
    */
   public function testLog(callable $expected, Request $request = NULL, AccountInterface $current_user = NULL) {
     $channel = new LoggerChannel('test');
-    $message = $this->randomName();
+    $message = $this->randomMachineName();
     $logger = $this->getMock('Psr\Log\LoggerInterface');
     $logger->expects($this->once())
       ->method('log')
@@ -79,7 +61,7 @@ class LoggerChannelTest extends UnitTestCase {
    * @covers ::sortLoggers
    */
   public function testSortLoggers() {
-    $channel = new LoggerChannel($this->randomName());
+    $channel = new LoggerChannel($this->randomMachineName());
     $index_order = '';
     for ($i = 0; $i < 4; $i++) {
       $logger = $this->getMock('Psr\Log\LoggerInterface');
@@ -93,7 +75,7 @@ class LoggerChannelTest extends UnitTestCase {
       $channel->addLogger($logger, $i);
     }
 
-    $channel->log(rand(0, 7), $this->randomName());
+    $channel->log(rand(0, 7), $this->randomMachineName());
     // Ensure that the logger added in the end fired first.
     $this->assertEquals($index_order, '3210');
   }
@@ -116,7 +98,7 @@ class LoggerChannelTest extends UnitTestCase {
     // No request or account.
     $cases [] = array(
       function ($context) {
-        return $context['channel'] == 'test' && empty($contex['uid']) && empty($context['ip']);
+        return $context['channel'] == 'test' && empty($context['uid']) && empty($context['ip']);
       },
     );
     // With account but not request. Since the request is not available the
@@ -131,7 +113,7 @@ class LoggerChannelTest extends UnitTestCase {
     // With request but not account.
     $cases [] = array(
       function ($context) {
-        return $context['ip'] === '127.0.0.1' && empty($contex['uid']);
+        return $context['ip'] === '127.0.0.1' && empty($context['uid']);
       },
       $request_mock,
     );

@@ -7,27 +7,26 @@
 
 namespace Drupal\system\Form;
 
-use Drupal\Core\Datetime\Date as DateFormatter;
-use Drupal\Core\Entity\EntityConfirmFormBase;
-use Drupal\Core\Url;
+use Drupal\Core\Datetime\DateFormatter;
+use Drupal\Core\Entity\EntityDeleteForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Builds a form to delete a date format.
  */
-class DateFormatDeleteForm extends EntityConfirmFormBase {
+class DateFormatDeleteForm extends EntityDeleteForm {
 
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
   /**
    * Constructs an DateFormatDeleteForm object.
    *
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
    */
   public function __construct(DateFormatter $date_formatter) {
@@ -39,7 +38,7 @@ class DateFormatDeleteForm extends EntityConfirmFormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('date')
+      $container->get('date.formatter')
     );
   }
 
@@ -47,34 +46,10 @@ class DateFormatDeleteForm extends EntityConfirmFormBase {
    * {@inheritdoc}
    */
   public function getQuestion() {
-    return t('Are you sure you want to remove the format %name : %format?', array(
+    return t('Are you sure you want to delete the format %name : %format?', array(
       '%name' => $this->entity->label(),
       '%format' => $this->dateFormatter->format(REQUEST_TIME, $this->entity->id()))
     );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getConfirmText() {
-    return t('Remove');
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getCancelUrl() {
-    return new Url('system.date_format_list');
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function submit(array $form, array &$form_state) {
-    $this->entity->delete();
-    drupal_set_message(t('Removed date format %format.', array('%format' => $this->entity->label())));
-
-    $form_state['redirect_route'] = $this->getCancelUrl();
   }
 
 }

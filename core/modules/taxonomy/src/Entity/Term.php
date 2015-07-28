@@ -8,9 +8,10 @@
 namespace Drupal\taxonomy\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
+use Drupal\Core\Entity\EntityChangedTrait;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\taxonomy\TermInterface;
 
 /**
@@ -20,10 +21,12 @@ use Drupal\taxonomy\TermInterface;
  *   id = "taxonomy_term",
  *   label = @Translation("Taxonomy term"),
  *   bundle_label = @Translation("Vocabulary"),
- *   controllers = {
+ *   handlers = {
  *     "storage" = "Drupal\taxonomy\TermStorage",
+ *     "storage_schema" = "Drupal\taxonomy\TermStorageSchema",
  *     "view_builder" = "Drupal\taxonomy\TermViewBuilder",
- *     "access" = "Drupal\taxonomy\TermAccessController",
+ *     "access" = "Drupal\taxonomy\TermAccessControlHandler",
+ *     "views_data" = "Drupal\taxonomy\TermViewsData",
  *     "form" = {
  *       "default" = "Drupal\taxonomy\TermForm",
  *       "delete" = "Drupal\taxonomy\Form\TermDeleteForm"
@@ -31,26 +34,30 @@ use Drupal\taxonomy\TermInterface;
  *     "translation" = "Drupal\taxonomy\TermTranslationHandler"
  *   },
  *   base_table = "taxonomy_term_data",
+ *   data_table = "taxonomy_term_field_data",
  *   uri_callback = "taxonomy_term_uri",
- *   fieldable = TRUE,
  *   translatable = TRUE,
  *   entity_keys = {
  *     "id" = "tid",
  *     "bundle" = "vid",
  *     "label" = "name",
+ *     "langcode" = "langcode",
  *     "uuid" = "uuid"
  *   },
  *   bundle_entity_type = "taxonomy_vocabulary",
+ *   field_ui_base_route = "entity.taxonomy_vocabulary.overview_form",
+ *   common_reference_target = TRUE,
  *   links = {
- *     "canonical" = "taxonomy.term_page",
- *     "delete-form" = "taxonomy.term_delete",
- *     "edit-form" = "taxonomy.term_edit",
- *     "admin-form" = "taxonomy.overview_terms"
+ *     "canonical" = "/taxonomy/term/{taxonomy_term}",
+ *     "delete-form" = "/taxonomy/term/{taxonomy_term}/delete",
+ *     "edit-form" = "/taxonomy/term/{taxonomy_term}/edit",
  *   },
  *   permission_granularity = "bundle"
  * )
  */
 class Term extends ContentEntityBase implements TermInterface {
+
+  use EntityChangedTrait;
 
   /**
    * {@inheritdoc}
@@ -61,10 +68,10 @@ class Term extends ContentEntityBase implements TermInterface {
     // See if any of the term's children are about to be become orphans.
     $orphans = array();
     foreach (array_keys($entities) as $tid) {
-      if ($children = taxonomy_term_load_children($tid)) {
+      if ($children = $storage->loadChildren($tid)) {
         foreach ($children as $child) {
           // If the term has multiple parents, we don't delete it.
-          $parents = taxonomy_term_load_parents($child->id());
+          $parents = $storage->loadParents($child->id());
           if (empty($parents)) {
             $orphans[] = $child->id();
           }
@@ -89,7 +96,7 @@ class Term extends ContentEntityBase implements TermInterface {
 
     // Only change the parents if a value is set, keep the existing values if
     // not.
-    if (isset($this->parent->value)) {
+    if (isset($this->parent->target_id)) {
       $storage->deleteTermHierarchy(array($this->id()));
       $storage->updateTermHierarchy($this);
     }
@@ -99,29 +106,38 @@ class Term extends ContentEntityBase implements TermInterface {
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    $fields['tid'] = FieldDefinition::create('integer')
+    $fields['tid'] = BaseFieldDefinition::create('integer')
       ->setLabel(t('Term ID'))
       ->setDescription(t('The term ID.'))
       ->setReadOnly(TRUE)
       ->setSetting('unsigned', TRUE);
 
-    $fields['uuid'] = FieldDefinition::create('uuid')
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
       ->setLabel(t('UUID'))
       ->setDescription(t('The term UUID.'))
       ->setReadOnly(TRUE);
 
-    $fields['vid'] = FieldDefinition::create('entity_reference')
+    $fields['vid'] = BaseFieldDefinition::create('entity_reference')
       ->setLabel(t('Vocabulary'))
       ->setDescription(t('The vocabulary to which the term is assigned.'))
       ->setSetting('target_type', 'taxonomy_vocabulary');
 
-    $fields['langcode'] = FieldDefinition::create('language')
-      ->setLabel(t('Language code'))
-      ->setDescription(t('The term language code.'));
+    $fields['langcode'] = BaseFieldDefinition::create('language')
+      ->setLabel(t('Language'))
+      ->setDescription(t('The term language code.'))
+      ->setTranslatable(TRUE)
+      ->setDisplayOptions('view', array(
+        'type' => 'hidden',
+      ))
+      ->setDisplayOptions('form', array(
+        'type' => 'language_select',
+        'weight' => 2,
+      ));
 
-    $fields['name'] = FieldDefinition::create('string')
+    $fields['name'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Name'))
       ->setDescription(t('The term name.'))
+      ->setTranslatable(TRUE)
       ->setRequired(TRUE)
       ->setSetting('max_length', 255)
       ->setDisplayOptions('view', array(
@@ -130,15 +146,15 @@ class Term extends ContentEntityBase implements TermInterface {
         'weight' => -5,
       ))
       ->setDisplayOptions('form', array(
-        'type' => 'string',
+        'type' => 'string_textfield',
         'weight' => -5,
       ))
       ->setDisplayConfigurable('form', TRUE);
 
-    $fields['description'] = FieldDefinition::create('text_long')
+    $fields['description'] = BaseFieldDefinition::create('text_long')
       ->setLabel(t('Description'))
       ->setDescription(t('A description of the term.'))
-      ->setSetting('text_processing', 1)
+      ->setTranslatable(TRUE)
       ->setDisplayOptions('view', array(
         'label' => 'hidden',
         'type' => 'text_default',
@@ -151,25 +167,22 @@ class Term extends ContentEntityBase implements TermInterface {
       ))
       ->setDisplayConfigurable('form', TRUE);
 
-    $fields['weight'] = FieldDefinition::create('integer')
+    $fields['weight'] = BaseFieldDefinition::create('integer')
       ->setLabel(t('Weight'))
       ->setDescription(t('The weight of this term in relation to other terms.'))
       ->setDefaultValue(0);
 
-    // @todo Convert this to an entity_reference field, see
-    // https://drupal.org/node/1915056
-    $fields['parent'] = FieldDefinition::create('integer')
+    $fields['parent'] = BaseFieldDefinition::create('entity_reference')
       ->setLabel(t('Term Parents'))
       ->setDescription(t('The parents of this term.'))
-      ->setCardinality(FieldDefinition::CARDINALITY_UNLIMITED)
-      // Save new terms with no parents by default.
-      ->setDefaultValue(0)
-      ->setSetting('unsigned', TRUE)
-      ->addConstraint('TermParent', array());
+      ->setSetting('target_type', 'taxonomy_term')
+      ->setCardinality(BaseFieldDefinition::CARDINALITY_UNLIMITED)
+      ->setCustomStorage(TRUE);
 
-    $fields['changed'] = FieldDefinition::create('changed')
+    $fields['changed'] = BaseFieldDefinition::create('changed')
       ->setLabel(t('Changed'))
-      ->setDescription(t('The time that the term was last edited.'));
+      ->setDescription(t('The time that the term was last edited.'))
+      ->setTranslatable(TRUE);
 
     return $fields;
   }

@@ -7,8 +7,9 @@
 
 namespace Drupal\views_ui\Form\Ajax;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ViewExecutable;
-use Drupal\views\ViewStorageInterface;
+use Drupal\views\ViewEntityInterface;
 use Drupal\views\Views;
 
 /**
@@ -17,7 +18,7 @@ use Drupal\views\Views;
 class AddHandler extends ViewsFormBase {
 
   /**
-   * Constucts a new AddHandler object.
+   * Constructs a new AddHandler object.
    */
   public function __construct($type = NULL) {
     $this->setType($type);
@@ -33,7 +34,7 @@ class AddHandler extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getForm(ViewStorageInterface $view, $display_id, $js, $type = NULL) {
+  public function getForm(ViewEntityInterface $view, $display_id, $js, $type = NULL) {
     $this->setType($type);
     return parent::getForm($view, $display_id, $js);
   }
@@ -48,10 +49,10 @@ class AddHandler extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
-    $view = $form_state['view'];
-    $display_id = $form_state['display_id'];
-    $type = $form_state['type'];
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
+    $type = $form_state->get('type');
 
     $form = array(
       'options' => array(
@@ -61,7 +62,10 @@ class AddHandler extends ViewsFormBase {
     );
 
     $executable = $view->getExecutable();
-    $executable->setDisplay($display_id);
+    if (!$executable->setDisplay($display_id)) {
+      $form['markup'] = array('#markup' => $this->t('Invalid display id @display', array('@display' => $display_id)));
+      return $form;
+    }
     $display = &$executable->displayHandlers->get($display_id);
 
     $types = ViewExecutable::getHandlerTypes();
@@ -80,13 +84,13 @@ class AddHandler extends ViewsFormBase {
 
     // Figure out all the base tables allowed based upon what the relationships provide.
     $base_tables = $executable->getBaseTables();
-    $options = Views::viewsDataHelper()->fetchFields(array_keys($base_tables), $type, $display->useGroupBy(), $form_state['type']);
+    $options = Views::viewsDataHelper()->fetchFields(array_keys($base_tables), $type, $display->useGroupBy(), $form_state->get('type'));
 
     if (!empty($options)) {
       $form['override']['controls'] = array(
         '#theme_wrappers' => array('container'),
         '#id' => 'views-filterable-options-controls',
-        '#attributes' => array('class' => array('container-inline')),
+        '#attributes' => ['class' => ['form--inline', 'views-filterable-options-controls']],
       );
       $form['override']['controls']['options_search'] = array(
         '#type' => 'textfield',
@@ -167,7 +171,7 @@ class AddHandler extends ViewsFormBase {
       '#markup' => '<span class="views-ui-view-title">' . $this->t('Selected:') . '</span> ' . '<div class="views-selected-options"></div>',
       '#theme_wrappers' => array('form_element', 'views_ui_container'),
       '#attributes' => array(
-        'class' => array('container-inline', 'views-add-form-selected'),
+        'class' => array('container-inline', 'views-add-form-selected', 'views-offset-bottom'),
         'data-drupal-views-offset' => 'bottom',
       ),
     );

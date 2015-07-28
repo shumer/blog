@@ -29,7 +29,7 @@ maintenance:
 drupal.system:
   version: VERSION
   js:
-    system.js: {}
+    js/system.js: {}
   dependencies:
     - core/jquery
     - core/drupal
@@ -39,8 +39,25 @@ drupal.system:
 drupal.system.modules:
   version: VERSION
   js:
-    system.modules.js: {}
+    js/system.modules.js: {}
   dependencies:
     - core/jquery
     - core/drupal
     - core/jquery.once
+
+diff:
+  version: VERSION
+  css:
+    component:
+      css/system.diff.css: {}
+
+drupal.system.date:
+  version: VERSION
+  js:
+    js/system.date.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/jquery.once
+    - core/drupal.form

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Database\Query\TableSortExtender.
+ * Contains \Drupal\Core\Database\Query\TableSortExtender.
  */
 
 namespace Drupal\Core\Database\Query;
@@ -37,7 +37,7 @@ class TableSortExtender extends SelectExtender {
    * @return \Drupal\Core\Database\Query\SelectInterface
    *   The called object.
    *
-   * @see theme_table()
+   * @see table.html.twig
    */
   public function orderByHeader(array $header) {
     $this->header = $header;

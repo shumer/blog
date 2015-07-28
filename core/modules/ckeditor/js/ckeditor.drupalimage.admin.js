@@ -1,13 +1,20 @@
+/**
+ * @file
+ * CKEditor 'drupalimage' plugin admin behavior.
+ */
+
 (function ($, Drupal, drupalSettings) {
 
   "use strict";
 
   /**
    * Provides the summary for the "drupalimage" plugin settings vertical tab.
+   *
+   * @type {Drupal~behavior}
    */
   Drupal.behaviors.ckeditorDrupalImageSettingsSummary = {
     attach: function () {
-      $('#edit-editor-settings-plugins-drupalimage').drupalSetSummary(function (context) {
+      $('[data-ckeditor-plugin-id="drupalimage"]').drupalSetSummary(function (context) {
         var root = 'input[name="editor[settings][plugins][drupalimage][image_upload]';
         var $status = $(root + '[status]"]');
         var $maxFileSize = $(root + '[max_size]"]');
@@ -23,7 +30,7 @@
         }
 
         var output = '';
-        output += Drupal.t('Uploads enabled, max size: @size @dimensions', { '@size': maxFileSize, '@dimensions': maxDimensions });
+        output += Drupal.t('Uploads enabled, max size: @size @dimensions', {'@size': maxFileSize, '@dimensions': maxDimensions});
         if ($scheme.length) {
           output += '<br />' + $scheme.attr('data-label');
         }

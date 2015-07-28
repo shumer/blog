@@ -2,10 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\update\Tests\UpdateUploadTest.
+ * Contains \Drupal\update\Tests\UpdateUploadTest.
  */
 
 namespace Drupal\update\Tests;
+
+use Drupal\Core\Updater\Updater;
+use Drupal\Core\Url;
 
 /**
  * Tests the Update Manager module's upload and extraction functionality.
@@ -21,7 +24,7 @@ class UpdateUploadTest extends UpdateTestBase {
    */
   public static $modules = array('update', 'update_test');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $admin_user = $this->drupalCreateUser(array('administer software updates', 'administer site configuration'));
     $this->drupalLogin($admin_user);
@@ -72,14 +75,16 @@ class UpdateUploadTest extends UpdateTestBase {
   function testUpdateManagerCoreSecurityUpdateMessages() {
     $setting = array(
       '#all' => array(
-        'version' => '7.0',
+        'version' => '8.0.0',
       ),
     );
-    \Drupal::config('update_test.settings')
+    $this->config('update_test.settings')
       ->set('system_info', $setting)
-      ->set('xml_map', array('drupal' => '2-sec'))
+      ->set('xml_map', array('drupal' => '0.2-sec'))
       ->save();
-    \Drupal::config('update.settings')->set('fetch.url', url('update-test', array('absolute' => TRUE)))->save();
+    $this->config('update.settings')
+      ->set('fetch.url', Url::fromRoute('update_test.update_test')->setAbsolute()->toString())
+      ->save();
     // Initialize the update status.
     $this->drupalGet('admin/reports/updates');
 
@@ -107,4 +112,16 @@ class UpdateUploadTest extends UpdateTestBase {
     $this->drupalGet('admin/update/ready');
     $this->assertNoText(t('There is a security update available for your version of Drupal.'));
   }
+
+  /**
+   * Tests only an *.info.yml file are detected without supporting files.
+   */
+  public function testUpdateDirectory() {
+    $type = Updater::getUpdaterFromDirectory(\Drupal::root() . '/core/modules/update/tests/modules/aaa_update_test');
+    $this->assertEqual($type, 'Drupal\\Core\\Updater\\Module', 'Detected a Module');
+
+    $type = Updater::getUpdaterFromDirectory(\Drupal::root() . '/core/modules/update/tests/themes/update_test_basetheme');
+    $this->assertEqual($type, 'Drupal\\Core\\Updater\\Theme', 'Detected a Theme.');
+  }
+
 }

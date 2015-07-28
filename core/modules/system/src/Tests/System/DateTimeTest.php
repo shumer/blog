@@ -24,12 +24,11 @@ class DateTimeTest extends WebTestBase {
    */
   public static $modules = array('node', 'language');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create admin user and log in admin user.
-    $this->admin_user = $this->drupalCreateUser(array('administer site configuration'));
-    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin ($this->drupalCreateUser(array('administer site configuration')));
   }
 
   /**
@@ -37,7 +36,7 @@ class DateTimeTest extends WebTestBase {
    */
   function testTimeZoneHandling() {
     // Setup date/time settings for Honolulu time.
-    $config = \Drupal::config('system.date')
+    $config = $this->config('system.date')
       ->set('timezone.default', 'Pacific/Honolulu')
       ->set('timezone.user.configurable', 0)
       ->save();
@@ -48,6 +47,7 @@ class DateTimeTest extends WebTestBase {
     // Create some nodes with different authored-on dates.
     $date1 = '2007-01-31 21:00:00 -1000';
     $date2 = '2007-07-31 21:00:00 -1000';
+    $this->drupalCreateContentType(array('type' => 'article'));
     $node1 = $this->drupalCreateNode(array('created' => strtotime($date1), 'type' => 'article'));
     $node2 = $this->drupalCreateNode(array('created' => strtotime($date2), 'type' => 'article'));
 
@@ -77,7 +77,7 @@ class DateTimeTest extends WebTestBase {
 
     // Add custom date format.
     $this->clickLink(t('Add format'));
-    $date_format_id = strtolower($this->randomName(8));
+    $date_format_id = strtolower($this->randomMachineName(8));
     $name = ucwords($date_format_id);
     $date_format = 'd.m.Y - H:i';
     $edit = array(
@@ -86,7 +86,7 @@ class DateTimeTest extends WebTestBase {
       'date_format_pattern' => $date_format,
     );
     $this->drupalPostForm('admin/config/regional/date-time/formats/add', $edit, t('Add format'));
-    $this->assertEqual($this->getUrl(), url('admin/config/regional/date-time', array('absolute' => TRUE)), 'Correct page redirection.');
+    $this->assertUrl(\Drupal::url('entity.date_format.collection', [], ['absolute' => TRUE]), [], 'Correct page redirection.');
     $this->assertText(t('Custom date format added.'), 'Date format added confirmation message appears.');
     $this->assertText($date_format_id, 'Custom date format appears in the date format list.');
     $this->assertText(t('Delete'), 'Delete link for custom date format appears.');
@@ -105,14 +105,14 @@ class DateTimeTest extends WebTestBase {
       'date_format_pattern' => 'Y m',
     );
     $this->drupalPostForm($this->getUrl(), $edit, t('Save format'));
-    $this->assertEqual($this->getUrl(), url('admin/config/regional/date-time', array('absolute' => TRUE)), 'Correct page redirection.');
+    $this->assertUrl(\Drupal::url('entity.date_format.collection', [], ['absolute' => TRUE]), [], 'Correct page redirection.');
     $this->assertText(t('Custom date format updated.'), 'Custom date format successfully updated.');
 
     // Delete custom date format.
     $this->clickLink(t('Delete'));
-    $this->drupalPostForm('admin/config/regional/date-time/formats/manage/' . $date_format_id . '/delete', array(), t('Remove'));
-    $this->assertEqual($this->getUrl(), url('admin/config/regional/date-time', array('absolute' => TRUE)), 'Correct page redirection.');
-    $this->assertText(t('Removed date format ' . $name), 'Custom date format removed.');
+    $this->drupalPostForm('admin/config/regional/date-time/formats/manage/' . $date_format_id . '/delete', array(), t('Delete'));
+    $this->assertUrl(\Drupal::url('entity.date_format.collection', [], ['absolute' => TRUE]), [], 'Correct page redirection.');
+    $this->assertRaw(t('The date format %format has been deleted.', array('%format' => $name)), 'Custom date format removed.');
 
     // Make sure the date does not exist in config.
     $date_format = entity_load('date_format', $date_format_id);

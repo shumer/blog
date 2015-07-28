@@ -1,18 +1,18 @@
 # Schema for the configuration files of the Migrate module.
 
 migrate.migration.*:
-  type: mapping
+  type: config_entity
   label: 'Migration'
   mapping:
     id:
       type: string
       label: 'ID'
-    migration_groups:
+    migration_tags:
       type: sequence
-      label: 'Migration Groups'
+      label: 'Migration Tags'
       sequence:
-        - type: string
-          label: 'Group'
+        type: string
+        label: 'Tag'
     label:
       type: label
       label: 'Label'
@@ -36,11 +36,11 @@ migrate.migration.*:
           type: sequence
           label: 'Required dependencies'
           sequence:
-            - type: string
-              label: 'Dependency'
+            type: string
+            label: 'Dependency'
         optional:
           type: sequence
           label: 'Optional dependencies'
           sequence:
-            - type: string
-              label: 'Dependency'
+            type: string
+            label: 'Dependency'

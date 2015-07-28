@@ -9,6 +9,7 @@ namespace Drupal\Core\Field\Plugin\Field\FieldWidget;
 
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Plugin implementation of the 'string_textarea' widget.
@@ -36,7 +37,7 @@ class StringTextareaWidget extends WidgetBase {
   /**
    * {@inheritdoc}
    */
-  public function settingsForm(array $form, array &$form_state) {
+  public function settingsForm(array $form, FormStateInterface $form_state) {
     $element['rows'] = array(
       '#type' => 'number',
       '#title' => t('Rows'),
@@ -71,13 +72,13 @@ class StringTextareaWidget extends WidgetBase {
   /**
    * {@inheritdoc}
    */
-  public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, array &$form_state) {
+  public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, FormStateInterface $form_state) {
     $element['value'] = $element + array(
       '#type' => 'textarea',
       '#default_value' => $items[$delta]->value,
       '#rows' => $this->getSetting('rows'),
       '#placeholder' => $this->getSetting('placeholder'),
-      '#attributes' => array('class' => array('text-full')),
+      '#attributes' => array('class' => array('js-text-full', 'text-full')),
     );
 
     return $element;

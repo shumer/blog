@@ -5,12 +5,15 @@
  * Helper module for the Batch API tests.
  */
 
+use Drupal\Core\Form\FormState;
+
 /**
- * Batch operation: Submits form_test_mock_form() using drupal_form_submit().
+ * Batch operation: Submits form_test_mock_form().
  */
 function _batch_test_nested_drupal_form_submit_callback($value) {
-  $state['values']['test_value'] = $value;
-  \Drupal::formBuilder()->submitForm('Drupal\batch_test\Form\BatchTestMockForm', $state);
+  $form_state = (new FormState())
+    ->setValue('test_value', $value);
+  \Drupal::formBuilder()->submitForm('Drupal\batch_test\Form\BatchTestMockForm', $form_state);
 }
 
 /**
@@ -151,7 +154,9 @@ function _batch_test_batch_5() {
 }
 
 /**
- * Tests the progress page theme by performing a batch callback.
+ * Implements callback_batch_operation().
+ *
+ * Tests the progress page theme.
  */
 function _batch_test_theme_callback() {
   // Because drupalGet() steps through the full progressive batch before
@@ -159,8 +164,23 @@ function _batch_test_theme_callback() {
   // theme is being used on the batch processing page by viewing that page
   // directly. Instead, we save the theme being used in a variable here, so
   // that it can be loaded and inspected in the thread running the test.
-  global $theme;
+  $theme = \Drupal::theme()->getActiveTheme()->getName();
   batch_test_stack($theme);
+}
+
+/**
+ * Tests the title on the progress page by performing a batch callback.
+ */
+function _batch_test_title_callback() {
+  // Because drupalGet() steps through the full progressive batch before
+  // returning control to the test function, we cannot test that the correct
+  // title is being used on the batch processing page by viewing that page
+  // directly. Instead, we save the title being used in a variable here, so
+  // that it can be loaded and inspected in the thread running the test.
+  $request = \Drupal::request();
+  $route_match = \Drupal::routeMatch();
+  $title = \Drupal::service('title_resolver')->getTitle($request, $route_match->getRouteObject());
+  batch_test_stack($title);
 }
 
 /**

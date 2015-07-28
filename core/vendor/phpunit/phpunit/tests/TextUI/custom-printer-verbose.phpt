@@ -12,9 +12,9 @@ require __DIR__ . '/../bootstrap.php';
 PHPUnit_TextUI_Command::main();
 ?>
 --EXPECTF--
-PHPUnit %s by Sebastian Bergmann.
+PHPUnit %s by Sebastian Bergmann and contributors.
 
-Configuration read from %s/configuration.custom-printer.xml
+Configuration read from %sconfiguration.custom-printer.xml
 
 I
 

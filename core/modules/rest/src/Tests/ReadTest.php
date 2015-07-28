@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\rest\test\ReadTest.
+ * Contains \Drupal\rest\Tests\ReadTest.
  */
 
 namespace Drupal\rest\Tests;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\Core\Url;
 use Drupal\rest\Tests\RESTTestBase;
 
 /**
@@ -18,7 +19,7 @@ use Drupal\rest\Tests\RESTTestBase;
 class ReadTest extends RESTTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
@@ -44,7 +45,7 @@ class ReadTest extends RESTTestBase {
       $entity = $this->entityCreate($entity_type);
       $entity->save();
       // Read it over the REST API.
-      $response = $this->httpRequest($entity->getSystemPath(), 'GET', NULL, $this->defaultMimeType);
+      $response = $this->httpRequest($entity->urlInfo()->setRouteParameter('_format', $this->defaultFormat), 'GET');
       $this->assertResponse('200', 'HTTP response code is correct.');
       $this->assertHeader('content-type', $this->defaultMimeType);
       $data = Json::decode($response);
@@ -53,14 +54,16 @@ class ReadTest extends RESTTestBase {
       $this->assertEqual($data['uuid'][0]['value'], $entity->uuid(), 'Entity UUID is correct');
 
       // Try to read the entity with an unsupported mime format.
-      $response = $this->httpRequest($entity->getSystemPath(), 'GET', NULL, 'application/wrongformat');
-      $this->assertResponse(200);
-      $this->assertHeader('Content-type', 'text/html; charset=UTF-8');
+      $response = $this->httpRequest($entity->urlInfo()->setRouteParameter('_format', 'wrongformat'), 'GET');
+      $this->assertResponse(406);
+      $this->assertHeader('Content-type', 'application/json');
 
       // Try to read an entity that does not exist.
-      $response = $this->httpRequest($entity_type . '/9999', 'GET', NULL, $this->defaultMimeType);
+      $response = $this->httpRequest(Url::fromUri('base://' . $entity_type . '/9999', ['query' => ['_format' => $this->defaultFormat]]), 'GET');
       $this->assertResponse(404);
-      $this->assertText('A fatal error occurred: The "' . $entity_type . '" parameter was not converted for the path', 'Response message is correct.');
+      $path = $entity_type == 'node' ? '/node/{node}' : '/entity_test/{entity_test}';
+      $expected_message = Json::encode(['message' => 'The "' . $entity_type . '" parameter was not converted for the path "' . $path . '" (route name: "rest.entity.' . $entity_type . '.GET.hal_json")']);
+      $this->assertIdentical($expected_message, $response, 'Response message is correct.');
 
       // Make sure that field level access works and that the according field is
       // not available in the response. Only applies to entity_test.
@@ -68,7 +71,7 @@ class ReadTest extends RESTTestBase {
       if ($entity_type == 'entity_test') {
         $entity->field_test_text->value = 'no access value';
         $entity->save();
-        $response = $this->httpRequest($entity->getSystemPath(), 'GET', NULL, $this->defaultMimeType);
+        $response = $this->httpRequest($entity->urlInfo()->setRouteParameter('_format', $this->defaultFormat), 'GET');
         $this->assertResponse(200);
         $this->assertHeader('content-type', $this->defaultMimeType);
         $data = Json::decode($response);
@@ -77,16 +80,23 @@ class ReadTest extends RESTTestBase {
 
       // Try to read an entity without proper permissions.
       $this->drupalLogout();
-      $response = $this->httpRequest($entity->getSystemPath(), 'GET', NULL, $this->defaultMimeType);
+      $response = $this->httpRequest($entity->urlInfo()->setRouteParameter('_format', $this->defaultFormat), 'GET');
       $this->assertResponse(403);
-      $this->assertNull(Json::decode($response), 'No valid JSON found.');
+      $this->assertIdentical('{"message":""}', $response);
     }
     // Try to read a resource which is not REST API enabled.
     $account = $this->drupalCreateUser();
     $this->drupalLogin($account);
-    $response = $this->httpRequest($account->getSystemPath(), 'GET', NULL, $this->defaultMimeType);
-    $this->assertResponse(404);
-    $this->assertNull(Json::decode($response), 'No valid JSON found.');
+    $response = $this->httpRequest($account->urlInfo()->setRouteParameter('_format', $this->defaultFormat), 'GET');
+    // \Drupal\Core\Routing\RequestFormatRouteFilter considers the canonical,
+    // non-REST route a match, but a lower quality one: no format restrictions
+    // means there's always a match and hence when there is no matching REST
+    // route, the non-REST route is used, but can't render into
+    // application/hal+json, so it returns a 406.
+    $this->assertResponse('406', 'HTTP response code is 406 when the resource does not define formats, because it falls back to the canonical, non-REST route.');
+    $this->assertEqual($response, Json::encode([
+      'message' => 'Not acceptable',
+    ]));
   }
 
   /**
@@ -107,7 +117,7 @@ class ReadTest extends RESTTestBase {
     $entity->save();
 
     // Read it over the REST API.
-    $response = $this->httpRequest($entity->getSystemPath(), 'GET', NULL, 'application/json');
+    $response = $this->httpRequest($entity->urlInfo()->setRouteParameter('_format', 'json'), 'GET');
     $this->assertResponse('200', 'HTTP response code is correct.');
   }
 

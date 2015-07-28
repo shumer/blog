@@ -8,7 +8,7 @@ namespace Drupal\comment;
 
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityManagerInterface;
@@ -68,10 +68,11 @@ class CommentStatistics implements CommentStatisticsInterface {
   /**
    * {@inheritdoc}
    */
-  public function read($entities, $entity_type) {
-    $stats = $this->database->select('comment_entity_statistics', 'ces')
+  public function read($entities, $entity_type, $accurate = TRUE) {
+    $options = $accurate ? array() : array('target' => 'replica');
+    $stats =  $this->database->select('comment_entity_statistics', 'ces', $options)
       ->fields('ces')
-      ->condition('ces.entity_id', array_keys($entities))
+      ->condition('ces.entity_id', array_keys($entities), 'IN')
       ->condition('ces.entity_type', $entity_type)
       ->execute();
 
@@ -95,7 +96,7 @@ class CommentStatistics implements CommentStatisticsInterface {
   /**
    * {@inheritdoc}
    */
-  public function create(ContentEntityInterface $entity, $fields) {
+  public function create(FieldableEntityInterface $entity, $fields) {
     $query = $this->database->insert('comment_entity_statistics')
       ->fields(array(
         'entity_id',
@@ -125,8 +126,10 @@ class CommentStatistics implements CommentStatisticsInterface {
       }
       // Default to REQUEST_TIME when entity does not have a changed property.
       $last_comment_timestamp = REQUEST_TIME;
+      // @todo Make comment statistics language aware and add some tests. See
+      //   https://www.drupal.org/node/2318875
       if ($entity instanceof EntityChangedInterface) {
-        $last_comment_timestamp = $entity->getChangedTime();
+        $last_comment_timestamp = $entity->getChangedTimeAcrossTranslations();
       }
       $query->values(array(
         'entity_id' => $entity->id(),
@@ -164,11 +167,13 @@ class CommentStatistics implements CommentStatisticsInterface {
           // nodes.
           'on' => "ces.entity_id = i.sid AND ces.entity_type = 'node' AND ces.field_name = 'comment'",
         ),
-        // Inverse law that maps the highest reply count on the site to 1 and 0
-        // to 0. Note that the CAST here is necessary for PostgreSQL, because the
-        // PostgreSQL PDO driver sometimes puts values in as strings instead of
-        // numbers in complex expressions like this.
-        'score' => '2.0 - 2.0 / (1.0 + ces.comment_count * (CAST (:comment_scale AS DECIMAL(10, 4))))',
+        // Inverse law that maps the highest view count on the site to 1 and 0
+        // to 0. Note that the ROUND here is necessary for PostgreSQL and SQLite
+        // in order to ensure that the :comment_scale argument is treated as
+        // a numeric type, because the PostgreSQL PDO driver sometimes puts
+        // values in as strings instead of numbers in complex expressions like
+        // this.
+        'score' => '2.0 - 2.0 / (1.0 + ces.comment_count * (ROUND(:comment_scale, 4)))',
         'arguments' => array(':comment_scale' => \Drupal::state()->get('comment.node_comment_statistics_scale') ?: 0),
       ),
     );
@@ -240,9 +245,9 @@ class CommentStatistics implements CommentStatisticsInterface {
         ->fields(array(
           'cid' => 0,
           'comment_count' => 0,
-          // Use the created date of the entity if it's set, or default to
+          // Use the changed date of the entity if it's set, or default to
           // REQUEST_TIME.
-          'last_comment_timestamp' => ($entity instanceof EntityChangedInterface) ? $entity->getChangedTime() : REQUEST_TIME,
+          'last_comment_timestamp' => ($entity instanceof EntityChangedInterface) ? $entity->getChangedTimeAcrossTranslations() : REQUEST_TIME,
           'last_comment_name' => '',
           'last_comment_uid' => $last_comment_uid,
         ))

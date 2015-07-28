@@ -34,7 +34,7 @@ abstract class PluginTestBase extends KernelTestBase {
   protected $defaultsTestPluginManager;
   protected $defaultsTestPluginExpectedDefinitions;
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Real modules implementing plugin types may expose a module-specific API
@@ -47,7 +47,7 @@ abstract class PluginTestBase extends KernelTestBase {
     //   as derivatives and ReflectionFactory.
     $this->testPluginManager = new TestPluginManager();
     $this->mockBlockManager = new MockBlockManager();
-    $module_handler = new ModuleHandler(array(), new MemoryBackend('plugin'));
+    $module_handler = new ModuleHandler(\Drupal::root(), array(), new MemoryBackend('plugin'), $this->container->get('event_dispatcher'));
     $this->defaultsTestPluginManager = new DefaultsTestPluginManager($module_handler);
 
     // The expected plugin definitions within each manager. Several tests assert

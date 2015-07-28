@@ -7,7 +7,10 @@
 
 namespace Drupal\Core\Condition;
 
+use Drupal\Core\Executable\ExecutableManagerInterface;
 use Drupal\Core\Executable\ExecutablePluginBase;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Plugin\ContextAwarePluginAssignmentTrait;
 
 /**
  * Provides a basis for fulfilling contexts for condition plugins.
@@ -19,6 +22,15 @@ use Drupal\Core\Executable\ExecutablePluginBase;
  * @ingroup plugin_api
  */
 abstract class ConditionPluginBase extends ExecutablePluginBase implements ConditionInterface {
+
+  use ContextAwarePluginAssignmentTrait;
+
+  /**
+   * The condition manager to proxy execute calls through.
+   *
+   * @var \Drupal\Core\Executable\ExecutableInterface
+   */
+  protected $executableManager;
 
   /**
    * {@inheritdoc}
@@ -39,10 +51,12 @@ abstract class ConditionPluginBase extends ExecutablePluginBase implements Condi
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
+    $contexts = $form_state->getTemporaryValue('gathered_contexts') ?: [];
+    $form['context_mapping'] = $this->addContextAssignmentElement($this, $contexts);
     $form['negate'] = array(
       '#type' => 'checkbox',
-      '#title' => $this->t('Negate the condition.'),
+      '#title' => $this->t('Negate the condition'),
       '#default_value' => $this->configuration['negate'],
     );
     return $form;
@@ -51,14 +65,14 @@ abstract class ConditionPluginBase extends ExecutablePluginBase implements Condi
   /**
    * {@inheritdoc}
    */
-  public function validateConfigurationForm(array &$form, array &$form_state) {
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, array &$form_state) {
-    $this->configuration['negate'] = $form_state['values']['negate'];
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->configuration['negate'] = $form_state->getValue('negate');
   }
 
   /**
@@ -99,6 +113,14 @@ abstract class ConditionPluginBase extends ExecutablePluginBase implements Condi
    */
   public function calculateDependencies() {
     return array();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setExecutableManager(ExecutableManagerInterface $executableManager) {
+    $this->executableManager = $executableManager;
+    return $this;
   }
 
 }

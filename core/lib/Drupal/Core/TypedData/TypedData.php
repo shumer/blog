@@ -39,9 +39,16 @@ abstract class TypedData implements TypedDataInterface, PluginInspectionInterfac
   /**
    * The parent typed data object.
    *
-   * @var \Drupal\Core\TypedData\TypedDataInterface
+   * @var \Drupal\Core\TypedData\TraversableTypedDataInterface|null
    */
   protected $parent;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function createInstance($definition, $name = NULL, TraversableTypedDataInterface $parent = NULL) {
+    return new static($definition, $name, $parent);
+  }
 
   /**
    * Constructs a TypedData object given its definition and context.
@@ -59,7 +66,7 @@ abstract class TypedData implements TypedDataInterface, PluginInspectionInterfac
    *
    * @todo When \Drupal\Core\Config\TypedConfigManager has been fixed to use
    *   class-based definitions, type-hint $definition to
-   *   DataDefinitionInterface. https://drupal.org/node/1928868
+   *   DataDefinitionInterface. https://www.drupal.org/node/1928868
    */
   public function __construct($definition, $name = NULL, TypedDataInterface $parent = NULL) {
     $this->definition = $definition;
@@ -146,7 +153,7 @@ abstract class TypedData implements TypedDataInterface, PluginInspectionInterfac
   /**
    * {@inheritdoc}
    */
-  public function setContext($name = NULL, TypedDataInterface $parent = NULL) {
+  public function setContext($name = NULL, TraversableTypedDataInterface $parent = NULL) {
     $this->parent = $parent;
     $this->name = $name;
   }

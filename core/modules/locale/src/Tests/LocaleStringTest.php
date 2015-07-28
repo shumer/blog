@@ -2,12 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\locale\Tests\LocaleStringTest.
+ * Contains \Drupal\locale\Tests\LocaleStringTest.
  */
 
 namespace Drupal\locale\Tests;
 
-use Drupal\Core\Language\Language;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -34,14 +34,13 @@ class LocaleStringTest extends WebTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     // Add a default locale storage for all these tests.
     $this->storage = $this->container->get('locale.storage');
     // Create two languages: Spanish and German.
     foreach (array('es', 'de') as $langcode) {
-      $language = new Language(array('id' => $langcode));
-      $languages[$langcode] = language_save($language);
+      ConfigurableLanguage::createFromLangcode($langcode)->save();
     }
   }
 
@@ -122,9 +121,9 @@ class LocaleStringTest extends WebTestBase {
     // Source 1 will have all translations, not customized.
     // Source 2 will have all translations, customized.
     // Source 3 will have no translations.
-    $prefix = $this->randomName(100);
-    $source1 = $this->buildSourceString(array('source' => $prefix . $this->randomName(100)))->save();
-    $source2 = $this->buildSourceString(array('source' => $prefix . $this->randomName(100)))->save();
+    $prefix = $this->randomMachineName(100);
+    $source1 = $this->buildSourceString(array('source' => $prefix . $this->randomMachineName(100)))->save();
+    $source2 = $this->buildSourceString(array('source' => $prefix . $this->randomMachineName(100)))->save();
     $source3 = $this->buildSourceString()->save();
     // Load all source strings.
     $strings = $this->storage->getStrings(array());
@@ -179,8 +178,8 @@ class LocaleStringTest extends WebTestBase {
    */
   public function buildSourceString($values = array()) {
     return $this->storage->createString($values += array(
-      'source' => $this->randomName(100),
-      'context' => $this->randomName(20),
+      'source' => $this->randomMachineName(100),
+      'context' => $this->randomMachineName(20),
     ));
   }
 
@@ -189,8 +188,10 @@ class LocaleStringTest extends WebTestBase {
    */
   public function createAllTranslations($source, $values = array()) {
     $list = array();
-    foreach ($this->container->get('language_manager')->getLanguages() as $language) {
-      $list[$language->id] = $this->createTranslation($source, $language->id, $values);
+    /* @var $language_manager \Drupal\Core\Language\LanguageManagerInterface */
+    $language_manager = $this->container->get('language_manager');
+    foreach ($language_manager->getLanguages() as $language) {
+      $list[$language->getId()] = $this->createTranslation($source, $language->getId(), $values);
     }
     return $list;
   }
@@ -202,7 +203,7 @@ class LocaleStringTest extends WebTestBase {
     return $this->storage->createTranslation($values + array(
       'lid' => $source->lid,
       'language' => $langcode,
-      'translation' => $this->randomName(100),
+      'translation' => $this->randomMachineName(100),
     ))->save();
   }
 }

@@ -1,29 +1,34 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\migrate_drupal\Tests\d6\MigrateDateFormatTest.
+ */
+
 namespace Drupal\migrate_drupal\Tests\d6;
 
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\migrate\MigrateMessage;
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
 use Drupal\Core\Database\Database;
 
 /**
- * Upgrade date formats to system.date_format.*.yml.
+ * Upgrade date formats to core.date_format.*.yml.
  *
  * @group migrate_drupal
  */
-class MigrateDateFormatTest extends MigrateDrupalTestBase {
+class MigrateDateFormatTest extends MigrateDrupal6TestBase {
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     /** @var \Drupal\migrate\entity\Migration $migration */
     $migration = entity_load('migration', 'd6_date_formats');
     $dumps = array(
-      $this->getDumpDirectory() . '/Drupal6DateFormat.php',
+      $this->getDumpDirectory() . '/Variable.php',
     );
     $this->prepare($migration, $dumps);
     $executable = new MigrateExecutable($migration, new MigrateMessage());
@@ -35,13 +40,13 @@ class MigrateDateFormatTest extends MigrateDrupalTestBase {
    */
   public function testDateFormats() {
     $short_date_format = entity_load('date_format', 'short');
-    $this->assertEqual('\S\H\O\R\T m/d/Y - H:i', $short_date_format->getPattern());
+    $this->assertIdentical('\S\H\O\R\T m/d/Y - H:i', $short_date_format->getPattern());
 
     $medium_date_format = entity_load('date_format', 'medium');
-    $this->assertEqual('\M\E\D\I\U\M D, m/d/Y - H:i', $medium_date_format->getPattern());
+    $this->assertIdentical('\M\E\D\I\U\M D, m/d/Y - H:i', $medium_date_format->getPattern());
 
     $long_date_format = entity_load('date_format', 'long');
-    $this->assertEqual('\L\O\N\G l, F j, Y - H:i', $long_date_format->getPattern());
+    $this->assertIdentical('\L\O\N\G l, F j, Y - H:i', $long_date_format->getPattern());
 
     // Test that we can re-import using the EntityDateFormat destination.
     Database::getConnection('default', 'migrate')
@@ -55,7 +60,7 @@ class MigrateDateFormatTest extends MigrateDrupalTestBase {
     $executable->import();
 
     $short_date_format = entity_load('date_format', 'short');
-    $this->assertEqual('\S\H\O\R\T d/m/Y - H:i', $short_date_format->getPattern());
+    $this->assertIdentical('\S\H\O\R\T d/m/Y - H:i', $short_date_format->getPattern());
 
   }
 

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\ChangedCommand.
+ * Contains \Drupal\Core\Ajax\ChangedCommand.
  */
 
 namespace Drupal\Core\Ajax;
@@ -17,6 +17,8 @@ use Drupal\Core\Ajax\CommandInterface;
  *
  * This command is implemented by Drupal.AjaxCommands.prototype.changed()
  * defined in misc/ajax.js.
+ *
+ * @ingroup ajax
  */
 class ChangedCommand implements CommandInterface {
 

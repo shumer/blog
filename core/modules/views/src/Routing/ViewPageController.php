@@ -7,14 +7,12 @@
 
 namespace Drupal\views\Routing;
 
-use Drupal\Component\Utility\String;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\views\Plugin\views\display\Page;
 use Drupal\views\ViewExecutableFactory;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Defines a page controller to execute and render a view.
@@ -59,44 +57,33 @@ class ViewPageController implements ContainerInjectionInterface {
   }
 
   /**
-   * Handles a response for a view.
+   * Handler a response for a given view and display.
+   *
+   * @param string $view_id
+   *   The ID of the view
+   * @param string $display_id
+   *   The ID of the display.
+   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+   *   The route match.
+   * @return null|void
    */
-  public function handle(Request $request) {
-    $view_id = $request->attributes->get('view_id');
-    $display_id = $request->attributes->get('display_id');
-
-    $entity = $this->storage->load($view_id);
-    if (empty($entity)) {
-      throw new NotFoundHttpException(String::format('Page controller for view %id requested, but view was not found.', array('%id' => $view_id)));
-    }
-    $view = $this->executableFactory->get($entity);
-    $view->setRequest($request);
-    $view->setDisplay($display_id);
-    $view->initHandlers();
-
+  public function handle($view_id, $display_id, RouteMatchInterface $route_match) {
     $args = array();
-    $map = $request->attributes->get(RouteObjectInterface::ROUTE_OBJECT)->getOption('_view_argument_map', array());
-    $arguments_length = count($view->argument);
-    for ($argument_index = 0; $argument_index < $arguments_length; $argument_index++) {
+    $route = $route_match->getRouteObject();
+    $map = $route->hasOption('_view_argument_map') ? $route->getOption('_view_argument_map') : array();
+
+    foreach ($map as $attribute => $parameter_name) {
       // Allow parameters be pulled from the request.
       // The map stores the actual name of the parameter in the request. Views
       // which override existing controller, use for example 'node' instead of
       // arg_nid as name.
-      $attribute = 'arg_' . $argument_index;
       if (isset($map[$attribute])) {
         $attribute = $map[$attribute];
-
-        // First try to get from the original values then on the not converted
-        // ones.
-        if ($request->attributes->has('_raw_variables')) {
-          $arg = $request->attributes->get('_raw_variables')->get($attribute);
-        }
-        else {
-          $arg = $request->attributes->get($attribute);
-        }
+      }
+      if ($arg = $route_match->getRawParameter($attribute)) {
       }
       else {
-        $arg = $request->attributes->get($attribute);
+        $arg = $route_match->getParameter($attribute);
       }
 
       if (isset($arg)) {
@@ -104,7 +91,18 @@ class ViewPageController implements ContainerInjectionInterface {
       }
     }
 
-    return $view->executeDisplay($display_id, $args);
+    /** @var \Drupal\views\Plugin\views\display\DisplayPluginBase $class */
+    $class = $route->getOption('_view_display_plugin_class');
+    if ($route->getOption('returns_response')) {
+      /** @var \Drupal\views\Plugin\views\display\ResponseDisplayPluginInterface $class */
+      return $class::buildResponse($view_id, $display_id, $args);
+    }
+    else {
+      $build = $class::buildBasicRenderable($view_id, $display_id, $args, $route);
+      Page::setPageRenderArray($build);
+
+      return $build;
+    }
   }
 
 }

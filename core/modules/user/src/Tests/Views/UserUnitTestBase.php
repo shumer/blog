@@ -20,7 +20,7 @@ abstract class UserUnitTestBase extends ViewUnitTestBase {
    *
    * @var array
    */
-  public static $modules = array('user_test_views', 'user', 'system', 'entity', 'field');
+  public static $modules = array('user_test_views', 'user', 'system', 'field');
 
   /**
    * Users to use during this test.
@@ -49,7 +49,6 @@ abstract class UserUnitTestBase extends ViewUnitTestBase {
     ViewTestData::createTestViews(get_class($this), array('user_test_views'));
 
     $this->installEntitySchema('user');
-    $this->installSchema('system', 'sequences');
 
     $entity_manager = $this->container->get('entity.manager');
     $this->roleStorage = $entity_manager->getStorage('user_role');

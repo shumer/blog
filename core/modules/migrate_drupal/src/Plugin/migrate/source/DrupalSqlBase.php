@@ -2,13 +2,18 @@
 
 /**
  * @file
- * Contains \Drupal\migrate_drupal\Plugin\migrate\source\Drupal6SqlBase.
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase.
  */
 
 namespace Drupal\migrate_drupal\Plugin\migrate\source;
 
+use Drupal\Component\Plugin\DependentPluginInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Entity\DependencyTrait;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\migrate\Entity\MigrationInterface;
+use Drupal\migrate\Exception\RequirementsException;
 use Drupal\migrate\Plugin\migrate\source\SqlBase;
 use Drupal\migrate\Plugin\RequirementsInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -19,7 +24,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Mainly to let children retrieve information from the origin system in an
  * easier way.
  */
-abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginInterface, RequirementsInterface {
+abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginInterface, RequirementsInterface, DependentPluginInterface {
+
+  use DependencyTrait;
 
    /**
    * The contents of the system table.
@@ -34,6 +41,21 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
    * @var bool
    */
   protected $requirements = TRUE;
+
+  /**
+   * The entity manager.
+   *
+   * @var \Drupal\Core\Entity\EntityManagerInterface
+   */
+  protected $entityManager;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration, EntityManagerInterface $entity_manager) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $migration);
+    $this->entityManager = $entity_manager;
+  }
 
   /**
     * Retrieves all system data information from origin system.
@@ -63,36 +85,31 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition, MigrationInterface $migration = NULL) {
-    $plugin = new static(
+    return new static(
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $migration
+      $migration,
+      $container->get('entity.manager')
     );
-    /** @var \Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase $plugin */
-    if ($plugin_definition['requirements_met'] === TRUE) {
-      if (isset($plugin_definition['source_provider'])) {
-        if ($plugin->moduleExists($plugin_definition['source_provider'])) {
-          if (isset($plugin_definition['minimum_schema_version']) && !$plugin->getModuleSchemaVersion($plugin_definition['source_provider']) < $plugin_definition['minimum_schema_version']) {
-            $plugin->checkRequirements(FALSE);
-          }
-        }
-        else {
-          $plugin->checkRequirements(FALSE);
-        }
-      }
-    }
-    return $plugin;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function checkRequirements($new_value = NULL) {
-    if (isset($new_value)) {
-      $this->requirements = $new_value;
+  public function checkRequirements() {
+    if ($this->pluginDefinition['requirements_met'] === TRUE) {
+      if (isset($this->pluginDefinition['source_provider'])) {
+        if ($this->moduleExists($this->pluginDefinition['source_provider'])) {
+          if (isset($this->pluginDefinition['minimum_schema_version']) && !$this->getModuleSchemaVersion($this->pluginDefinition['source_provider']) < $this->pluginDefinition['minimum_schema_version']) {
+            throw new RequirementsException(SafeMarkup::format('Required minimum schema version @minimum_schema_version', ['@minimum_schema_version' => $this->pluginDefinition['minimum_schema_version']]), ['minimum_schema_version' => $this->pluginDefinition['minimum_schema_version']]);
+          }
+        }
+        else {
+          throw new RequirementsException(SafeMarkup::format('Missing source provider @provider', ['@provider' => $this->pluginDefinition['source_provider']]), ['source_provider' => $this->pluginDefinition['source_provider']]);
+        }
+      }
     }
-    return $this->requirements;
   }
 
   /**
@@ -146,6 +163,20 @@ abstract class DrupalSqlBase extends SqlBase implements ContainerFactoryPluginIn
       $result = FALSE;
     }
     return $result !== FALSE ? unserialize($result) : $default;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    // Generic handling for Drupal source plugin constants.
+    if (isset($this->configuration['constants']['entity_type'])) {
+      $this->addDependency('module', $this->entityManager->getDefinition($this->configuration['constants']['entity_type'])->getProvider());
+    }
+    if (isset($this->configuration['constants']['module'])) {
+      $this->addDependency('module', $this->configuration['constants']['module']);
+    }
+    return $this->dependencies;
   }
 
 }

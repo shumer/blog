@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Contains Drupal\router_test\Access\TestAccessCheck.
+ * Contains \Drupal\router_test\Access\TestAccessCheck.
  */
 
 namespace Drupal\router_test\Access;
 
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Routing\Access\AccessInterface;
 
 /**
@@ -23,6 +24,6 @@ class TestAccessCheck implements AccessInterface {
   public function access() {
     // No opinion, so other access checks should decide if access should be
     // allowed or not.
-    return static::DENY;
+    return AccessResult::neutral();
   }
 }

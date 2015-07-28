@@ -7,6 +7,7 @@
 
 namespace Drupal\user\Tests;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -24,13 +25,13 @@ class UserBlocksTest extends WebTestBase {
   public static $modules = array('block', 'views');
 
   /**
-   * The admin user used in this test.
+   * A user with the 'administer blocks' permission.
    *
    * @var \Drupal\user\UserInterface
    */
   protected $adminUser;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->adminUser = $this->drupalCreateUser(array('administer blocks'));
@@ -43,6 +44,16 @@ class UserBlocksTest extends WebTestBase {
    * Test the user login block.
    */
   function testUserLoginBlock() {
+    // Make sure the validation error is displayed when try to login with
+    // invalid username/password.
+    $edit['name'] = $this->randomMachineName();
+    $edit['pass'] = $this->randomMachineName();
+    $this->drupalPostForm('node', $edit, t('Log in'));
+    $this->assertRaw(\Drupal::translation()->formatPlural(1, '1 error has been found: !errors', '@count errors have been found: !errors', [
+      '!errors' => SafeMarkup::set('<a href="#edit-name">Username</a>')
+    ]));
+    $this->assertText(t('Sorry, unrecognized username or password.'));
+
     // Create a user with some permission that anonymous users lack.
     $user = $this->drupalCreateUser(array('administer permissions'));
 
@@ -54,7 +65,7 @@ class UserBlocksTest extends WebTestBase {
     $this->assertNoText(t('User login'), 'Logged in.');
 
     // Check that we are still on the same page.
-    $this->assertEqual(url('admin/people/permissions', array('absolute' => TRUE)), $this->getUrl(), 'Still on the same page after login for access denied page');
+    $this->assertUrl(\Drupal::url('user.admin_permissions', [], ['absolute' => TRUE]), [], 'Still on the same page after login for access denied page');
 
     // Now, log out and repeat with a non-403 page.
     $this->drupalLogout();
@@ -67,7 +78,7 @@ class UserBlocksTest extends WebTestBase {
     $this->drupalLogout();
     $this->drupalPostForm('http://example.com/', $edit, t('Log in'), array('external' => FALSE));
     // Check that we remain on the site after login.
-    $this->assertEqual(url('user/' . $user->id(), array('absolute' => TRUE)), $this->getUrl(), 'Redirected to user profile page after login from the frontpage');
+    $this->assertUrl($user->url('canonical', ['absolute' => TRUE]), [], 'Redirected to user profile page after login from the frontpage');
   }
 
   /**
@@ -77,7 +88,7 @@ class UserBlocksTest extends WebTestBase {
     $block = $this->drupalPlaceBlock('views_block:who_s_online-who_s_online_block');
 
     // Generate users.
-    $user1 = $this->drupalCreateUser(array());
+    $user1 = $this->drupalCreateUser(array('access user profiles'));
     $user2 = $this->drupalCreateUser(array());
     $user3 = $this->drupalCreateUser(array());
 
@@ -92,20 +103,21 @@ class UserBlocksTest extends WebTestBase {
     $this->updateAccess($this->adminUser->id(), $inactive_time);
 
     // Test block output.
+    \Drupal::currentUser()->setAccount($user1);
     $content = entity_view($block, 'block');
-    $this->drupalSetContent(render($content));
+    $this->setRawContent(\Drupal::service('renderer')->renderRoot($content));
     $this->assertRaw(t('2 users'), 'Correct number of online users (2 users).');
     $this->assertText($user1->getUsername(), 'Active user 1 found in online list.');
     $this->assertText($user2->getUsername(), 'Active user 2 found in online list.');
     $this->assertNoText($user3->getUsername(), 'Inactive user not found in online list.');
-    $this->assertTrue(strpos($this->drupalGetContent(), $user1->getUsername()) > strpos($this->drupalGetContent(), $user2->getUsername()), 'Online users are ordered correctly.');
+    $this->assertTrue(strpos($this->getRawContent(), $user1->getUsername()) > strpos($this->getRawContent(), $user2->getUsername()), 'Online users are ordered correctly.');
   }
 
   /**
    * Updates the access column for a user.
    */
   private function updateAccess($uid, $access = REQUEST_TIME) {
-    db_update('users')
+    db_update('users_field_data')
       ->condition('uid', $uid)
       ->fields(array('access' => $access))
       ->execute();

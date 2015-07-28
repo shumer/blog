@@ -1,5 +1,4 @@
 <?php
-
 namespace GuzzleHttp\Message;
 
 use GuzzleHttp\Stream\StreamInterface;
@@ -20,12 +19,8 @@ abstract class AbstractMessage implements MessageInterface
 
     public function __toString()
     {
-        $result = $this->getStartLine();
-        foreach ($this->getHeaders() as $name => $values) {
-            $result .= "\r\n{$name}: " . implode(', ', $values);
-        }
-
-        return $result . "\r\n\r\n" . $this->body;
+        return static::getStartLineAndHeaders($this)
+            . "\r\n\r\n" . $this->getBody();
     }
 
     public function getProtocolVersion()
@@ -42,33 +37,23 @@ abstract class AbstractMessage implements MessageInterface
     {
         if ($body === null) {
             // Setting a null body will remove the body of the request
-            $this->removeHeader('Content-Length')
-                ->removeHeader('Transfer-Encoding');
+            $this->removeHeader('Content-Length');
+            $this->removeHeader('Transfer-Encoding');
         }
 
         $this->body = $body;
-
-        return $this;
     }
 
     public function addHeader($header, $value)
     {
-        static $valid = ['string' => true, 'integer' => true,
-            'double' => true, 'array' => true];
-
-        $type = gettype($value);
-        if (!isset($valid[$type])) {
-            throw new \InvalidArgumentException('Invalid header value');
-        }
-
-        if ($type == 'array') {
-            $current = array_merge($this->getHeader($header, true), $value);
+        if (is_array($value)) {
+            $current = array_merge($this->getHeaderAsArray($header), $value);
         } else {
-            $current = $this->getHeader($header, true);
-            $current[] = $value;
+            $current = $this->getHeaderAsArray($header);
+            $current[] = (string) $value;
         }
 
-        return $this->setHeader($header, $current);
+        $this->setHeader($header, $current);
     }
 
     public function addHeaders(array $headers)
@@ -78,17 +63,18 @@ abstract class AbstractMessage implements MessageInterface
         }
     }
 
-    public function getHeader($header, $asArray = false)
+    public function getHeader($header)
     {
         $name = strtolower($header);
+        return isset($this->headers[$name])
+            ? implode(', ', $this->headers[$name])
+            : '';
+    }
 
-        if (!isset($this->headers[$name])) {
-            return $asArray ? [] : '';
-        }
-
-        return $asArray
-            ? $this->headers[$name]
-            : implode(', ', $this->headers[$name]);
+    public function getHeaderAsArray($header)
+    {
+        $name = strtolower($header);
+        return isset($this->headers[$name]) ? $this->headers[$name] : [];
     }
 
     public function getHeaders()
@@ -107,26 +93,14 @@ abstract class AbstractMessage implements MessageInterface
         $name = strtolower($header);
         $this->headerNames[$name] = $header;
 
-        switch (gettype($value)) {
-            case 'string':
-                $this->headers[$name] = [trim($value)];
-                break;
-            case 'integer':
-            case 'double':
-                $this->headers[$name] = [(string) $value];
-                break;
-            case 'array':
-                foreach ($value as &$v) {
-                    $v = trim($v);
-                }
-                $this->headers[$name] = $value;
-                break;
-            default:
-                throw new \InvalidArgumentException('Invalid header value '
-                    . 'provided: ' . var_export($value, true));
+        if (is_array($value)) {
+            foreach ($value as &$v) {
+                $v = trim($v);
+            }
+            $this->headers[$name] = $value;
+        } else {
+            $this->headers[$name] = [trim($value)];
         }
-
-        return $this;
     }
 
     public function setHeaders(array $headers)
@@ -135,8 +109,6 @@ abstract class AbstractMessage implements MessageInterface
         foreach ($headers as $key => $value) {
             $this->setHeader($key, $value);
         }
-
-        return $this;
     }
 
     public function hasHeader($header)
@@ -148,8 +120,6 @@ abstract class AbstractMessage implements MessageInterface
     {
         $name = strtolower($header);
         unset($this->headers[$name], $this->headerNames[$name]);
-
-        return $this;
     }
 
     /**
@@ -199,7 +169,7 @@ abstract class AbstractMessage implements MessageInterface
      */
     public static function normalizeHeader(MessageInterface $message, $header)
     {
-        $h = $message->getHeader($header, true);
+        $h = $message->getHeaderAsArray($header);
         for ($i = 0, $total = count($h); $i < $total; $i++) {
             if (strpos($h[$i], ',') === false) {
                 continue;
@@ -214,11 +184,57 @@ abstract class AbstractMessage implements MessageInterface
     }
 
     /**
-     * Returns the start line of a message.
+     * Gets the start-line and headers of a message as a string
+     *
+     * @param MessageInterface $message
      *
      * @return string
      */
-    abstract protected function getStartLine();
+    public static function getStartLineAndHeaders(MessageInterface $message)
+    {
+        return static::getStartLine($message)
+            . self::getHeadersAsString($message);
+    }
+
+    /**
+     * Gets the headers of a message as a string
+     *
+     * @param MessageInterface $message
+     *
+     * @return string
+     */
+    public static function getHeadersAsString(MessageInterface $message)
+    {
+        $result  = '';
+        foreach ($message->getHeaders() as $name => $values) {
+            $result .= "\r\n{$name}: " . implode(', ', $values);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Gets the start line of a message
+     *
+     * @param MessageInterface $message
+     *
+     * @return string
+     * @throws \InvalidArgumentException
+     */
+    public static function getStartLine(MessageInterface $message)
+    {
+        if ($message instanceof RequestInterface) {
+            return trim($message->getMethod() . ' '
+                . $message->getResource())
+                . ' HTTP/' . $message->getProtocolVersion();
+        } elseif ($message instanceof ResponseInterface) {
+            return 'HTTP/' . $message->getProtocolVersion() . ' '
+                . $message->getStatusCode() . ' '
+                . $message->getReasonPhrase();
+        } else {
+            throw new \InvalidArgumentException('Unknown message type');
+        }
+    }
 
     /**
      * Accepts and modifies the options provided to the message in the

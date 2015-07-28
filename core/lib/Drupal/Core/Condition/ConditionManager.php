@@ -7,10 +7,12 @@
 
 namespace Drupal\Core\Condition;
 
+use Drupal\Component\Plugin\CategorizingPluginManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Executable\ExecutableManagerInterface;
 use Drupal\Core\Executable\ExecutableInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Plugin\CategorizingPluginManagerTrait;
 use Drupal\Core\Plugin\Context\ContextAwarePluginManagerTrait;
 use Drupal\Core\Plugin\DefaultPluginManager;
 
@@ -23,8 +25,9 @@ use Drupal\Core\Plugin\DefaultPluginManager;
  *
  * @ingroup plugin_api
  */
-class ConditionManager extends DefaultPluginManager implements ExecutableManagerInterface {
+class ConditionManager extends DefaultPluginManager implements ExecutableManagerInterface, CategorizingPluginManagerInterface {
 
+  use CategorizingPluginManagerTrait;
   use ContextAwarePluginManagerTrait;
 
   /**
@@ -42,14 +45,14 @@ class ConditionManager extends DefaultPluginManager implements ExecutableManager
     $this->alterInfo('condition_info');
     $this->setCacheBackend($cache_backend, 'condition_plugins');
 
-    parent::__construct('Plugin/Condition', $namespaces, $module_handler, 'Drupal\Core\Condition\Annotation\Condition');
+    parent::__construct('Plugin/Condition', $namespaces, $module_handler, 'Drupal\Core\Condition\ConditionInterface', 'Drupal\Core\Condition\Annotation\Condition');
   }
 
   /**
    * Override of Drupal\Component\Plugin\PluginManagerBase::createInstance().
    */
   public function createInstance($plugin_id, array $configuration = array()) {
-    $plugin = $this->factory->createInstance($plugin_id, $configuration);
+    $plugin = $this->getFactory()->createInstance($plugin_id, $configuration);
 
     // If we receive any context values via config set it into the plugin.
     if (!empty($configuration['context'])) {

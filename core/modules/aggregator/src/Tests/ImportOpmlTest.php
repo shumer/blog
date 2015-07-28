@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\aggregator\Tests\ImportOpmlTest.
+ * Contains \Drupal\aggregator\Tests\ImportOpmlTest.
  */
 
 namespace Drupal\aggregator\Tests;
@@ -15,13 +15,16 @@ namespace Drupal\aggregator\Tests;
 class ImportOpmlTest extends AggregatorTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
-  public static $modules = array('block');
+  public static $modules = array('block', 'help');
 
-  function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
     parent::setUp();
 
     $admin_user = $this->drupalCreateUser(array('administer news feeds', 'access news feeds', 'create article content', 'administer blocks'));
@@ -31,9 +34,9 @@ class ImportOpmlTest extends AggregatorTestBase {
   /**
    * Opens OPML import form.
    */
-  function openImportForm() {
+  public function openImportForm() {
     // Enable the help block.
-    $this->drupalPlaceBlock('system_help_block', array('region' => 'help'));
+    $this->drupalPlaceBlock('help_block', array('region' => 'help'));
 
     $this->drupalGet('admin/config/services/aggregator/add/opml');
     $this->assertText('A single OPML document may contain many feeds.', 'Found OPML help text.');
@@ -45,7 +48,7 @@ class ImportOpmlTest extends AggregatorTestBase {
   /**
    * Submits form filled with invalid fields.
    */
-  function validateImportFormFields() {
+  public function validateImportFormFields() {
     $before = db_query('SELECT COUNT(*) FROM {aggregator_feed}')->fetchField();
 
     $edit = array();
@@ -71,7 +74,7 @@ class ImportOpmlTest extends AggregatorTestBase {
   /**
    * Submits form with invalid, empty, and valid OPML files.
    */
-  function submitImportForm() {
+  protected function submitImportForm() {
     $before = db_query('SELECT COUNT(*) FROM {aggregator_feed}')->fetchField();
 
     $form['files[upload]'] = $this->getInvalidOpml();
@@ -117,7 +120,7 @@ class ImportOpmlTest extends AggregatorTestBase {
   /**
    * Tests the import of an OPML file.
    */
-  function testOpmlImport() {
+  public function testOpmlImport() {
     $this->openImportForm();
     $this->validateImportFormFields();
     $this->submitImportForm();

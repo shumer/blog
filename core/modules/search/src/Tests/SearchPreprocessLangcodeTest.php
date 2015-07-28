@@ -1,13 +1,13 @@
 <?php
 /**
  * @file
- * Definition of Drupal\search\Tests\SearchPreprocessLangcodeTest.
+ * Contains \Drupal\search\Tests\SearchPreprocessLangcodeTest.
  */
 
 namespace Drupal\search\Tests;
 
 /**
- * Tests that the search prepocessing uses the correct language code.
+ * Tests that the search preprocessing uses the correct language code.
  *
  * @group search
  */
@@ -20,7 +20,14 @@ class SearchPreprocessLangcodeTest extends SearchTestBase {
    */
   public static $modules = array('search_langcode_test');
 
-  function setUp() {
+  /**
+   * Test node for searching.
+   *
+   * @var \Drupal\node\NodeInterface
+   */
+  protected $node;
+
+  protected function setUp() {
     parent::setUp();
 
     $web_user = $this->drupalCreateUser(array(

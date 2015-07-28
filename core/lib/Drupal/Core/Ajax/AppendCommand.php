@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\AppendCommand.
+ * Contains \Drupal\Core\Ajax\AppendCommand.
  */
 
 namespace Drupal\Core\Ajax;
@@ -20,6 +20,8 @@ use Drupal\Core\Ajax\InsertCommand;
  * defined in misc/ajax.js.
  *
  * @see http://docs.jquery.com/Manipulation/append#content
+ *
+ * @ingroup ajax
  */
 class AppendCommand extends InsertCommand {
 
@@ -32,7 +34,7 @@ class AppendCommand extends InsertCommand {
       'command' => 'insert',
       'method' => 'append',
       'selector' => $this->selector,
-      'data' => $this->html,
+      'data' => $this->getRenderedContent(),
       'settings' => $this->settings,
     );
   }

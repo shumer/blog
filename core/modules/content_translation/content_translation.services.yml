@@ -17,10 +17,16 @@ services:
 
   content_translation.manage_access:
     class: Drupal\content_translation\Access\ContentTranslationManageAccessCheck
-    arguments: ['@entity.manager']
+    arguments: ['@entity.manager', '@language_manager']
     tags:
       - { name: access_check, applies_to: _access_content_translation_manage }
 
   content_translation.manager:
     class: Drupal\content_translation\ContentTranslationManager
-    arguments: ['@entity.manager']
+    arguments: ['@entity.manager', '@content_translation.updates_manager']
+
+  content_translation.updates_manager:
+    class: Drupal\content_translation\ContentTranslationUpdatesManager
+    arguments: ['@entity.manager', '@entity.definition_update_manager']
+    tags:
+      - { name: event_subscriber }

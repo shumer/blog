@@ -124,6 +124,7 @@ class vfsStreamWrapper
     public static function setRoot(vfsStreamContainer $root)
     {
         self::$root = $root;
+        clearstatcache();
         return self::$root;
     }
 
@@ -251,10 +252,10 @@ class vfsStreamWrapper
     public function stream_open($path, $mode, $options, $opened_path)
     {
         $extended = ((strstr($mode, '+') !== false) ? (true) : (false));
-        $mode     = str_replace(array('b', '+'), '', $mode);
+        $mode     = str_replace(array('t', 'b', '+'), '', $mode);
         if (in_array($mode, array('r', 'w', 'a', 'x', 'c')) === false) {
             if (($options & STREAM_REPORT_ERRORS) === STREAM_REPORT_ERRORS) {
-                trigger_error('Illegal mode ' . $mode . ', use r, w, a, x  or c, flavoured with b and/or +', E_USER_WARNING);
+                trigger_error('Illegal mode ' . $mode . ', use r, w, a, x  or c, flavoured with t, b and/or +', E_USER_WARNING);
             }
 
             return false;
@@ -481,17 +482,16 @@ class vfsStreamWrapper
         switch ($option) {
             case STREAM_META_TOUCH:
                 if (null === $content) {
-                    $content = $this->createFile($path);
+                    $content = $this->createFile($path, null, STREAM_REPORT_ERRORS);
+                    // file creation may not be allowed at provided path
+                    if (false === $content) {
+                        return false;
+                    }
                 }
 
-                if (isset($var[0])) {
-                    $content->lastModified($var[0]);
-                }
-
-                if (isset($var[1])) {
-                    $content->lastAccessed($var[1]);
-                }
-
+                $currentTime = time();
+                $content->lastModified(((isset($var[0])) ? ($var[0]) : ($currentTime)))
+                        ->lastAccessed(((isset($var[1])) ? ($var[1]) : ($currentTime)));
                 return true;
 
             case STREAM_META_OWNER_NAME:
@@ -549,7 +549,7 @@ class vfsStreamWrapper
      *
      * @param   string                    $path
      * @param   vfsStreamAbstractContent  $content
-     * @param   Closure                   $change
+     * @param   \Closure                  $change
      * @return  bool
      */
     private function doPermChange($path, vfsStreamAbstractContent $content, \Closure $change)
@@ -712,6 +712,7 @@ class vfsStreamWrapper
         $realPath = $this->resolvePath(vfsStream::path($path));
         $content  = $this->getContent($realPath);
         if (null === $content) {
+            trigger_error('unlink(' . $path . '): No such file or directory', E_USER_WARNING);
             return false;
         }
 

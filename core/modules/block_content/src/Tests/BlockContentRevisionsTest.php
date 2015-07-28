@@ -7,6 +7,8 @@
 
 namespace Drupal\block_content\Tests;
 
+use Drupal\block_content\Entity\BlockContent;
+
 /**
  * Create a block with revisions.
  *
@@ -46,7 +48,7 @@ class BlockContentRevisionsTest extends BlockContentTestBase {
     $revision_count = 3;
     for ($i = 0; $i < $revision_count; $i++) {
       $block->setNewRevision(TRUE);
-      $block->setRevisionLog($this->randomName(32));
+      $block->setRevisionLog($this->randomMachineName(32));
       $logs[] = $block->getRevisionLog();
       $block->save();
       $blocks[] = $block->getRevisionId();
@@ -80,7 +82,7 @@ class BlockContentRevisionsTest extends BlockContentTestBase {
     // Save this as a non-default revision.
     $loaded->setNewRevision();
     $loaded->isDefaultRevision(FALSE);
-    $loaded->body = $this->randomName(8);
+    $loaded->body = $this->randomMachineName(8);
     $loaded->save();
 
     $this->drupalGet('block/' . $loaded->id());
@@ -88,7 +90,7 @@ class BlockContentRevisionsTest extends BlockContentTestBase {
 
     // Verify that the non-default revision id is greater than the default
     // revision id.
-    $default_revision = entity_load('block_content', $loaded->id());
+    $default_revision = BlockContent::load($loaded->id());
     $this->assertTrue($loaded->getRevisionId() > $default_revision->getRevisionId(), 'Revision id is greater than default revision id.');
   }
 

@@ -7,21 +7,22 @@
 
 namespace Drupal\system\Tests\Entity;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\Core\Access\AccessResult;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests Field level access hooks.
  *
  * @group Entity
  */
-class FieldAccessTest extends DrupalUnitTestBase {
+class FieldAccessTest extends KernelTestBase {
 
   /**
    * Modules to load code from.
    *
    * @var array
    */
-  public static $modules = array('entity', 'entity_test', 'field', 'system', 'text', 'filter', 'user');
+  public static $modules = array('entity_test', 'field', 'system', 'text', 'filter', 'user', 'entity_reference');
 
   /**
    * Holds the currently active global user ID that initiated the test run.
@@ -52,7 +53,7 @@ class FieldAccessTest extends DrupalUnitTestBase {
    */
   function testFieldAccess() {
     $values = array(
-      'name' => $this->randomName(),
+      'name' => $this->randomMachineName(),
       'user_id' => 1,
       'field_test_text' => array(
         'value' => 'no access value',
@@ -66,11 +67,15 @@ class FieldAccessTest extends DrupalUnitTestBase {
     $account = entity_create('user', $values);
 
     $this->assertFalse($entity->field_test_text->access('view', $account), 'Access to the field was denied.');
+    $expected = AccessResult::forbidden()->cacheUntilEntityChanges($entity);
+    $this->assertEqual($expected, $entity->field_test_text->access('view', $account, TRUE), 'Access to the field was denied.');
 
     $entity->field_test_text = 'access alter value';
     $this->assertFalse($entity->field_test_text->access('view', $account), 'Access to the field was denied.');
+    $this->assertEqual($expected, $entity->field_test_text->access('view', $account, TRUE), 'Access to the field was denied.');
 
     $entity->field_test_text = 'standard value';
     $this->assertTrue($entity->field_test_text->access('view', $account), 'Access to the field was granted.');
+    $this->assertEqual(AccessResult::allowed(), $entity->field_test_text->access('view', $account, TRUE), 'Access to the field was granted.');
   }
 }

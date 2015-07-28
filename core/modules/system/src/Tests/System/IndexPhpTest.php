@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\System\IndexPhpTest.
+ * Contains \Drupal\system\Tests\System\IndexPhpTest.
  */
 
 namespace Drupal\system\Tests\System;
@@ -15,7 +15,7 @@ use Drupal\simpletest\WebTestBase;
  * @group system
  */
 class IndexPhpTest extends WebTestBase {
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
   }
 

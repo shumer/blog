@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\comment\Tests\CommentNodeAccessTest.
+ * Contains \Drupal\comment\Tests\CommentNodeAccessTest.
  */
 
 namespace Drupal\comment\Tests;
@@ -20,19 +20,19 @@ use Drupal\comment\CommentManagerInterface;
 class CommentNodeAccessTest extends CommentTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
   public static $modules = array('node_access_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     node_access_rebuild();
 
     // Re-create user.
-    $this->web_user = $this->drupalCreateUser(array(
+    $this->webUser = $this->drupalCreateUser(array(
       'access comments',
       'post comments',
       'create article content',
@@ -42,7 +42,7 @@ class CommentNodeAccessTest extends CommentTestBase {
     ));
 
     // Set the author of the created node to the web_user uid.
-    $this->node->setOwnerId($this->web_user->id())->save();
+    $this->node->setOwnerId($this->webUser->id())->save();
   }
 
   /**
@@ -50,7 +50,7 @@ class CommentNodeAccessTest extends CommentTestBase {
    */
   function testThreadedCommentView() {
     // Set comments to have subject required and preview disabled.
-    $this->drupalLogin($this->admin_user);
+    $this->drupalLogin($this->adminUser);
     $this->setCommentPreview(DRUPAL_DISABLED);
     $this->setCommentForm(TRUE);
     $this->setCommentSubject(TRUE);
@@ -58,9 +58,9 @@ class CommentNodeAccessTest extends CommentTestBase {
     $this->drupalLogout();
 
     // Post comment.
-    $this->drupalLogin($this->web_user);
-    $comment_text = $this->randomName();
-    $comment_subject = $this->randomName();
+    $this->drupalLogin($this->webUser);
+    $comment_text = $this->randomMachineName();
+    $comment_subject = $this->randomMachineName();
     $comment = $this->postComment($this->node, $comment_text, $comment_subject);
     $this->assertTrue($this->commentExists($comment), 'Comment found.');
 
@@ -71,8 +71,8 @@ class CommentNodeAccessTest extends CommentTestBase {
 
     // Reply to comment, creating second comment.
     $this->drupalGet('comment/reply/node/' . $this->node->id() . '/comment/' . $comment->id());
-    $reply_text = $this->randomName();
-    $reply_subject = $this->randomName();
+    $reply_text = $this->randomMachineName();
+    $reply_subject = $this->randomMachineName();
     $reply = $this->postComment(NULL, $reply_text, $reply_subject, TRUE);
     $this->assertTrue($this->commentExists($reply, TRUE), 'Reply found.');
 

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\node\Tests\NodeTitleXSSTest.
+ * Contains \Drupal\node\Tests\NodeTitleXSSTest.
  */
 
 namespace Drupal\node\Tests;
@@ -23,7 +23,7 @@ class NodeTitleXSSTest extends NodeTestBase {
     $this->drupalLogin($web_user);
 
     $xss = '<script>alert("xss")</script>';
-    $title = $xss . $this->randomName();
+    $title = $xss . $this->randomMachineName();
     $edit = array();
     $edit['title[0][value]'] = $title;
 
@@ -35,7 +35,7 @@ class NodeTitleXSSTest extends NodeTestBase {
 
     $this->drupalGet('node/' . $node->id());
     // assertTitle() decodes HTML-entities inside the <title> element.
-    $this->assertTitle($title . ' | Drupal', 'Title is diplayed when viewing a node.');
+    $this->assertTitle($title . ' | Drupal', 'Title is displayed when viewing a node.');
     $this->assertNoRaw($xss, 'Harmful tags are escaped when viewing a node.');
 
     $this->drupalGet('node/' . $node->id() . '/edit');

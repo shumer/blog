@@ -8,14 +8,14 @@
 namespace Drupal\system\Tests\Lock;
 
 use Drupal\Core\Lock\DatabaseLockBackend;
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests the Database lock backend.
  *
  * @group Lock
  */
-class LockUnitTest extends DrupalUnitTestBase {
+class LockUnitTest extends KernelTestBase {
 
   /**
    * Database lock backend to test.
@@ -31,7 +31,7 @@ class LockUnitTest extends DrupalUnitTestBase {
    */
   public static $modules = array('system');
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->lock = new DatabaseLockBackend($this->container->get('database'));
     $this->installSchema('system', 'semaphore');

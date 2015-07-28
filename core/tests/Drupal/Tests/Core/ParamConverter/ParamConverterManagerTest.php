@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Tests\Core\ParamConverter\ParamConverterManagerTest.
+ * Contains \Drupal\Tests\Core\ParamConverter\ParamConverterManagerTest.
  */
 
 namespace Drupal\Tests\Core\ParamConverter;
@@ -10,7 +10,6 @@ namespace Drupal\Tests\Core\ParamConverter;
 use Drupal\Core\ParamConverter\ParamConverterManager;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
@@ -28,7 +27,7 @@ class ParamConverterManagerTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->manager = new ParamConverterManager();
@@ -39,7 +38,7 @@ class ParamConverterManagerTest extends UnitTestCase {
    *
    * @dataProvider providerTestGetConverter
    *
-   * @covers ::getConverter()
+   * @covers ::getConverter
    */
   public function testGetConverter($name, $class) {
     $converter = $this->getMockBuilder('Drupal\Core\ParamConverter\ParamConverterInterface')
@@ -56,7 +55,7 @@ class ParamConverterManagerTest extends UnitTestCase {
   /**
    * Tests \Drupal\Core\ParamConverter\ParamConverterManager::getConverter().
    *
-   * @covers ::getConverter()
+   * @covers ::getConverter
    *
    * @expectedException \InvalidArgumentException
    */
@@ -129,7 +128,7 @@ class ParamConverterManagerTest extends UnitTestCase {
   }
 
   /**
-   * @covers ::setRouteParameterConverters()
+   * @covers ::setRouteParameterConverters
    *
    * @dataProvider providerTestSetRouteParameterConverters
    */
@@ -172,7 +171,7 @@ class ParamConverterManagerTest extends UnitTestCase {
   }
 
   /**
-   * @covers ::convert()
+   * @covers ::convert
    */
   public function testConvert() {
     $route = new Route('/test/{id}/{literal}/{null}');
@@ -199,17 +198,17 @@ class ParamConverterManagerTest extends UnitTestCase {
     $converter = $this->getMock('Drupal\Core\ParamConverter\ParamConverterInterface');
     $converter->expects($this->any())
       ->method('convert')
-      ->with(1, $this->isType('array'), 'id', $this->isType('array'), $this->isInstanceOf('Symfony\Component\HttpFoundation\Request'))
+      ->with(1, $this->isType('array'), 'id', $this->isType('array'))
       ->will($this->returnValue('something_better!'));
     $this->manager->addConverter($converter, 'test_convert');
 
-    $result = $this->manager->convert($defaults, new Request());
+    $result = $this->manager->convert($defaults);
 
     $this->assertEquals($expected, $result);
   }
 
   /**
-   * @covers ::convert()
+   * @covers ::convert
    */
   public function testConvertNoConverting() {
     $route = new Route('/test');
@@ -220,12 +219,12 @@ class ParamConverterManagerTest extends UnitTestCase {
 
     $expected = $defaults;
 
-    $result = $this->manager->convert($defaults, new Request());
+    $result = $this->manager->convert($defaults);
     $this->assertEquals($expected, $result);
   }
 
   /**
-   * @covers ::convert()
+   * @covers ::convert
    *
    * @expectedException \Drupal\Core\ParamConverter\ParamNotConvertedException
    * @expectedExceptionMessage The "id" parameter was not converted for the path "/test/{id}" (route name: "test_route")
@@ -248,11 +247,11 @@ class ParamConverterManagerTest extends UnitTestCase {
     $converter = $this->getMock('Drupal\Core\ParamConverter\ParamConverterInterface');
     $converter->expects($this->any())
       ->method('convert')
-      ->with(1, $this->isType('array'), 'id', $this->isType('array'), $this->isInstanceOf('Symfony\Component\HttpFoundation\Request'))
+      ->with(1, $this->isType('array'), 'id', $this->isType('array'))
       ->will($this->returnValue(NULL));
     $this->manager->addConverter($converter, 'test_convert');
 
-    $this->manager->convert($defaults, new Request());
+    $this->manager->convert($defaults);
   }
 
 }

@@ -17,18 +17,25 @@ use Drupal\simpletest\WebTestBase;
 class ToolbarMenuTranslationTest extends WebTestBase {
 
   /**
+   * A user with permission to access the administrative toolbar.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $adminUser;
+
+  /**
    * Modules to enable.
    *
    * @var array
    */
   public static $modules = array('toolbar', 'toolbar_test', 'locale');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create an administrative user and log it in.
-    $this->admin_user = $this->drupalCreateUser(array('access toolbar', 'translate interface', 'administer languages', 'access administration pages'));
-    $this->drupalLogin($this->admin_user);
+    $this->adminUser = $this->drupalCreateUser(array('access toolbar', 'translate interface', 'administer languages', 'access administration pages'));
+    $this->drupalLogin($this->adminUser);
   }
 
   /**
@@ -58,11 +65,11 @@ class ToolbarMenuTranslationTest extends WebTestBase {
     $this->assertNoText('No strings available.', 'Search found the menu item as untranslated.');
 
     // Check that the class is on the item before we translate it.
-    $xpath = $this->xpath('//a[contains(@class, "icon-structure")]');
+    $xpath = $this->xpath('//a[contains(@class, "icon-system-admin-structure")]');
     $this->assertEqual(count($xpath), 1, 'The menu item class ok before translation.');
 
     // Translate the menu item.
-    $menu_item_translated = $this->randomName();
+    $menu_item_translated = $this->randomMachineName();
     $textarea = current($this->xpath('//textarea'));
     $lid = (string) $textarea[0]['name'];
     $edit = array(
@@ -87,7 +94,7 @@ class ToolbarMenuTranslationTest extends WebTestBase {
 
     // Toolbar icons are included based on the presence of a specific class on
     // the menu item. Ensure that class also exists for a translated menu item.
-    $xpath = $this->xpath('//a[contains(@class, "icon-structure")]');
+    $xpath = $this->xpath('//a[contains(@class, "icon-system-admin-structure")]');
     $this->assertEqual(count($xpath), 1, 'The menu item class is the same.');
   }
 

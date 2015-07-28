@@ -42,12 +42,12 @@ class SettingsTest extends UITestBase {
     $this->drupalPostForm('admin/structure/views/settings', $edit, t('Save configuration'));
 
     $view = array();
-    $view['label'] = $this->randomName(16);
-    $view['id'] = strtolower($this->randomName(16));
-    $view['description'] = $this->randomName(16);
+    $view['label'] = $this->randomMachineName(16);
+    $view['id'] = strtolower($this->randomMachineName(16));
+    $view['description'] = $this->randomMachineName(16);
     $view['page[create]'] = TRUE;
-    $view['page[title]'] = $this->randomName(16);
-    $view['page[path]'] = $this->randomName(16);
+    $view['page[title]'] = $this->randomMachineName(16);
+    $view['page[path]'] = $this->randomMachineName(16);
     $this->drupalPostForm('admin/structure/views/add', $view, t('Save and edit'));
 
     // Configure to not always show the master display.
@@ -63,7 +63,7 @@ class SettingsTest extends UITestBase {
 
     // Create a view with an additional display, so master should be hidden.
     $view['page[create]'] = TRUE;
-    $view['id'] = strtolower($this->randomName());
+    $view['id'] = strtolower($this->randomMachineName());
     $this->drupalPostForm('admin/structure/views/add', $view, t('Save and edit'));
 
     $this->assertNoLink(t('Master'));
@@ -71,13 +71,13 @@ class SettingsTest extends UITestBase {
     // Configure to always show the advanced settings.
     // @todo It doesn't seem to be a way to test this as this works just on js.
 
-    // Configure to show the embedable display.
+    // Configure to show the embeddable display.
     $edit = array(
       'ui_show_display_embed' => TRUE,
     );
     $this->drupalPostForm('admin/structure/views/settings', $edit, t('Save configuration'));
 
-    $view['id'] = strtolower($this->randomName());
+    $view['id'] = strtolower($this->randomMachineName());
     $this->drupalPostForm('admin/structure/views/add', $view, t('Save and edit'));
     $this->assertFieldById('edit-displays-top-add-display-embed');
 
@@ -95,7 +95,7 @@ class SettingsTest extends UITestBase {
     );
     $this->drupalPostForm('admin/structure/views/settings', $edit, t('Save configuration'));
 
-    $view['id'] = strtolower($this->randomName());
+    $view['id'] = strtolower($this->randomMachineName());
     $this->drupalPostForm('admin/structure/views/add', $view, t('Save and edit'));
 
     $this->drupalPostForm(NULL, array(), t('Update preview'));
@@ -107,7 +107,7 @@ class SettingsTest extends UITestBase {
     );
     $this->drupalPostForm('admin/structure/views/settings', $edit, t('Save configuration'));
 
-    $view['id'] = strtolower($this->randomName());
+    $view['id'] = strtolower($this->randomMachineName());
     $this->drupalPostForm('admin/structure/views/add', $view, t('Save and edit'));
 
     $this->drupalPostForm(NULL, array(), t('Update preview'));
@@ -125,13 +125,11 @@ class SettingsTest extends UITestBase {
     $edit = array(
       'skip_cache' => TRUE,
       'sql_signature' => TRUE,
-      'no_javascript' => TRUE,
     );
     $this->drupalPostForm('admin/structure/views/settings/advanced', $edit, t('Save configuration'));
 
     $this->assertFieldChecked('edit-skip-cache', 'The skip_cache option is checked.');
     $this->assertFieldChecked('edit-sql-signature', 'The sql_signature option is checked.');
-    $this->assertFieldChecked('edit-no-javascript', 'The no_javascript option is checked.');
 
     // Test the "Clear Views' cache" button.
     $this->drupalPostForm('admin/structure/views/settings/advanced', array(), t("Clear Views' cache"));

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\locale\PoDatabaseWriter.
+ * Contains \Drupal\locale\PoDatabaseWriter.
  */
 
 namespace Drupal\locale;
@@ -238,7 +238,7 @@ class PoDatabaseWriter implements PoWriterInterface {
     if (!empty($translation)) {
       // Skip this string unless it passes a check for dangerous code.
       if (!locale_string_is_safe($translation)) {
-        watchdog('locale', 'Import of string "%string" was skipped because of disallowed or malformed HTML.', array('%string' => $translation), WATCHDOG_ERROR);
+        \Drupal::logger('locale')->error('Import of string "%string" was skipped because of disallowed or malformed HTML.', array('%string' => $translation));
         $this->report['skips']++;
         return 0;
       }

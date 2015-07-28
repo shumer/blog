@@ -7,7 +7,10 @@
 
 namespace Drupal\views\Tests\Handler;
 
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Unicode;
 use Drupal\Component\Utility\UrlHelper;
+use Drupal\system\Tests\Cache\AssertPageCacheContextsAndTagsTrait;
 use Drupal\views\Views;
 
 /**
@@ -18,6 +21,8 @@ use Drupal\views\Views;
  */
 class FieldWebTest extends HandlerTestBase {
 
+  use AssertPageCacheContextsAndTagsTrait;
+
   /**
    * Views used by this test.
    *
@@ -25,7 +30,17 @@ class FieldWebTest extends HandlerTestBase {
    */
   public static $testViews = array('test_view', 'test_field_classes', 'test_field_output', 'test_click_sort');
 
-  protected $column_map = array(
+  /**
+   * {@inheritdoc}
+   */
+  public static $modules = ['node'];
+
+  /**
+   * Maps between the key in the expected result and the query result.
+   *
+   * @var array
+   */
+  protected $columnMap = array(
     'views_test_data_name' => 'name',
   );
 
@@ -50,14 +65,25 @@ class FieldWebTest extends HandlerTestBase {
   public function testClickSorting() {
     $this->drupalGet('test_click_sort');
     $this->assertResponse(200);
+
     // Only the id and name should be click sortable, but not the name.
-    $this->assertLinkByHref(url('test_click_sort', array('query' => array('order' => 'id', 'sort' => 'asc'))));
-    $this->assertLinkByHref(url('test_click_sort', array('query' => array('order' => 'name', 'sort' => 'desc'))));
-    $this->assertNoLinkByHref(url('test_click_sort', array('query' => array('order' => 'created'))));
+    $this->assertLinkByHref(\Drupal::url('view.test_click_sort.page_1', [], ['query' => ['order' => 'id', 'sort' => 'asc']]));
+    $this->assertLinkByHref(\Drupal::url('view.test_click_sort.page_1', [], ['query' => ['order' => 'name', 'sort' => 'desc']]));
+    $this->assertNoLinkByHref(\Drupal::url('view.test_click_sort.page_1', [], ['query' => ['order' => 'created']]));
+
+    // Check that the view returns the click sorting cache contexts.
+    $expected_contexts = [
+      'languages:language_interface',
+      'theme',
+      'url.query_args.pagers:0',
+      'url.query_args:order',
+      'url.query_args:sort',
+    ];
+    $this->assertCacheContexts($expected_contexts);
 
     // Clicking a click sort should change the order.
     $this->clickLink(t('ID'));
-    $this->assertLinkByHref(url('test_click_sort', array('query' => array('order' => 'id', 'sort' => 'desc'))));
+    $this->assertLinkByHref(\Drupal::url('view.test_click_sort.page_1', [], ['query' => ['order' => 'id', 'sort' => 'desc']]));
     // Check that the output has the expected order (asc).
     $ids = $this->clickSortLoadIdsFromOutput();
     $this->assertEqual($ids, range(1, 5));
@@ -180,11 +206,11 @@ class FieldWebTest extends HandlerTestBase {
 
     // Setup the general settings required to build a link.
     $id_field->options['alter']['make_link'] = TRUE;
-    $id_field->options['alter']['path'] = $path = $this->randomName();
+    $id_field->options['alter']['path'] = $path = $this->randomMachineName();
 
     // Tests that the suffix/prefix appears on the output.
-    $id_field->options['alter']['prefix'] = $prefix = $this->randomName();
-    $id_field->options['alter']['suffix'] = $suffix = $this->randomName();
+    $id_field->options['alter']['prefix'] = $prefix = $this->randomMachineName();
+    $id_field->options['alter']['suffix'] = $suffix = $this->randomMachineName();
     $output = $id_field->theme($row);
     $this->assertSubString($output, $prefix);
     $this->assertSubString($output, $suffix);
@@ -196,42 +222,38 @@ class FieldWebTest extends HandlerTestBase {
 
     // Some generic test code adapted from the UrlTest class, which tests
     // mostly the different options for the path.
-    global $base_url, $script_path;
-
     foreach (array(FALSE, TRUE) as $absolute) {
-      // Get the expected start of the path string.
-      $base = ($absolute ? $base_url . '/' : base_path()) . $script_path;
-      $absolute_string = $absolute ? 'absolute' : NULL;
       $alter = &$id_field->options['alter'];
       $alter['path'] = 'node/123';
 
-      $expected_result = url('node/123', array('absolute' => $absolute));
+      $expected_result = \Drupal::url('entity.node.canonical', ['node' => '123'], ['absolute' => $absolute]);
       $alter['absolute'] = $absolute;
       $result = $id_field->theme($row);
       $this->assertSubString($result, $expected_result);
 
-      $expected_result = url('node/123', array('fragment' => 'foo', 'absolute' => $absolute));
+      $expected_result = \Drupal::url('entity.node.canonical', ['node' => '123'], ['fragment' => 'foo', 'absolute' => $absolute]);
       $alter['path'] = 'node/123#foo';
       $result = $id_field->theme($row);
       $this->assertSubString($result, $expected_result);
 
-      $expected_result = url('node/123', array('query' => array('foo' => NULL), 'absolute' => $absolute));
+      $expected_result = \Drupal::url('entity.node.canonical', ['node' => '123'], ['query' => ['foo' => NULL], 'absolute' => $absolute]);
       $alter['path'] = 'node/123?foo';
       $result = $id_field->theme($row);
       $this->assertSubString($result, $expected_result);
 
-      $expected_result = url('node/123', array('query' => array('foo' => 'bar', 'bar' => 'baz'), 'absolute' => $absolute));
+      $expected_result = \Drupal::url('entity.node.canonical', ['node' => '123'], ['query' => ['foo' => 'bar', 'bar' => 'baz'], 'absolute' => $absolute]);
       $alter['path'] = 'node/123?foo=bar&bar=baz';
       $result = $id_field->theme($row);
-      $this->assertSubString(decode_entities($result), decode_entities($expected_result));
+      $this->assertSubString(Html::decodeEntities($result), Html::decodeEntities($expected_result));
 
-      $expected_result = url('node/123', array('query' => array('foo' => NULL), 'fragment' => 'bar', 'absolute' => $absolute));
+      // @todo The route-based URL generator strips out NULL attributes.
+      // $expected_result = \Drupal::url('entity.node.canonical', ['node' => '123'], ['query' => ['foo' => NULL], 'fragment' => 'bar', 'absolute' => $absolute]);
+      $expected_result = \Drupal::urlGenerator()->generateFromPath('node/123', array('query' => array('foo' => NULL), 'fragment' => 'bar', 'absolute' => $absolute));
       $alter['path'] = 'node/123?foo#bar';
       $result = $id_field->theme($row);
-      // @fixme: The actual result is node/123?foo#bar so views has a bug here.
-      // $this->assertSubStringExists(decode_entities($result), decode_entities($expected_result));
+      $this->assertSubString(Html::decodeEntities($result), Html::decodeEntities($expected_result));
 
-      $expected_result = url('<front>', array('absolute' => $absolute));
+      $expected_result = \Drupal::url('<front>', [], ['absolute' => $absolute]);
       $alter['path'] = '<front>';
       $result = $id_field->theme($row);
       $this->assertSubString($result, $expected_result);
@@ -239,7 +261,7 @@ class FieldWebTest extends HandlerTestBase {
 
     // Tests the replace spaces with dashes feature.
     $id_field->options['alter']['replace_spaces'] = TRUE;
-    $id_field->options['alter']['path'] = $path = $this->randomName() . ' ' . $this->randomName();
+    $id_field->options['alter']['path'] = $path = $this->randomMachineName() . ' ' . $this->randomMachineName();
     $output = $id_field->theme($row);
     $this->assertSubString($output, str_replace(' ', '-', $path));
     $id_field->options['alter']['replace_spaces'] = FALSE;
@@ -250,18 +272,18 @@ class FieldWebTest extends HandlerTestBase {
     // Tests the external flag.
     // Switch on the external flag should output an external url as well.
     $id_field->options['alter']['external'] = TRUE;
-    $id_field->options['alter']['path'] = $path = 'drupal.org';
+    $id_field->options['alter']['path'] = $path = 'www.drupal.org';
     $output = $id_field->theme($row);
-    $this->assertSubString($output, 'http://drupal.org');
+    $this->assertSubString($output, 'http://www.drupal.org');
 
     // Setup a not external url, which shouldn't lead to an external url.
     $id_field->options['alter']['external'] = FALSE;
-    $id_field->options['alter']['path'] = $path = 'drupal.org';
+    $id_field->options['alter']['path'] = $path = 'www.drupal.org';
     $output = $id_field->theme($row);
-    $this->assertNotSubString($output, 'http://drupal.org');
+    $this->assertNotSubString($output, 'http://www.drupal.org');
 
     // Tests the transforming of the case setting.
-    $id_field->options['alter']['path'] = $path = $this->randomName();
+    $id_field->options['alter']['path'] = $path = $this->randomMachineName();
     $id_field->options['alter']['path_case'] = 'none';
     $output = $id_field->theme($row);
     $this->assertSubString($output, $path);
@@ -285,8 +307,9 @@ class FieldWebTest extends HandlerTestBase {
     $this->assertSubString($output, UrlHelper::encodePath('Drupal Has A Great Community'));
     unset($id_field->options['alter']['path_case']);
 
-    // Tests the linkclass setting and see whether it actuall exists in the output.
-    $id_field->options['alter']['link_class'] = $class = $this->randomName();
+    // Tests the linkclass setting and see whether it actually exists in the
+    // output.
+    $id_field->options['alter']['link_class'] = $class = $this->randomMachineName();
     $output = $id_field->theme($row);
     $elements = $this->xpathContent($output, '//a[contains(@class, :class)]', array(':class' => $class));
     $this->assertTrue($elements);
@@ -294,21 +317,21 @@ class FieldWebTest extends HandlerTestBase {
     $id_field->options['alter']['link_class'] = '';
 
     // Tests the alt setting.
-    $id_field->options['alter']['alt'] = $rel = $this->randomName();
+    $id_field->options['alter']['alt'] = $rel = $this->randomMachineName();
     $output = $id_field->theme($row);
     $elements = $this->xpathContent($output, '//a[contains(@title, :alt)]', array(':alt' => $rel));
     $this->assertTrue($elements);
     $id_field->options['alter']['alt'] = '';
 
     // Tests the rel setting.
-    $id_field->options['alter']['rel'] = $rel = $this->randomName();
+    $id_field->options['alter']['rel'] = $rel = $this->randomMachineName();
     $output = $id_field->theme($row);
     $elements = $this->xpathContent($output, '//a[contains(@rel, :rel)]', array(':rel' => $rel));
     $this->assertTrue($elements);
     $id_field->options['alter']['rel'] = '';
 
     // Tests the target setting.
-    $id_field->options['alter']['target'] = $target = $this->randomName();
+    $id_field->options['alter']['target'] = $target = $this->randomMachineName();
     $output = $id_field->theme($row);
     $elements = $this->xpathContent($output, '//a[contains(@target, :target)]', array(':target' => $target));
     $this->assertTrue($elements);
@@ -319,6 +342,8 @@ class FieldWebTest extends HandlerTestBase {
    * Tests the field/label/wrapper classes.
    */
   public function testFieldClasses() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
     $view = Views::getView('test_field_classes');
     $view->initHandlers();
 
@@ -326,21 +351,23 @@ class FieldWebTest extends HandlerTestBase {
     $id_field = $view->field['id'];
 
     $id_field->options['element_default_classes'] = FALSE;
+    // Setup some kind of label by default.
+    $id_field->options['label'] = $this->randomMachineName();
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
     $this->assertFalse($this->xpathContent($output, '//div[contains(@class, :class)]', array(':class' => 'field-content')));
     $this->assertFalse($this->xpathContent($output, '//div[contains(@class, :class)]', array(':class' => 'field-label')));
 
     $id_field->options['element_default_classes'] = TRUE;
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = $renderer->renderRoot($output);
     // Per default the label and the element of the field are spans.
     $this->assertTrue($this->xpathContent($output, '//span[contains(@class, :class)]', array(':class' => 'field-content')));
     $this->assertTrue($this->xpathContent($output, '//span[contains(@class, :class)]', array(':class' => 'views-label')));
     $this->assertTrue($this->xpathContent($output, '//div[contains(@class, :class)]', array(':class' => 'views-field')));
 
     // Tests the element wrapper classes/element.
-    $random_class = $this->randomName();
+    $random_class = $this->randomMachineName();
 
     // Set some common wrapper element types and see whether they appear with and without a custom class set.
     foreach (array('h1', 'span', 'p', 'div') as $element_type) {
@@ -349,13 +376,13 @@ class FieldWebTest extends HandlerTestBase {
       // Set a custom wrapper element css class.
       $id_field->options['element_wrapper_class'] = $random_class;
       $output = $view->preview();
-      $output = drupal_render($output);
+      $output = $renderer->renderRoot($output);
       $this->assertTrue($this->xpathContent($output, "//{$element_type}[contains(@class, :class)]", array(':class' => $random_class)));
 
       // Set no custom css class.
       $id_field->options['element_wrapper_class'] = '';
       $output = $view->preview();
-      $output = drupal_render($output);
+      $output = $renderer->renderRoot($output);
       $this->assertFalse($this->xpathContent($output, "//{$element_type}[contains(@class, :class)]", array(':class' => $random_class)));
       $this->assertTrue($this->xpathContent($output, "//li[contains(@class, views-row)]/{$element_type}"));
     }
@@ -369,13 +396,13 @@ class FieldWebTest extends HandlerTestBase {
       // Set a custom label element css class.
       $id_field->options['element_label_class'] = $random_class;
       $output = $view->preview();
-      $output = drupal_render($output);
+      $output = $renderer->renderRoot($output);
       $this->assertTrue($this->xpathContent($output, "//li[contains(@class, views-row)]//{$element_type}[contains(@class, :class)]", array(':class' => $random_class)));
 
       // Set no custom css class.
       $id_field->options['element_label_class'] = '';
       $output = $view->preview();
-      $output = drupal_render($output);
+      $output = $renderer->renderRoot($output);
       $this->assertFalse($this->xpathContent($output, "//li[contains(@class, views-row)]//{$element_type}[contains(@class, :class)]", array(':class' => $random_class)));
       $this->assertTrue($this->xpathContent($output, "//li[contains(@class, views-row)]//{$element_type}"));
     }
@@ -389,13 +416,13 @@ class FieldWebTest extends HandlerTestBase {
       // Set a custom label element css class.
       $id_field->options['element_class'] = $random_class;
       $output = $view->preview();
-      $output = drupal_render($output);
+      $output = $renderer->renderRoot($output);
       $this->assertTrue($this->xpathContent($output, "//li[contains(@class, views-row)]//div[contains(@class, views-field)]//{$element_type}[contains(@class, :class)]", array(':class' => $random_class)));
 
       // Set no custom css class.
       $id_field->options['element_class'] = '';
       $output = $view->preview();
-      $output = drupal_render($output);
+      $output = $renderer->renderRoot($output);
       $this->assertFalse($this->xpathContent($output, "//li[contains(@class, views-row)]//div[contains(@class, views-field)]//{$element_type}[contains(@class, :class)]", array(':class' => $random_class)));
       $this->assertTrue($this->xpathContent($output, "//li[contains(@class, views-row)]//div[contains(@class, views-field)]//{$element_type}"));
     }
@@ -432,7 +459,7 @@ class FieldWebTest extends HandlerTestBase {
 
     // Tests stripping of html elements.
     $this->executeView($view);
-    $random_text = $this->randomName();
+    $random_text = $this->randomMachineName();
     $name_field->options['alter']['alter_text'] = TRUE;
     $name_field->options['alter']['text'] = $html_text = '<div class="views-test">' . $random_text . '</div>';
     $row = $view->result[0];
@@ -473,9 +500,9 @@ class FieldWebTest extends HandlerTestBase {
     $name_field->options['alter']['word_boundary'] = FALSE;
 
     // Tests for simple trimming by string length.
-    $row->views_test_data_name = $this->randomName(8);
+    $row->views_test_data_name = $this->randomMachineName(8);
     $name_field->options['alter']['max_length'] = 5;
-    $trimmed_name = drupal_substr($row->views_test_data_name, 0, 5);
+    $trimmed_name = Unicode::substr($row->views_test_data_name, 0, 5);
 
     $output = $name_field->advancedRender($row);
     $this->assertSubString($output, $trimmed_name, format_string('Make sure the trimmed output (!trimmed) appears in the rendered output (!output).', array('!trimmed' => $trimmed_name, '!output' => $output)));
@@ -488,10 +515,10 @@ class FieldWebTest extends HandlerTestBase {
     // Take word_boundary into account for the tests.
     $name_field->options['alter']['max_length'] = 5;
     $name_field->options['alter']['word_boundary'] = TRUE;
-    $random_text_2 = $this->randomName(2);
-    $random_text_4 = $this->randomName(4);
-    $random_text_8 = $this->randomName(8);
-    $touples = array(
+    $random_text_2 = $this->randomMachineName(2);
+    $random_text_4 = $this->randomMachineName(4);
+    $random_text_8 = $this->randomMachineName(8);
+    $tuples = array(
       // Create one string which doesn't fit at all into the limit.
       array(
         'value' => $random_text_8,
@@ -520,24 +547,24 @@ class FieldWebTest extends HandlerTestBase {
       )
     );
 
-    foreach ($touples as $touple) {
-      $row->views_test_data_name = $touple['value'];
+    foreach ($tuples as $tuple) {
+      $row->views_test_data_name = $tuple['value'];
       $output = $name_field->advancedRender($row);
 
-      if ($touple['trimmed']) {
-        $this->assertNotSubString($output, $touple['value'], format_string('The untrimmed value (!untrimmed) should not appear in the trimmed output (!output).', array('!untrimmed' => $touple['value'], '!output' => $output)));
+      if ($tuple['trimmed']) {
+        $this->assertNotSubString($output, $tuple['value'], format_string('The untrimmed value (!untrimmed) should not appear in the trimmed output (!output).', array('!untrimmed' => $tuple['value'], '!output' => $output)));
       }
-      if (!empty($touble['trimmed_value'])) {
-        $this->assertSubString($output, $touple['trimmed_value'], format_string('The trimmed value (!trimmed) should appear in the trimmed output (!output).', array('!trimmed' => $touple['trimmed_value'], '!output' => $output)));
+      if (!empty($tuple['trimmed_value'])) {
+        $this->assertSubString($output, $tuple['trimmed_value'], format_string('The trimmed value (!trimmed) should appear in the trimmed output (!output).', array('!trimmed' => $tuple['trimmed_value'], '!output' => $output)));
       }
     }
 
     // Tests for displaying a readmore link when the output got trimmed.
-    $row->views_test_data_name = $this->randomName(8);
+    $row->views_test_data_name = $this->randomMachineName(8);
     $name_field->options['alter']['max_length'] = 5;
     $name_field->options['alter']['more_link'] = TRUE;
-    $name_field->options['alter']['more_link_text'] = $more_text = $this->randomName();
-    $name_field->options['alter']['more_link_path'] = $more_path = $this->randomName();
+    $name_field->options['alter']['more_link_text'] = $more_text = $this->randomMachineName();
+    $name_field->options['alter']['more_link_path'] = $more_path = $this->randomMachineName();
 
     $output = $name_field->advancedRender($row);
     $this->assertSubString($output, $more_text, 'Make sure a read more text is displayed if the output got trimmed');
@@ -549,7 +576,7 @@ class FieldWebTest extends HandlerTestBase {
     $this->assertFalse($this->xpathContent($output, '//a[contains(@href, :path)]', array(':path' => $more_path)), 'Make sure no read more link appears.');
 
     // Check for the ellipses.
-    $row->views_test_data_name = $this->randomName(8);
+    $row->views_test_data_name = $this->randomMachineName(8);
     $name_field->options['alter']['max_length'] = 5;
     $output = $name_field->advancedRender($row);
     $this->assertSubString($output, '…', 'An ellipsis should appear if the output is trimmed');

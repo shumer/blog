@@ -8,6 +8,7 @@
 namespace Drupal\views\Plugin\views\field;
 
 use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\field\FieldPluginBase;
 use Drupal\views\ResultRow;
 use Drupal\views\ViewExecutable;
@@ -85,10 +86,10 @@ class EntityLabel extends FieldPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     $form['link_to_entity'] = array(
-      '#title' => t('Link to entity'),
-      '#description' => t('Make entity label a link to entity page.'),
+      '#title' => $this->t('Link to entity'),
+      '#description' => $this->t('Make entity label a link to entity page.'),
       '#type' => 'checkbox',
       '#default_value' => !empty($this->options['link_to_entity']),
     );
@@ -111,7 +112,7 @@ class EntityLabel extends FieldPluginBase {
 
     if (!empty($this->options['link_to_entity'])) {
       $this->options['alter']['make_link'] = TRUE;
-      $this->options['alter']['path'] = $entity->getSystemPath();
+      $this->options['alter']['url'] = $entity->urlInfo();
     }
 
     return $this->sanitizeValue($entity->label());

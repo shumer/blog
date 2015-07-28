@@ -7,42 +7,44 @@
 
 namespace Drupal\system;
 
+use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\TitleResolverInterface;
-use Drupal\Core\Access\AccessManager;
+use Drupal\Core\Link;
 use Drupal\Core\ParamConverter\ParamNotConvertedException;
+use Drupal\Core\Path\CurrentPathStack;
 use Drupal\Core\PathProcessor\InboundPathProcessorInterface;
+use Drupal\Core\Routing\RequestContext;
+use Drupal\Core\Routing\RouteMatch;
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\Core\Routing\LinkGeneratorTrait;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
-use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
-use Symfony\Component\Routing\Matcher\RequestMatcherInterface;
-use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
+use Symfony\Component\Routing\Matcher\RequestMatcherInterface;
 
 /**
  * Class to define the menu_link breadcrumb builder.
  */
 class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
   use StringTranslationTrait;
-  use LinkGeneratorTrait;
 
   /**
    * The router request context.
    *
-   * @var \Symfony\Component\Routing\RequestContext
+   * @var \Drupal\Core\Routing\RequestContext
    */
   protected $context;
 
   /**
    * The menu link access service.
    *
-   * @var \Drupal\Core\Access\AccessManager
+   * @var \Drupal\Core\Access\AccessManagerInterface
    */
   protected $accessManager;
 
@@ -84,9 +86,9 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
   /**
    * Constructs the PathBasedBreadcrumbBuilder.
    *
-   * @param \Symfony\Component\Routing\RequestContext $context
+   * @param \Drupal\Core\Routing\RequestContext $context
    *   The router request context.
-   * @param \Drupal\Core\Access\AccessManager $access_manager
+   * @param \Drupal\Core\Access\AccessManagerInterface $access_manager
    *   The menu link access service.
    * @param \Symfony\Component\Routing\Matcher\RequestMatcherInterface $router
    *   The dynamic router service.
@@ -98,8 +100,10 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
    *   The title resolver service.
    * @param \Drupal\Core\Session\AccountInterface $current_user
    *   The current user object.
+   * @param \Drupal\Core\Path\CurrentPathStack $current_path
+   *   The current path.
    */
-  public function __construct(RequestContext $context, AccessManager $access_manager, RequestMatcherInterface $router, InboundPathProcessorInterface $path_processor, ConfigFactoryInterface $config_factory, TitleResolverInterface $title_resolver, AccountInterface $current_user) {
+  public function __construct(RequestContext $context, AccessManagerInterface $access_manager, RequestMatcherInterface $router, InboundPathProcessorInterface $path_processor, ConfigFactoryInterface $config_factory, TitleResolverInterface $title_resolver, AccountInterface $current_user, CurrentPathStack $current_path) {
     $this->context = $context;
     $this->accessManager = $access_manager;
     $this->router = $router;
@@ -107,6 +111,7 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
     $this->config = $config_factory->get('system.site');
     $this->titleResolver = $title_resolver;
     $this->currentUser = $current_user;
+    $this->currentPath = $current_path;
   }
 
   /**
@@ -133,19 +138,16 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
     $exclude[$front] = TRUE;
     // /user is just a redirect, so skip it.
     // @todo Find a better way to deal with /user.
-    $exclude['user'] = TRUE;
+    $exclude['/user'] = TRUE;
     while (count($path_elements) > 1) {
       array_pop($path_elements);
       // Copy the path elements for up-casting.
-      $route_request = $this->getRequestForPath(implode('/', $path_elements), $exclude);
+      $route_request = $this->getRequestForPath('/' . implode('/', $path_elements), $exclude);
       if ($route_request) {
-        $route_name = $route_request->attributes->get(RouteObjectInterface::ROUTE_NAME);
-        // Note that the parameters don't really matter here since we're
-        // passing in the request which already has the upcast attributes.
-        $parameters = array();
-        $access = $this->accessManager->checkNamedRoute($route_name, $parameters, $this->currentUser, $route_request);
+        $route_match = RouteMatch::createFromRequest($route_request);
+        $access = $this->accessManager->check($route_match, $this->currentUser);
         if ($access) {
-          $title = $this->titleResolver->getTitle($route_request, $route_request->attributes->get(RouteObjectInterface::ROUTE_OBJECT));
+          $title = $this->titleResolver->getTitle($route_request, $route_match->getRouteObject());
         }
         if ($access) {
           if (!isset($title)) {
@@ -153,16 +155,15 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
             // route is missing a _title or _title_callback attribute.
             $title = str_replace(array('-', '_'), ' ', Unicode::ucfirst(end($path_elements)));
           }
-          // @todo Replace with a #type => link render element so that the alter
-          // hook can work with the actual data.
-          $links[] = $this->l($title, $route_request->attributes->get(RouteObjectInterface::ROUTE_NAME), $route_request->attributes->get('_raw_variables')->all(), array('html' => TRUE));
+          $url = Url::fromRouteMatch($route_match);
+          $links[] = new Link($title, $url);
         }
       }
 
     }
-    if ($path && $path != $front) {
+    if ($path && '/' . $path != $front) {
       // Add the Home link, except for the front page.
-      $links[] = $this->l($this->t('Home'), '<front>');
+      $links[] = Link::createFromRoute($this->t('Home'), '<front>');
     }
     return array_reverse($links);
   }
@@ -171,7 +172,7 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
    * Matches a path in the router.
    *
    * @param string $path
-   *   The request path.
+   *   The request path with a leading slash.
    * @param array $exclude
    *   An array of paths or system paths to skip.
    *
@@ -182,9 +183,9 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
     if (!empty($exclude[$path])) {
       return NULL;
     }
-    // @todo Use the RequestHelper once https://drupal.org/node/2090293 is
+    // @todo Use the RequestHelper once https://www.drupal.org/node/2090293 is
     //   fixed.
-    $request = Request::create($this->context->getBaseUrl() . '/' . $path);
+    $request = Request::create($path);
     // Performance optimization: set a short accept header to reduce overhead in
     // AcceptHeaderMatcher when matching the request.
     $request->headers->set('Accept', 'text/html');
@@ -194,7 +195,7 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
       // This resolves to the front page, which we already add.
       return NULL;
     }
-    $request->attributes->set('_system_path', $processed);
+    $this->currentPath->setPath($processed, $request);
     // Attempt to match this path to provide a fully built request.
     try {
       $request->attributes->add($this->router->matchRequest($request));
@@ -207,6 +208,9 @@ class PathBasedBreadcrumbBuilder implements BreadcrumbBuilderInterface {
       return NULL;
     }
     catch (MethodNotAllowedException $e) {
+      return NULL;
+    }
+    catch (AccessDeniedHttpException $e) {
       return NULL;
     }
   }

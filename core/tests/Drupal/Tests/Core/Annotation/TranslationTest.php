@@ -1,7 +1,8 @@
 <?php
 
 /**
- * @file Contains \Drupal\Tests\Core\Annotation\TranslationTest.
+ * @file
+ * Contains \Drupal\Tests\Core\Annotation\TranslationTest.
  */
 
 namespace Drupal\Tests\Core\Annotation;
@@ -26,12 +27,12 @@ class TranslationTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     $this->translationManager = $this->getStringTranslationStub();
   }
 
   /**
-   * @covers \Drupal\Core\Annotation\Translation::get()
+   * @covers ::get
    *
    * @dataProvider providerTestGet
    */
@@ -64,7 +65,7 @@ class TranslationTest extends UnitTestCase {
       ),
       'Foo'
     );
-    $random = $this->randomName();
+    $random = $this->randomMachineName();
     $random_html_entity = '&' . $random;
     $data[] = array(
       array(
@@ -74,7 +75,7 @@ class TranslationTest extends UnitTestCase {
           '@baz' => $random_html_entity,
           '%qux' => $random_html_entity,
         ),
-        'context' => $this->randomName(),
+        'context' => $this->randomMachineName(),
       ),
       'Foo ' . $random . ' &amp;' . $random . ' <em class="placeholder">&amp;' . $random . '</em>',
     );

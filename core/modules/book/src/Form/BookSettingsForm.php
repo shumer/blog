@@ -8,6 +8,7 @@
 namespace Drupal\book\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Configure book settings for this site.
@@ -24,7 +25,14 @@ class BookSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  protected function getEditableConfigNames() {
+    return ['book.settings'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $types = node_type_get_names();
     $config = $this->config('book.settings');
     $form['book_allowed_types'] = array(
@@ -37,7 +45,7 @@ class BookSettingsForm extends ConfigFormBase {
     );
     $form['book_child_type'] = array(
       '#type' => 'radios',
-      '#title' => $this->t('Content type for child pages'),
+      '#title' => $this->t('Content type for the <em>Add child page</em> link'),
       '#default_value' => $config->get('child_type'),
       '#options' => $types,
       '#required' => TRUE,
@@ -50,10 +58,10 @@ class BookSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
-    $child_type = $form_state['values']['book_child_type'];
-    if (empty($form_state['values']['book_allowed_types'][$child_type])) {
-      $this->setFormError('book_child_type', $form_state, $this->t('The content type for the %add-child link must be one of those selected as an allowed book outline type.', array('%add-child' => $this->t('Add child page'))));
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    $child_type = $form_state->getValue('book_child_type');
+    if ($form_state->isValueEmpty(array('book_allowed_types', $child_type))) {
+      $form_state->setErrorByName('book_child_type', $this->t('The content type for the %add-child link must be one of those selected as an allowed book outline type.', array('%add-child' => $this->t('Add child page'))));
     }
 
     parent::validateForm($form, $form_state);
@@ -62,8 +70,8 @@ class BookSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $allowed_types = array_filter($form_state['values']['book_allowed_types']);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $allowed_types = array_filter($form_state->getValue('book_allowed_types'));
     // We need to save the allowed types in an array ordered by machine_name so
     // that we can save them in the correct order if node type changes.
     // @see book_node_type_update().
@@ -71,7 +79,7 @@ class BookSettingsForm extends ConfigFormBase {
     $this->config('book.settings')
     // Remove unchecked types.
       ->set('allowed_types', $allowed_types)
-      ->set('child_type', $form_state['values']['book_child_type'])
+      ->set('child_type', $form_state->getValue('book_child_type'))
       ->save();
 
     parent::submitForm($form, $form_state);

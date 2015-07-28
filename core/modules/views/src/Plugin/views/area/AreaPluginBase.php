@@ -7,6 +7,7 @@
 
 namespace Drupal\views\Plugin\views\area;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\HandlerBase;
@@ -66,7 +67,7 @@ abstract class AreaPluginBase extends HandlerBase {
     $this->definition['field'] = !empty($this->definition['field']) ? $this->definition['field'] : '';
     $label = !empty($this->definition['label']) ? $this->definition['label'] : $this->definition['field'];
     $options['admin_label']['default'] = $label;
-    $options['empty'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['empty'] = array('default' => FALSE);
 
     return $options;
   }
@@ -81,13 +82,13 @@ abstract class AreaPluginBase extends HandlerBase {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
-    if ($form_state['type'] != 'empty') {
+    if ($form_state->get('type') != 'empty') {
       $form['empty'] = array(
         '#type' => 'checkbox',
-        '#title' => t('Display even if view has no result'),
+        '#title' => $this->t('Display even if view has no result'),
         '#default_value' => isset($this->options['empty']) ? $this->options['empty'] : 0,
       );
     }

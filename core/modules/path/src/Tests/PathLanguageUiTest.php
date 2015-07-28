@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\path\Tests\PathLanguageUiTest.
+ * Contains \Drupal\path\Tests\PathLanguageUiTest.
  */
 
 namespace Drupal\path\Tests;
@@ -21,7 +21,7 @@ class PathLanguageUiTest extends PathTestBase {
    */
   public static $modules = array('path', 'locale');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Create and login user.
@@ -43,10 +43,10 @@ class PathLanguageUiTest extends PathTestBase {
    * Tests that a language-neutral URL alias works.
    */
   function testLanguageNeutralUrl() {
-    $name = $this->randomName(8);
+    $name = $this->randomMachineName(8);
     $edit = array();
-    $edit['source'] = 'admin/config/search/path';
-    $edit['alias'] = $name;
+    $edit['source'] = '/admin/config/search/path';
+    $edit['alias'] ='/' . $name;
     $this->drupalPostForm('admin/config/search/path/add', $edit, t('Save'));
 
     $this->drupalGet($name);
@@ -57,10 +57,10 @@ class PathLanguageUiTest extends PathTestBase {
    * Tests that a default language URL alias works.
    */
   function testDefaultLanguageUrl() {
-    $name = $this->randomName(8);
+    $name = $this->randomMachineName(8);
     $edit = array();
-    $edit['source'] = 'admin/config/search/path';
-    $edit['alias'] = $name;
+    $edit['source'] = '/admin/config/search/path';
+    $edit['alias'] = '/' . $name;
     $edit['langcode'] = 'en';
     $this->drupalPostForm('admin/config/search/path/add', $edit, t('Save'));
 
@@ -72,10 +72,10 @@ class PathLanguageUiTest extends PathTestBase {
    * Tests that a non-default language URL alias works.
    */
   function testNonDefaultUrl() {
-    $name = $this->randomName(8);
+    $name = $this->randomMachineName(8);
     $edit = array();
-    $edit['source'] = 'admin/config/search/path';
-    $edit['alias'] = $name;
+    $edit['source'] = '/admin/config/search/path';
+    $edit['alias'] = '/' . $name;
     $edit['langcode'] = 'fr';
     $this->drupalPostForm('admin/config/search/path/add', $edit, t('Save'));
 

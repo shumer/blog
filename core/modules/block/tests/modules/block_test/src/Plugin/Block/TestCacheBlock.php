@@ -7,7 +7,7 @@
 
 namespace Drupal\block_test\Plugin\Block;
 
-use Drupal\block\BlockBase;
+use Drupal\Core\Block\BlockBase;
 
 /**
  * Provides a block to test caching.
@@ -30,6 +30,13 @@ class TestCacheBlock extends BlockBase {
       $build['#markup'] = $content;
     }
     return $build;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheContexts() {
+    return \Drupal::state()->get('block_test.cache_contexts', []);
   }
 
 }

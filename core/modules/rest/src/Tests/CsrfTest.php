@@ -1,9 +1,12 @@
 <?php
 /**
+ * @file
  * Contains \Drupal\rest\Tests\CsrfTest.
  */
 
 namespace Drupal\rest\Tests;
+
+use Drupal\Core\Url;
 
 /**
  * Tests the CSRF protection.
@@ -13,7 +16,7 @@ namespace Drupal\rest\Tests;
 class CsrfTest extends RESTTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
@@ -36,7 +39,7 @@ class CsrfTest extends RESTTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->enableService('entity:' . $this->testEntityType, 'POST', 'hal_json', array('basic_auth', 'cookie'));
@@ -59,9 +62,6 @@ class CsrfTest extends RESTTestBase {
    * Tests that CSRF check is not triggered for Basic Auth requests.
    */
   public function testBasicAuth() {
-    // Login so the session cookie is sent in addition to the basic auth header.
-    $this->drupalLogin($this->account);
-
     $curl_options = $this->getCurlOptions();
     $curl_options[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
     $curl_options[CURLOPT_USERPWD] = $this->account->getUsername() . ':' . $this->account->pass_raw;
@@ -81,6 +81,8 @@ class CsrfTest extends RESTTestBase {
     $curl_options = $this->getCurlOptions();
 
     // Try to create an entity without the CSRF token.
+    // Note: this will fail with PHP 5.6 when always_populate_raw_post_data is
+    // set to something other than -1. See https://www.drupal.org/node/2456025.
     $this->curlExec($curl_options);
     $this->assertResponse(403);
     // Ensure that the entity was not created.
@@ -107,7 +109,7 @@ class CsrfTest extends RESTTestBase {
       CURLOPT_HTTPGET => FALSE,
       CURLOPT_POST => TRUE,
       CURLOPT_POSTFIELDS => $this->serialized,
-      CURLOPT_URL => url('entity/' . $this->testEntityType, array('absolute' => TRUE)),
+      CURLOPT_URL => Url::fromRoute('rest.entity.' . $this->testEntityType . '.POST')->setAbsolute()->toString(),
       CURLOPT_NOBODY => FALSE,
       CURLOPT_HTTPHEADER => array(
         "Content-Type: {$this->defaultMimeType}",

@@ -2,29 +2,34 @@
 
 /**
  * @file
- * Contains \Drupal\options\Type\ListItemBase.
+ * Contains \Drupal\options\Plugin\Field\FieldType\ListItemBase.
  */
 
 namespace Drupal\options\Plugin\Field\FieldType;
 
+use Drupal\Core\Field\AllowedTagsXssTrait;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Form\OptGroup;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\Core\TypedData\AllowedValuesInterface;
+use Drupal\Core\TypedData\OptionsProviderInterface;
 
 /**
  * Plugin base class inherited by the options field types.
  */
-abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterface {
+abstract class ListItemBase extends FieldItemBase implements OptionsProviderInterface {
+
+  use AllowedTagsXssTrait;
 
   /**
    * {@inheritdoc}
    */
-  public static function defaultSettings() {
+  public static function defaultStorageSettings() {
     return array(
       'allowed_values' => array(),
       'allowed_values_function' => '',
-    ) + parent::defaultSettings();
+    ) + parent::defaultStorageSettings();
   }
 
   /**
@@ -58,9 +63,16 @@ abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterf
    * {@inheritdoc}
    */
   public function getSettableOptions(AccountInterface $account = NULL) {
-    $allowed_options = options_allowed_values($this->getFieldDefinition(), $this->getEntity());
+    $allowed_options = options_allowed_values($this->getFieldDefinition()->getFieldStorageDefinition(), $this->getEntity());
     return $allowed_options;
   }
+
+  /**
+   * {@inheritdoc}
+   */
+   public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+     // @todo Implement this once https://www.drupal.org/node/2238085 lands.
+   }
 
   /**
    * {@inheritdoc}
@@ -72,7 +84,7 @@ abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterf
   /**
    * {@inheritdoc}
    */
-  public function settingsForm(array &$form, array &$form_state, $has_data) {
+  public function storageSettingsForm(array &$form, FormStateInterface $form_state, $has_data) {
     $allowed_values = $this->getSetting('allowed_values');
     $allowed_values_function = $this->getSetting('allowed_values_function');
 
@@ -117,34 +129,34 @@ abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterf
    *   An associative array containing the properties and children of the
    *   generic form element.
    * @param $form_state
-   *   The $form_state array for the form this element belongs to.
+   *   The current state of the form for the form this element belongs to.
    *
-   * @see form_process_pattern()
+   * @see \Drupal\Core\Render\Element\FormElement::processPattern()
    */
-  public static function validateAllowedValues($element, &$form_state) {
+  public static function validateAllowedValues($element, FormStateInterface $form_state) {
     $values = static::extractAllowedValues($element['#value'], $element['#field_has_data']);
 
     if (!is_array($values)) {
-      \Drupal::formBuilder()->setError($element, $form_state, t('Allowed values list: invalid input.'));
+      $form_state->setError($element, t('Allowed values list: invalid input.'));
     }
     else {
       // Check that keys are valid for the field type.
       foreach ($values as $key => $value) {
         if ($error = static::validateAllowedValue($key)) {
-          \Drupal::formBuilder()->setError($element, $form_state, $error);
+          $form_state->setError($element, $error);
           break;
         }
       }
 
       // Prevent removing values currently in use.
       if ($element['#field_has_data']) {
-        $lost_keys = array_diff(array_keys($element['#allowed_values']), array_keys($values));
+        $lost_keys = array_keys(array_diff_key($element['#allowed_values'], $values));
         if (_options_values_in_use($element['#entity_type'], $element['#field_name'], $lost_keys)) {
-          \Drupal::formBuilder()->setError($element, $form_state, t('Allowed values list: some values are being removed while currently in use.'));
+          $form_state->setError($element, t('Allowed values list: some values are being removed while currently in use.'));
         }
       }
 
-      \Drupal::formBuilder()->setValue($element, $values, $form_state);
+      $form_state->setValueForElement($element, $values);
     }
   }
 
@@ -240,7 +252,7 @@ abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterf
   /**
    * @inheritdoc.
    */
-  public static function settingsToConfigData(array $settings) {
+  public static function storageSettingsToConfigData(array $settings) {
     if (isset($settings['allowed_values'])) {
       $settings['allowed_values'] = static::structureAllowedValues($settings['allowed_values']);
     }
@@ -250,7 +262,7 @@ abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterf
   /**
    * @inheritdoc.
    */
-  public static function settingsFromConfigData(array $settings) {
+  public static function storageSettingsFromConfigData(array $settings) {
     if (isset($settings['allowed_values'])) {
       $settings['allowed_values'] = static::simplifyAllowedValues($settings['allowed_values']);
     }
@@ -302,11 +314,24 @@ abstract class ListItemBase extends FieldItemBase implements AllowedValuesInterf
         $label = static::structureAllowedValues($label);
       }
       $structured_values[] = array(
-        'value' => $value,
+        'value' => static::castAllowedValue($value),
         'label' => $label,
       );
     }
     return $structured_values;
+  }
+
+  /**
+   * Converts a value to the correct type.
+   *
+   * @param mixed $value
+   *   The value to cast.
+   *
+   * @return mixed
+   *   The casted value.
+   */
+  protected static function castAllowedValue($value) {
+    return $value;
   }
 
 }

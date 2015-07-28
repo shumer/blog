@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\File\UnmanagedDeleteTest.
+ * Contains \Drupal\system\Tests\File\UnmanagedDeleteTest.
  */
 
 namespace Drupal\system\Tests\File;
@@ -30,7 +30,7 @@ class UnmanagedDeleteTest extends FileTestBase {
    */
   function testMissing() {
     // Try to delete a non-existing file
-    $this->assertTrue(file_unmanaged_delete(file_default_scheme() . '/' . $this->randomName()), 'Returns true when deleting a non-existent file.');
+    $this->assertTrue(file_unmanaged_delete(file_default_scheme() . '/' . $this->randomMachineName()), 'Returns true when deleting a non-existent file.');
   }
 
   /**

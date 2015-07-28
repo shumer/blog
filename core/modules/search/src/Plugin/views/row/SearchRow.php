@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\search\Plugin\views\row\SearchRow.
+ * Contains \Drupal\search\Plugin\views\row\SearchRow.
  */
 
 namespace Drupal\search\Plugin\views\row;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\row\RowPluginBase;
 
 /**
@@ -26,7 +27,7 @@ class SearchRow extends RowPluginBase {
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['score'] = array('default' => TRUE, 'bool' => TRUE);
+    $options['score'] = array('default' => TRUE);
 
     return $options;
   }
@@ -34,10 +35,10 @@ class SearchRow extends RowPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     $form['score'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Display score'),
+      '#title' => $this->t('Display score'),
       '#default_value' => $this->options['score'],
     );
   }

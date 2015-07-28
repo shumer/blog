@@ -2,12 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\taxonomy\Tests\TaxonomyTestBase.
+ * Contains \Drupal\taxonomy\Tests\TaxonomyTestBase.
  */
 
 namespace Drupal\taxonomy\Tests;
 
-use Drupal\Core\Language\LanguageInterface;
+use Drupal\entity_reference\Tests\EntityReferenceTestTrait;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -15,55 +15,26 @@ use Drupal\simpletest\WebTestBase;
  */
 abstract class TaxonomyTestBase extends WebTestBase {
 
+  use TaxonomyTestTrait;
+  use EntityReferenceTestTrait;
+
   /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('taxonomy');
+  public static $modules = array('taxonomy', 'block');
 
-  function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
     parent::setUp();
+    $this->drupalPlaceBlock('system_breadcrumb_block');
 
     // Create Basic page and Article node types.
     if ($this->profile != 'standard') {
       $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
     }
-  }
-
-  /**
-   * Returns a new vocabulary with random properties.
-   */
-  function createVocabulary() {
-    // Create a vocabulary.
-    $vocabulary = entity_create('taxonomy_vocabulary', array(
-      'name' => $this->randomName(),
-      'description' => $this->randomName(),
-      'vid' => drupal_strtolower($this->randomName()),
-      'langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
-      'weight' => mt_rand(0, 10),
-    ));
-    $vocabulary->save();
-    return $vocabulary;
-  }
-
-  /**
-   * Returns a new term with random properties in vocabulary $vid.
-   */
-  function createTerm($vocabulary) {
-    $filter_formats = filter_formats();
-    $format = array_pop($filter_formats);
-    $term = entity_create('taxonomy_term', array(
-      'name' => $this->randomName(),
-      'description' => array(
-        'value' => $this->randomName(),
-        // Use the first available text format.
-        'format' => $format->format,
-      ),
-      'vid' => $vocabulary->id(),
-      'langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
-    ));
-    $term->save();
-    return $term;
   }
 }

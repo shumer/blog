@@ -2,15 +2,16 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\cache\Time.
+ * Contains \Drupal\views\Plugin\views\cache\Time.
  */
 
 namespace Drupal\views\Plugin\views\cache;
 
-use Drupal\Core\Datetime\Date as DateFormatter;
+use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Cache\Cache;
-use Drupal\Core\Plugin\PluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Simple caching of query results for Views displays.
@@ -33,9 +34,16 @@ class Time extends CachePluginBase {
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
+
+  /**
+   * The current request.
+   *
+   * @var \Symfony\Component\HttpFoundation\Request
+   */
+  protected $request;
 
   /**
    * Constructs a Time cache plugin object.
@@ -46,11 +54,15 @@ class Time extends CachePluginBase {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date formatter service.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, DateFormatter $date_formatter) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, DateFormatter $date_formatter, Request $request) {
     $this->dateFormatter = $date_formatter;
+    $this->request = $request;
+
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }
 
@@ -62,7 +74,8 @@ class Time extends CachePluginBase {
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('date')
+      $container->get('date.formatter'),
+      $container->get('request_stack')->getCurrentRequest()
     );
   }
 
@@ -76,25 +89,25 @@ class Time extends CachePluginBase {
     return $options;
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
     $options = array(60, 300, 1800, 3600, 21600, 518400);
     $options = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($options, $options));
-    $options = array(-1 => t('Never cache')) + $options + array('custom' => t('Custom'));
+    $options = array(0 => $this->t('Never cache')) + $options + array('custom' => $this->t('Custom'));
 
     $form['results_lifespan'] = array(
       '#type' => 'select',
-      '#title' => t('Query results'),
-      '#description' => t('The length of time raw query results should be cached.'),
+      '#title' => $this->t('Query results'),
+      '#description' => $this->t('The length of time raw query results should be cached.'),
       '#options' => $options,
       '#default_value' => $this->options['results_lifespan'],
     );
     $form['results_lifespan_custom'] = array(
       '#type' => 'textfield',
-      '#title' => t('Seconds'),
+      '#title' => $this->t('Seconds'),
       '#size' => '25',
       '#maxlength' => '30',
-      '#description' => t('Length of time in seconds raw query results should be cached.'),
+      '#description' => $this->t('Length of time in seconds raw query results should be cached.'),
       '#default_value' => $this->options['results_lifespan_custom'],
       '#states' => array(
         'visible' => array(
@@ -104,17 +117,17 @@ class Time extends CachePluginBase {
     );
     $form['output_lifespan'] = array(
       '#type' => 'select',
-      '#title' => t('Rendered output'),
-      '#description' => t('The length of time rendered HTML output should be cached.'),
+      '#title' => $this->t('Rendered output'),
+      '#description' => $this->t('The length of time rendered HTML output should be cached.'),
       '#options' => $options,
       '#default_value' => $this->options['output_lifespan'],
     );
     $form['output_lifespan_custom'] = array(
       '#type' => 'textfield',
-      '#title' => t('Seconds'),
+      '#title' => $this->t('Seconds'),
       '#size' => '25',
       '#maxlength' => '30',
-      '#description' => t('Length of time in seconds rendered HTML output should be cached.'),
+      '#description' => $this->t('Length of time in seconds rendered HTML output should be cached.'),
       '#default_value' => $this->options['output_lifespan_custom'],
       '#states' => array(
         'visible' => array(
@@ -124,11 +137,12 @@ class Time extends CachePluginBase {
     );
   }
 
-  public function validateOptionsForm(&$form, &$form_state) {
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) {
     $custom_fields = array('output_lifespan', 'results_lifespan');
     foreach ($custom_fields as $field) {
-      if ($form_state['values']['cache_options'][$field] == 'custom' && !is_numeric($form_state['values']['cache_options'][$field . '_custom'])) {
-        form_error($form[$field .'_custom'], $form_state, t('Custom time values must be numeric.'));
+      $cache_options = $form_state->getValue('cache_options');
+      if ($cache_options[$field] == 'custom' && !is_numeric($cache_options[$field . '_custom'])) {
+        $form_state->setError($form[$field .'_custom'], $this->t('Custom time values must be numeric.'));
       }
     }
   }
@@ -155,14 +169,26 @@ class Time extends CachePluginBase {
     }
   }
 
-  protected function cacheSetExpire($type) {
+  /**
+   * {@inheritdoc}
+   */
+  protected function cacheSetMaxAge($type) {
     $lifespan = $this->getLifespan($type);
     if ($lifespan) {
-      return time() + $lifespan;
+      return $lifespan;
     }
     else {
       return Cache::PERMANENT;
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getDefaultCacheMaxAge() {
+    // The max age, unless overridden by some other piece of the rendered code
+    // is determined by the output time setting.
+    return (int) $this->cacheSetMaxAge('output');
   }
 
 }

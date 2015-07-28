@@ -8,8 +8,9 @@
 namespace Drupal\aggregator\Form;
 
 use Drupal\aggregator\Plugin\AggregatorPluginManager;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\Core\Form\ConfigFormBase;
@@ -70,7 +71,7 @@ class SettingsForm extends ConfigFormBase {
     // Get all available fetcher, parser and processor definitions.
     foreach (array('fetcher', 'parser', 'processor') as $type) {
       foreach ($this->managers[$type]->getDefinitions() as $id => $definition) {
-        $this->definitions[$type][$id] = String::format('@title <span class="description">@description</span>', array('@title' => $definition['title'], '@description' => $definition['description']));
+        $this->definitions[$type][$id] = SafeMarkup::format('@title <span class="description">@description</span>', array('@title' => $definition['title'], '@description' => $definition['description']));
       }
     }
   }
@@ -98,7 +99,14 @@ class SettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  protected function getEditableConfigNames() {
+    return ['aggregator.settings'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('aggregator.settings');
 
     // Global aggregator settings.
@@ -187,7 +195,7 @@ class SettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     parent::validateForm($form, $form_state);
     // Let active plugins validate their settings.
     foreach ($this->configurableInstances as $instance) {
@@ -198,7 +206,7 @@ class SettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     parent::submitForm($form, $form_state);
     $config = $this->config('aggregator.settings');
     // Let active plugins save their settings.
@@ -206,15 +214,15 @@ class SettingsForm extends ConfigFormBase {
       $instance->submitConfigurationForm($form, $form_state);
     }
 
-    $config->set('items.allowed_html', $form_state['values']['aggregator_allowed_html_tags']);
-    if (isset($form_state['values']['aggregator_fetcher'])) {
-      $config->set('fetcher', $form_state['values']['aggregator_fetcher']);
+    $config->set('items.allowed_html', $form_state->getValue('aggregator_allowed_html_tags'));
+    if ($form_state->hasValue('aggregator_fetcher')) {
+      $config->set('fetcher', $form_state->getValue('aggregator_fetcher'));
     }
-    if (isset($form_state['values']['aggregator_parser'])) {
-      $config->set('parser', $form_state['values']['aggregator_parser']);
+    if ($form_state->hasValue('aggregator_parser')) {
+      $config->set('parser', $form_state->getValue('aggregator_parser'));
     }
-    if (isset($form_state['values']['aggregator_processors'])) {
-      $config->set('processors', array_filter($form_state['values']['aggregator_processors']));
+    if ($form_state->hasValue('aggregator_processors')) {
+      $config->set('processors', array_filter($form_state->getValue('aggregator_processors')));
     }
     $config->save();
   }

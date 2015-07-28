@@ -19,8 +19,10 @@ quickedit.field_form:
   defaults:
     _controller: '\Drupal\quickedit\QuickEditController::fieldForm'
   options:
-    _access_mode: 'ALL'
     _theme: ajax_base_page
+    parameters:
+      entity:
+        type: entity:{entity_type}
   requirements:
     _permission: 'access in-place editing'
     _access_quickedit_entity_field: 'TRUE'
@@ -31,4 +33,8 @@ quickedit.entity_save:
     _controller: '\Drupal\quickedit\QuickEditController::entitySave'
   requirements:
     _permission: 'access in-place editing'
-    _access_quickedit_entity: 'TRUE'
+    _entity_access: 'entity.update'
+  options:
+    parameters:
+      entity:
+        type: entity:{entity_type}

@@ -7,6 +7,10 @@
 
 namespace Drupal\views_ui\Tests;
 
+use Drupal\Core\Url;
+use Drupal\user\Entity\Role;
+use Drupal\user\RoleInterface;
+
 /**
  * Tests enabling, disabling, and reverting default views via the listing page.
  *
@@ -48,7 +52,7 @@ class DefaultViewsTest extends UITestBase {
 
     // Edit the view and change the title. Make sure that the new title is
     // displayed.
-    $new_title = $this->randomName(16);
+    $new_title = $this->randomMachineName(16);
     $edit = array('title' => $new_title);
     $this->drupalPostForm('admin/structure/views/nojs/display/glossary/page_1/title', $edit, t('Apply'));
     $this->drupalPostForm('admin/structure/views/view/glossary/edit/page_1', array(), t('Save'));
@@ -64,6 +68,8 @@ class DefaultViewsTest extends UITestBase {
     // editing.
     $this->drupalGet('admin/structure/views');
     $this->assertLinkByHref('admin/structure/views/view/archive/enable');
+    // Enable it again so it can be tested for access permissions.
+    $this->clickViewsOperationLink(t('Enable'), '/archive/');
 
     // It should now be possible to revert the view. Do that, and make sure the
     // view title we added above no longer is displayed.
@@ -80,14 +86,14 @@ class DefaultViewsTest extends UITestBase {
     $edit = array(
       'id' => 'duplicate_of_glossary',
     );
-    $this->assertTitle(t('Duplicate of @label | @site-name', array('@label' => 'Glossary', '@site-name' => \Drupal::config('system.site')->get('name'))));
+    $this->assertTitle(t('Duplicate of @label | @site-name', array('@label' => 'Glossary', '@site-name' => $this->config('system.site')->get('name'))));
     $this->drupalPostForm(NULL, $edit, t('Duplicate'));
     $this->assertUrl('admin/structure/views/view/duplicate_of_glossary', array(), 'The normal duplicating name schema is applied.');
 
     // Duplicate a view and set a custom name.
     $this->drupalGet('admin/structure/views');
     $this->clickViewsOperationLink(t('Duplicate'), '/glossary');
-    $random_name = strtolower($this->randomName());
+    $random_name = strtolower($this->randomMachineName());
     $this->drupalPostForm(NULL, array('id' => $random_name), t('Duplicate'));
     $this->assertUrl("admin/structure/views/view/$random_name", array(), 'The custom view name got saved.');
 
@@ -106,7 +112,18 @@ class DefaultViewsTest extends UITestBase {
     $this->assertUrl('admin/structure/views');
     $this->assertLinkByHref($edit_href);
 
+    // Clear permissions for anonymous users to check access for default views.
+    Role::load(RoleInterface::ANONYMOUS_ID)->revokePermission('access content')->save();
+
+    // Test the default views disclose no data by default.
+    $this->drupalLogout();
+    $this->drupalGet('glossary');
+    $this->assertResponse(403);
+    $this->drupalGet('archive');
+    $this->assertResponse(403);
+
     // Test deleting a view.
+    $this->drupalLogin($this->fullAdminUser);
     $this->drupalGet('admin/structure/views');
     $this->clickViewsOperationLink(t('Delete'), '/glossary/');
     // Submit the confirmation form.
@@ -168,7 +185,7 @@ class DefaultViewsTest extends UITestBase {
 
     // Check that a dynamic path is shown as text.
     $this->assertRaw('test_route_with_suffix/%/suffix');
-    $this->assertNoLinkByHref(url('test_route_with_suffix/%/suffix'));
+    $this->assertNoLinkByHref(Url::fromUri('base:test_route_with_suffix/%/suffix')->toString());
   }
 
   /**
@@ -183,7 +200,7 @@ class DefaultViewsTest extends UITestBase {
    * @param $unique_href_part
    *   A unique string that is expected to occur within the href of the desired
    *   link. For example, if the link URL is expected to look like
-   *   "admin/structure/views/view/glossary/...", then "/glossary/" could be
+   *   "admin/structure/views/view/glossary/*", then "/glossary/" could be
    *   passed as the expected unique string.
    *
    * @return

@@ -10,7 +10,7 @@ use Drupal\comment\Entity\Comment;
 use Drupal\comment\Entity\CommentType;
 use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\field\Entity\FieldStorageConfig;
-use Drupal\field\Entity\FieldInstanceConfig;
+use Drupal\field\Entity\FieldConfig;
 use Drupal\node\Entity\Node;
 
 /**
@@ -21,7 +21,7 @@ use Drupal\node\Entity\Node;
 class CommentTypeTest extends CommentTestBase {
 
   /**
-   * Admin user
+   * Admin user.
    *
    * @var \Drupal\Core\Session\AccountInterface
    */
@@ -41,7 +41,7 @@ class CommentTypeTest extends CommentTestBase {
   /**
    * Sets the test up.
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->adminUser = $this->drupalCreateUser($this->permissions);
   }
@@ -74,8 +74,19 @@ class CommentTypeTest extends CommentTestBase {
     $this->assertTrue($comment_type, 'The new comment type has been created.');
 
     // Check that the comment type was created in site default language.
-    $default_langcode = \Drupal::languageManager()->getDefaultLanguage()->id;
+    $default_langcode = \Drupal::languageManager()->getDefaultLanguage()->getId();
     $this->assertEqual($comment_type->language()->getId(), $default_langcode);
+
+    // Edit the comment-type and ensure that we cannot change the entity-type.
+    $this->drupalGet('admin/structure/comment/manage/foo');
+    $this->assertNoField('target_entity_type_id', 'Entity type file not present');
+    $this->assertText(t('Target entity type'));
+    // Save the form and ensure the entity-type value is preserved even though
+    // the field isn't present.
+    $this->drupalPostForm(NULL, array(), t('Save'));
+    \Drupal::entityManager()->getStorage('comment_type')->resetCache(array('foo'));
+    $comment_type = CommentType::load('foo');
+    $this->assertEqual($comment_type->getTargetEntityTypeId(), 'node');
   }
 
   /**
@@ -84,8 +95,8 @@ class CommentTypeTest extends CommentTestBase {
   public function testCommentTypeEditing() {
     $this->drupalLogin($this->adminUser);
 
-    $instance = FieldInstanceConfig::loadByName('comment', 'comment', 'comment_body');
-    $this->assertEqual($instance->getLabel(), 'Comment', 'Comment body field was found.');
+    $field = FieldConfig::loadByName('comment', 'comment', 'comment_body');
+    $this->assertEqual($field->getLabel(), 'Comment', 'Comment body field was found.');
 
     // Change the comment type name.
     $this->drupalGet('admin/structure/comment');
@@ -97,7 +108,8 @@ class CommentTypeTest extends CommentTestBase {
     $this->drupalGet('admin/structure/comment');
     $this->assertRaw('Bar', 'New name was displayed.');
     $this->clickLink('Manage fields');
-    $this->assertEqual(url('admin/structure/comment/manage/comment/fields', array('absolute' => TRUE)), $this->getUrl(), 'Original machine name was used in URL.');
+    $this->assertUrl(\Drupal::url('entity.comment.field_ui_fields', ['comment_type' => 'comment'], ['absolute' => TRUE]), [], 'Original machine name was used in URL.');
+    $this->assertTrue($this->cssSelect('tr#comment-body'), 'Body field exists.');
 
     // Remove the body field.
     $this->drupalPostForm('admin/structure/comment/manage/comment/fields/comment.comment.comment_body/delete', array(), t('Delete'));
@@ -105,7 +117,7 @@ class CommentTypeTest extends CommentTestBase {
     $this->drupalPostForm('admin/structure/comment/manage/comment', array(), t('Save'));
     // Check that the body field doesn't exist.
     $this->drupalGet('admin/structure/comment/manage/comment/fields');
-    $this->assertNoRaw('comment_body', 'Body field was not found.');
+    $this->assertFalse($this->cssSelect('tr#comment-body'), 'Body field does not exist.');
   }
 
   /**
@@ -115,7 +127,7 @@ class CommentTypeTest extends CommentTestBase {
     // Create a comment type programmatically.
     $type = $this->createCommentType('foo');
     $this->drupalCreateContentType(array('type' => 'page'));
-    \Drupal::service('comment.manager')->addDefaultField('node', 'page', 'foo', CommentItemInterface::OPEN, 'foo');
+    $this->addDefaultCommentField('node', 'page', 'foo', CommentItemInterface::OPEN, 'foo');
     $field_storage = FieldStorageConfig::loadByName('node', 'foo');
 
     $this->drupalLogin($this->adminUser);
@@ -157,14 +169,14 @@ class CommentTypeTest extends CommentTestBase {
     // Attempt to delete the comment type, which should now be allowed.
     $this->drupalGet('admin/structure/comment/manage/' . $type->id() . '/delete');
     $this->assertRaw(
-      t('Are you sure you want to delete %type?', array('%type' => $type->id())),
+      t('Are you sure you want to delete the comment type %type?', array('%type' => $type->id())),
       'The comment type is available for deletion.'
     );
     $this->assertText(t('This action cannot be undone.'), 'The comment type deletion confirmation form is available.');
 
     // Test exception thrown when re-using an existing comment type.
     try {
-      \Drupal::service('comment.manager')->addDefaultField('comment', 'comment', 'bar');
+      $this->addDefaultCommentField('comment', 'comment', 'bar');
       $this->fail('Exception not thrown.');
     }
     catch (\InvalidArgumentException $e) {
@@ -174,7 +186,7 @@ class CommentTypeTest extends CommentTestBase {
     // Delete the comment type.
     $this->drupalPostForm('admin/structure/comment/manage/' . $type->id() . '/delete', array(), t('Delete'));
     $this->assertNull(CommentType::load($type->id()), 'Comment type deleted.');
-    $this->assertRaw(t('Comment type %label has been deleted.', array('%label' => $type->label())));
+    $this->assertRaw(t('The comment type %label has been deleted.', array('%label' => $type->label())));
   }
 
 }

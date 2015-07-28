@@ -2,16 +2,17 @@
 
 /**
  * @file
- * Definition of Drupal\config\Tests\ConfigEntityTest.
+ * Contains \Drupal\config\Tests\ConfigEntityTest.
  */
 
 namespace Drupal\config\Tests;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Entity\EntityMalformedException;
 use Drupal\Core\Entity\EntityStorageException;
 use Drupal\Core\Config\Entity\ConfigEntityStorage;
 use Drupal\Core\Config\Entity\Exception\ConfigEntityIdLengthException;
+use Drupal\Core\Url;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -37,7 +38,7 @@ class ConfigEntityTest extends WebTestBase {
    * Tests CRUD operations.
    */
   function testCRUD() {
-    $default_langcode = \Drupal::languageManager()->getDefaultLanguage()->id;
+    $default_langcode = \Drupal::languageManager()->getDefaultLanguage()->getId();
     // Verify default properties on a newly created empty entity.
     $empty = entity_create('config_test');
     $this->assertTrue($empty->uuid());
@@ -94,9 +95,9 @@ class ConfigEntityTest extends WebTestBase {
 
     // Verify properties on a newly created entity.
     $config_test = entity_create('config_test', $expected = array(
-      'id' => $this->randomName(),
+      'id' => $this->randomMachineName(),
       'label' => $this->randomString(),
-      'style' => $this->randomName(),
+      'style' => $this->randomMachineName(),
     ));
     $this->assertTrue($config_test->uuid());
     $this->assertNotEqual($config_test->uuid(), $empty->uuid());
@@ -122,7 +123,7 @@ class ConfigEntityTest extends WebTestBase {
     }
 
     // The entity path can only be checked after saving.
-    $this->assertIdentical($config_test->getSystemPath(), 'admin/structure/config_test/manage/' . $expected['id']);
+    $this->assertIdentical($config_test->url(), Url::fromRoute('entity.config_test.edit_form', ['config_test' => $expected['id']])->toString());
 
     // Verify that the correct status is returned and properties did not change.
     $this->assertIdentical($status, SAVED_NEW);
@@ -146,11 +147,11 @@ class ConfigEntityTest extends WebTestBase {
 
     // Test with a short ID.
     $id_length_config_test = entity_create('config_test', array(
-      'id' => $this->randomName(8),
+      'id' => $this->randomMachineName(8),
     ));
     try {
       $id_length_config_test->save();
-      $this->pass(String::format("config_test entity with ID length @length was saved.", array(
+      $this->pass(SafeMarkup::format("config_test entity with ID length @length was saved.", array(
         '@length' => strlen($id_length_config_test->id()))
       ));
     }
@@ -160,11 +161,11 @@ class ConfigEntityTest extends WebTestBase {
 
     // Test with an ID of the maximum allowed length.
     $id_length_config_test = entity_create('config_test', array(
-      'id' => $this->randomName(static::MAX_ID_LENGTH),
+      'id' => $this->randomMachineName(static::MAX_ID_LENGTH),
     ));
     try {
       $id_length_config_test->save();
-      $this->pass(String::format("config_test entity with ID length @length was saved.", array(
+      $this->pass(SafeMarkup::format("config_test entity with ID length @length was saved.", array(
         '@length' => strlen($id_length_config_test->id()),
       )));
     }
@@ -172,19 +173,19 @@ class ConfigEntityTest extends WebTestBase {
       $this->fail($e->getMessage());
     }
 
-    // Test with an ID exeeding the maximum allowed length.
+    // Test with an ID exceeding the maximum allowed length.
     $id_length_config_test = entity_create('config_test', array(
-      'id' => $this->randomName(static::MAX_ID_LENGTH + 1),
+      'id' => $this->randomMachineName(static::MAX_ID_LENGTH + 1),
     ));
     try {
       $status = $id_length_config_test->save();
-      $this->fail(String::format("config_test entity with ID length @length exceeding the maximum allowed length of @max saved successfully", array(
+      $this->fail(SafeMarkup::format("config_test entity with ID length @length exceeding the maximum allowed length of @max saved successfully", array(
         '@length' => strlen($id_length_config_test->id()),
         '@max' => static::MAX_ID_LENGTH,
       )));
     }
     catch (ConfigEntityIdLengthException $e) {
-      $this->pass(String::format("config_test entity with ID length @length exceeding the maximum allowed length of @max failed to save", array(
+      $this->pass(SafeMarkup::format("config_test entity with ID length @length exceeding the maximum allowed length of @max failed to save", array(
         '@length' => strlen($id_length_config_test->id()),
         '@max' => static::MAX_ID_LENGTH,
       )));
@@ -204,7 +205,7 @@ class ConfigEntityTest extends WebTestBase {
     }
 
     // Verify that renaming the ID returns correct status and properties.
-    $ids = array($expected['id'], 'second_' . $this->randomName(4), 'third_' . $this->randomName(4));
+    $ids = array($expected['id'], 'second_' . $this->randomMachineName(4), 'third_' . $this->randomMachineName(4));
     for ($i = 1; $i < 3; $i++) {
       $old_id = $ids[$i - 1];
       $new_id = $ids[$i];
@@ -234,13 +235,15 @@ class ConfigEntityTest extends WebTestBase {
    * Tests CRUD operations through the UI.
    */
   function testCRUDUI() {
-    $id = strtolower($this->randomName());
-    $label1 = $this->randomName();
-    $label2 = $this->randomName();
-    $label3 = $this->randomName();
+    $this->drupalLogin($this->drupalCreateUser(['administer site configuration']));
+
+    $id = strtolower($this->randomMachineName());
+    $label1 = $this->randomMachineName();
+    $label2 = $this->randomMachineName();
+    $label3 = $this->randomMachineName();
     $message_insert = format_string('%label configuration has been created.', array('%label' => $label1));
     $message_update = format_string('%label configuration has been updated.', array('%label' => $label2));
-    $message_delete = format_string('%label configuration has been deleted.', array('%label' => $label2));
+    $message_delete = format_string('The test configuration %label has been deleted.', array('%label' => $label2));
 
     // Create a configuration entity.
     $edit = array(
@@ -291,7 +294,7 @@ class ConfigEntityTest extends WebTestBase {
 
     // Rename the configuration entity's ID/machine name.
     $edit = array(
-      'id' => strtolower($this->randomName()),
+      'id' => strtolower($this->randomMachineName()),
       'label' => $label3,
     );
     $this->drupalPostForm("admin/structure/config_test/manage/$id", $edit, 'Save');
@@ -318,6 +321,44 @@ class ConfigEntityTest extends WebTestBase {
     $this->drupalPostForm('admin/structure/config_test/manage/0/delete', array(), 'Delete');
     $this->assertFalse(entity_load('config_test', '0'), 'Test entity deleted');
 
+    // Create a configuration entity with a property that uses AJAX to show
+    // extra form elements.
+    $this->drupalGet('admin/structure/config_test/add');
+
+    // Test that the dependent element is not shown initially.
+    $this->assertFieldByName('size');
+    $this->assertNoFieldByName('size_value');
+
+    $id = strtolower($this->randomMachineName());
+    $edit = [
+      'id' => $id,
+      'label' => $this->randomString(),
+      'size' => 'custom',
+    ];
+    $this->drupalPostAjaxForm(NULL, $edit, 'size');
+
+    // Check that the dependent element is shown after selecting a 'size' value.
+    $this->assertFieldByName('size');
+    $this->assertFieldByName('size_value');
+
+    // Test the same scenario but it in a non-JS case by using a 'js-hidden'
+    // submit button.
+    $this->drupalGet('admin/structure/config_test/add');
+    $this->assertFieldByName('size');
+    $this->assertNoFieldByName('size_value');
+
+    $this->drupalPostForm(NULL, $edit, 'Change size');
+    $this->assertFieldByName('size');
+    $this->assertFieldByName('size_value');
+
+    // Submit the form with the regular 'Save' button and check that the entity
+    // values are correct.
+    $edit += ['size_value' => 'medium'];
+    $this->drupalPostForm(NULL, $edit, 'Save');
+
+    $entity = entity_load('config_test', $id);
+    $this->assertEqual($entity->get('size'), 'custom');
+    $this->assertEqual($entity->get('size_value'), 'medium');
   }
 
 }

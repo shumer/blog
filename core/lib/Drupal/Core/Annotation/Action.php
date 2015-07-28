@@ -42,14 +42,13 @@ class Action extends Plugin {
   public $label;
 
   /**
-   * The path for a confirmation form for this action.
+   * The route name for a confirmation form for this action.
    *
-   * @todo Change this to accept a route.
    * @todo Provide a more generic way to allow an action to be confirmed first.
    *
    * @var string (optional)
    */
-  public $confirm_form_path = '';
+  public $confirm_form_route_name = '';
 
   /**
    * The entity type the action can apply to.
@@ -59,5 +58,14 @@ class Action extends Plugin {
    * @var string
    */
   public $type = '';
+
+  /**
+   * The category under which the action should be listed in the UI.
+   *
+   * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
+   */
+  public $category;
 
 }

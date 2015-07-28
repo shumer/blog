@@ -15,11 +15,9 @@ class Extension implements \Serializable {
   /**
    * The type of the extension (e.g., 'module').
    *
-   * @todo Change to protected once external test dependencies are resolved.
-   *
    * @var string
    */
-  public $type;
+  protected $type;
 
   /**
    * The relative pathname of the extension (e.g., 'core/modules/node/node.info.yml').
@@ -29,41 +27,11 @@ class Extension implements \Serializable {
   protected $pathname;
 
   /**
-   * The internal name of the extension (e.g., 'node').
-   *
-   * @todo Remove this property once external test dependencies are resolved.
-   *
-   * @var string
-   */
-  public $name;
-
-  /**
-   * The relative pathname of the main extension file (e.g., 'core/modules/node/node.module').
-   *
-   * @todo Remove this property and do not require .module/.profile files.
-   * @see https://drupal.org/node/340723
-   *
-   * @var string
-   */
-  public $uri;
-
-  /**
-   * Same as $uri.
-   *
-   * @todo Remove this property once external test dependencies are resolved.
-   *
-   * @var string
-   */
-  public $filename;
-
-  /**
    * The filename of the main extension file (e.g., 'node.module').
-   *
-   * @todo Rename to $filename once external test dependencies are resolved.
    *
    * @var string|null
    */
-  protected $_filename;
+  protected $filename;
 
   /**
    * An SplFileInfo instance for the extension's info file.
@@ -75,8 +43,17 @@ class Extension implements \Serializable {
   protected $splFileInfo;
 
   /**
+   * The app root.
+   *
+   * @var string
+   */
+  protected $root;
+
+  /**
    * Constructs a new Extension object.
    *
+   * @param string $root
+   *   The app root.
    * @param string $type
    *   The type of the extension; e.g., 'module'.
    * @param string $pathname
@@ -85,14 +62,11 @@ class Extension implements \Serializable {
    * @param string $filename
    *   (optional) The filename of the main extension file; e.g., 'node.module'.
    */
-  public function __construct($type, $pathname, $filename = NULL) {
+  public function __construct($root, $type, $pathname, $filename = NULL) {
+    $this->root = $root;
     $this->type = $type;
     $this->pathname = $pathname;
-    $this->_filename = $filename;
-    // Set legacy public properties.
-    $this->name = $this->getName();
-    $this->uri = $this->getPath() . '/' . $filename;
-    $this->filename = $this->uri;
+    $this->filename = $filename;
   }
 
   /**
@@ -146,8 +120,8 @@ class Extension implements \Serializable {
    * @return string|null
    */
   public function getExtensionPathname() {
-    if ($this->_filename) {
-      return $this->getPath() . '/' . $this->_filename;
+    if ($this->filename) {
+      return $this->getPath() . '/' . $this->filename;
     }
   }
 
@@ -157,7 +131,7 @@ class Extension implements \Serializable {
    * @return string|null
    */
   public function getExtensionFilename() {
-    return $this->_filename;
+    return $this->filename;
   }
 
   /**
@@ -167,8 +141,8 @@ class Extension implements \Serializable {
    *   TRUE if this extension has a main extension file, FALSE otherwise.
    */
   public function load() {
-    if ($this->_filename) {
-      include_once DRUPAL_ROOT . '/' . $this->getPath() . '/' . $this->_filename;
+    if ($this->filename) {
+      include_once $this->root . '/' . $this->getPath() . '/' . $this->filename;
       return TRUE;
     }
     return FALSE;
@@ -193,9 +167,10 @@ class Extension implements \Serializable {
    */
   public function serialize() {
     $data = array(
+      'root' => $this->root,
       'type' => $this->type,
       'pathname' => $this->pathname,
-      '_filename' => $this->_filename,
+      'filename' => $this->filename,
     );
 
     // @todo ThemeHandler::listInfo(), ThemeHandler::rebuildThemeData(), and
@@ -213,16 +188,10 @@ class Extension implements \Serializable {
    */
   public function unserialize($data) {
     $data = unserialize($data);
+    $this->root = $data['root'];
     $this->type = $data['type'];
     $this->pathname = $data['pathname'];
-    $this->_filename = $data['_filename'];
-
-    // Restore legacy public properties.
-    // @todo Remove these properties and do not require .module/.profile files.
-    // @see https://drupal.org/node/340723
-    $this->name = $this->getName();
-    $this->uri = $this->getPath() . '/' . $this->_filename;
-    $this->filename = $this->uri;
+    $this->filename = $data['filename'];
 
     // @todo ThemeHandler::listInfo(), ThemeHandler::rebuildThemeData(), and
     //   system_list() are adding custom properties to the Extension object.

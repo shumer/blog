@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\access\AccessPluginBase.
+ * Contains \Drupal\views\Plugin\views\access\AccessPluginBase.
  */
 
 namespace Drupal\views\Plugin\views\access;
@@ -36,7 +36,7 @@ abstract class AccessPluginBase extends PluginBase {
    * {@inheritdoc}
    */
   public function summaryTitle() {
-    return t('Unknown');
+    return $this->t('Unknown');
   }
 
   /**

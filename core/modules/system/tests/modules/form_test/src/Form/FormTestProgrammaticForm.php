@@ -8,6 +8,7 @@
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Form builder to test programmatic form submissions.
@@ -24,7 +25,7 @@ class FormTestProgrammaticForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form['textfield'] = array(
       '#title' => 'Textfield',
       '#type' => 'textfield',
@@ -73,11 +74,12 @@ class FormTestProgrammaticForm extends FormBase {
       // Use the same submit handler for this button as for the form itself.
       // (This must be set explicitly or otherwise the form API will ignore the
       // #limit_validation_errors property.)
-      '#submit' => array(array($this, 'submitForm')),
+      '#submit' => array('::submitForm'),
     );
-    if (!empty($form_state['input']['field_to_validate']) && $form_state['input']['field_to_validate'] != 'all') {
+    $user_input = $form_state->getUserInput();
+    if (!empty($user_input['field_to_validate']) && $user_input['field_to_validate'] != 'all') {
       $form['submit_limit_validation']['#limit_validation_errors'] = array(
-        array($form_state['input']['field_to_validate']),
+        array($user_input['field_to_validate']),
       );
     }
 
@@ -87,17 +89,17 @@ class FormTestProgrammaticForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
-    if (empty($form_state['values']['textfield'])) {
-      form_set_error('textfield', $form_state, t('Textfield is required.'));
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    if ($form_state->isValueEmpty('textfield')) {
+      $form_state->setErrorByName('textfield', t('Textfield is required.'));
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $form_state['storage']['programmatic_form_submit'] = $form_state['values'];
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $form_state->set('programmatic_form_submit', $form_state->getValues());
   }
 
 }

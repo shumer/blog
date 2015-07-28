@@ -2,13 +2,13 @@
 
 /**
  * @file
- * Contains Drupal\views_ui\ViewPreviewForm.
+ * Contains \Drupal\views_ui\ViewPreviewForm.
  */
 
 namespace Drupal\views_ui;
 
-use Drupal\user\TempStoreFactory;
-use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /**
  * Form controller for the Views preview form.
@@ -16,50 +16,24 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class ViewPreviewForm extends ViewFormBase {
 
   /**
-   * The views temp store.
-   *
-   * @var \Drupal\user\TempStore
-   */
-  protected $tempStore;
-
-  /**
-   * Constructs a new ViewPreviewForm object.
-   *
-   * @param \Drupal\user\TempStoreFactory $temp_store_factory
-   *   The factory for the temp store object.
-   */
-  public function __construct(TempStoreFactory $temp_store_factory) {
-    $this->tempStore = $temp_store_factory->get('views');
-  }
-
-  /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('user.tempstore')
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $view = $this->entity;
 
-    $form['#prefix'] = '<div id="views-preview-wrapper" class="views-admin clearfix">';
+    $form['#prefix'] = '<div id="views-preview-wrapper" class="views-preview-wrapper views-admin clearfix">';
     $form['#suffix'] = '</div>';
     $form['#id'] = 'views-ui-preview-form';
 
-    // Reset the cache of IDs. Drupal rather aggressively prevents ID
-    // duplication but this causes it to remember IDs that are no longer even
-    // being used.
-    $seen_ids_init = &drupal_static('drupal_html_id:init');
-    $seen_ids_init = array();
-
-    $form_state['no_cache'] = TRUE;
+    $form_state->disableCache();
 
     $form['controls']['#attributes'] = array('class' => array('clearfix'));
+
+    $form['controls']['title'] = array(
+      '#prefix' => '<h2 class="view-preview-form__title">',
+      '#markup' => $this->t('Preview'),
+      '#suffix' => '</h2>',
+    );
 
     // Add a checkbox controlling whether or not this display auto-previews.
     $form['controls']['live_preview'] = array(
@@ -78,16 +52,17 @@ class ViewPreviewForm extends ViewFormBase {
     );
 
     $args = array();
-    if (!empty($form_state['values']['view_args'])) {
-      $args = explode('/', $form_state['values']['view_args']);
+    if (!$form_state->isValueEmpty('view_args')) {
+      $args = explode('/', $form_state->getValue('view_args'));
     }
 
-    if (!empty($form_state['show_preview']) || !empty($form_state['input']['js'])) {
+    $user_input = $form_state->getUserInput();
+    if ($form_state->get('show_preview') || !empty($user_input['js'])) {
       $form['preview'] = array(
         '#weight' => 110,
         '#theme_wrappers' => array('container'),
-        '#attributes' => array('id' => 'views-live-preview'),
-        '#markup' => $view->renderPreview($this->displayID, $args),
+        '#attributes' => array('id' => 'views-live-preview', 'class' => 'views-live-preview'),
+        'preview' => $view->renderPreview($this->displayID, $args),
       );
     }
     $uri = $view->urlInfo('preview-form');
@@ -100,23 +75,24 @@ class ViewPreviewForm extends ViewFormBase {
   /**
    * {@inheritdoc}
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     $view = $this->entity;
     return array(
       '#attributes' => array(
         'id' => 'preview-submit-wrapper',
+        'class' => array('preview-submit-wrapper')
       ),
       'button' => array(
         '#type' => 'submit',
         '#value' => $this->t('Update preview'),
         '#attributes' => array('class' => array('arguments-preview')),
-        '#submit' => array(array($this, 'submitPreview')),
+        '#submit' => array('::submitPreview'),
         '#id' => 'preview-submit',
         '#ajax' => array(
-          'path' => 'admin/structure/views/view/' . $view->id() . '/preview/' . $this->displayID,
+          'url' => Url::fromRoute('entity.view.preview_form', ['view' => $view->id(), 'display_id' => $this->displayID]),
           'wrapper' => 'views-preview-wrapper',
           'event' => 'click',
-          'progress' => array('type' => 'throbber'),
+          'progress' => array('type' => 'fullscreen'),
           'method' => 'replaceWith',
         ),
       ),
@@ -126,16 +102,9 @@ class ViewPreviewForm extends ViewFormBase {
   /**
    * Form submission handler for the Preview button.
    */
-  public function submitPreview($form, &$form_state) {
-    // Rebuild the form with a pristine $view object.
-    $view = $this->entity;
-    // Attempt to load the view from temp store, otherwise create a new one.
-    if (!$new_view = $this->tempStore->get($view->id())) {
-      $new_view = new ViewUI($view);
-    }
-    $form_state['build_info']['args'][0] = $new_view;
-    $form_state['show_preview'] = TRUE;
-    $form_state['rebuild'] = TRUE;
+  public function submitPreview($form, FormStateInterface $form_state) {
+    $form_state->set('show_preview', TRUE);
+    $form_state->setRebuild();
   }
 
 }

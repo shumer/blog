@@ -7,9 +7,11 @@
 
 namespace Drupal\language\Plugin\LanguageNegotiation;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\PathProcessor\InboundPathProcessorInterface;
 use Drupal\Core\PathProcessor\OutboundPathProcessorInterface;
+use Drupal\Core\Url;
 use Drupal\language\LanguageNegotiationMethodBase;
 use Drupal\language\LanguageSwitcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Class for identifying language via URL prefix or domain.
  *
- * @Plugin(
+ * @LanguageNegotiation(
  *   id = \Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationUrl::METHOD_ID,
  *   types = {\Drupal\Core\Language\LanguageInterface::TYPE_INTERFACE,
  *   \Drupal\Core\Language\LanguageInterface::TYPE_CONTENT,
@@ -25,7 +27,7 @@ use Symfony\Component\HttpFoundation\Request;
  *   weight = -8,
  *   name = @Translation("URL"),
  *   description = @Translation("Language from the URL (Path prefix or domain)."),
- *   config_path = "admin/config/regional/language/detection/url"
+ *   config_route_name = "language.negotiation_url"
  * )
  */
 class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements InboundPathProcessorInterface, OutboundPathProcessorInterface, LanguageSwitcherInterface {
@@ -64,14 +66,14 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
           // Search prefix within added languages.
           $negotiated_language = FALSE;
           foreach ($languages as $language) {
-            if (isset($config['prefixes'][$language->id]) && $config['prefixes'][$language->id] == $prefix) {
+            if (isset($config['prefixes'][$language->getId()]) && $config['prefixes'][$language->getId()] == $prefix) {
               $negotiated_language = $language;
               break;
             }
           }
 
           if ($negotiated_language) {
-            $langcode = $negotiated_language->id;
+            $langcode = $negotiated_language->getId();
           }
           break;
 
@@ -80,13 +82,13 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
           $http_host = $request->getHost();
           foreach ($languages as $language) {
             // Skip the check if the language doesn't have a domain.
-            if (!empty($config['domains'][$language->id])) {
+            if (!empty($config['domains'][$language->getId()])) {
               // Ensure that there is exactly one protocol in the URL when
               // checking the hostname.
-              $host = 'http://' . str_replace(array('http://', 'https://'), '', $config['domains'][$language->id]);
+              $host = 'http://' . str_replace(array('http://', 'https://'), '', $config['domains'][$language->getId()]);
               $host = parse_url($host, PHP_URL_HOST);
               if ($http_host == $host) {
-                $langcode = $language->id;
+                $langcode = $language->getId();
                 break;
               }
             }
@@ -103,14 +105,14 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
    */
   public function processInbound($path, Request $request) {
     $config = $this->config->get('language.negotiation')->get('url');
-    $parts = explode('/', $path);
+    $parts = explode('/', trim($path, '/'));
     $prefix = array_shift($parts);
 
     // Search prefix within added languages.
     foreach ($this->languageManager->getLanguages() as $language) {
-      if (isset($config['prefixes'][$language->id]) && $config['prefixes'][$language->id] == $prefix) {
+      if (isset($config['prefixes'][$language->getId()]) && $config['prefixes'][$language->getId()] == $prefix) {
         // Rebuild $path with the language removed.
-        $path = implode('/', $parts);
+        $path = '/' . implode('/', $parts);
         break;
       }
     }
@@ -121,7 +123,7 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
   /**
    * Implements Drupal\Core\PathProcessor\InboundPathProcessorInterface::processOutbound().
    */
-  public function processOutbound($path, &$options = array(), Request $request = NULL) {
+  public function processOutbound($path, &$options = array(), Request $request = NULL, CacheableMetadata $cacheable_metadata = NULL) {
     $url_scheme = 'http';
     $port = 80;
     if ($request) {
@@ -135,17 +137,20 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
       $options['language'] = $language_url;
     }
     // We allow only added languages here.
-    elseif (!is_object($options['language']) || !isset($languages[$options['language']->id])) {
+    elseif (!is_object($options['language']) || !isset($languages[$options['language']->getId()])) {
       return $path;
     }
     $config = $this->config->get('language.negotiation')->get('url');
     if ($config['source'] == LanguageNegotiationUrl::CONFIG_PATH_PREFIX) {
-      if (is_object($options['language']) && !empty($config['prefixes'][$options['language']->id])) {
-        $options['prefix'] = $config['prefixes'][$options['language']->id] . '/';
+      if (is_object($options['language']) && !empty($config['prefixes'][$options['language']->getId()])) {
+        $options['prefix'] = $config['prefixes'][$options['language']->getId()] . '/';
+        if ($cacheable_metadata) {
+          $cacheable_metadata->addCacheContexts(['languages:' . LanguageInterface::TYPE_URL]);
+        }
       }
     }
     elseif ($config['source'] ==  LanguageNegotiationUrl::CONFIG_DOMAIN) {
-      if (is_object($options['language']) && !empty($config['domains'][$options['language']->id])) {
+      if (is_object($options['language']) && !empty($config['domains'][$options['language']->getId()])) {
 
         // Save the original base URL. If it contains a port, we need to
         // retain it below.
@@ -156,7 +161,7 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
 
         // Ask for an absolute URL with our modified base URL.
         $options['absolute'] = TRUE;
-        $options['base_url'] = $url_scheme . '://' . $config['domains'][$options['language']->id];
+        $options['base_url'] = $url_scheme . '://' . $config['domains'][$options['language']->getId()];
 
         // In case either the original base URL or the HTTP host contains a
         // port, retain it.
@@ -168,7 +173,7 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
           $options['base_url'] .= ':' . $port;
         }
 
-        if (isset($options['https']) && !empty($options['mixed_mode_sessions'])) {
+        if (isset($options['https'])) {
           if ($options['https'] === TRUE) {
             $options['base_url'] = str_replace('http://', 'https://', $options['base_url']);
           }
@@ -179,6 +184,9 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
 
         // Add Drupal's subfolder from the base_path if there is one.
         $options['base_url'] .= rtrim(base_path(), '/');
+        if ($cacheable_metadata) {
+          $cacheable_metadata->addCacheContexts(['languages:' . LanguageInterface::TYPE_URL, 'url.site']);
+        }
       }
     }
     return $path;
@@ -187,13 +195,13 @@ class LanguageNegotiationUrl extends LanguageNegotiationMethodBase implements In
   /**
    * {@inheritdoc}
    */
-  function getLanguageSwitchLinks(Request $request, $type, $path) {
+  public function getLanguageSwitchLinks(Request $request, $type, Url $url) {
     $links = array();
 
-    foreach ($this->languageManager->getLanguages() as $language) {
-      $links[$language->id] = array(
-        'href' => $path,
-        'title' => $language->name,
+    foreach ($this->languageManager->getNativeLanguages() as $language) {
+      $links[$language->getId()] = array(
+        'url' => $url,
+        'title' => $language->getName(),
         'language' => $language,
         'attributes' => array('class' => array('language-link')),
       );

@@ -20,16 +20,16 @@ trait DependencyTrait {
   protected $dependencies = array();
 
   /**
-   * Creates a dependency.
+   * Adds a dependency.
    *
    * @param string $type
-   *   The type of dependency being checked. Either 'module', 'theme', 'entity'.
+   *   Type of dependency being added: 'module', 'theme', 'config', 'content'.
    * @param string $name
-   *   If $type equals 'module' or 'theme' then it should be the name of the
-   *   module or theme. In the case of entity it should be the full
-   *   configuration object name.
+   *   If $type is 'module' or 'theme', the name of the module or theme. If
+   *   $type is 'config' or 'content', the result of
+   *   EntityInterface::getConfigDependencyName().
    *
-   * @see \Drupal\Core\Config\Entity\ConfigEntityInterface::getConfigDependencyName()
+   * @see \Drupal\Core\Entity\EntityInterface::getConfigDependencyName()
    *
    * @return $this
    */
@@ -54,17 +54,17 @@ trait DependencyTrait {
    *
    * @param array $dependencies.
    *   An array of dependencies keyed by the type of dependency. One example:
-   * @code
-   * array(
-   *   'module' => array(
-   *     'node',
-   *     'field',
-   *     'image'
-   *   ),
-   * );
-   * @endcode
+   *   @code
+   *   array(
+   *     'module' => array(
+   *       'node',
+   *       'field',
+   *       'image',
+   *     ),
+   *   );
+   *   @endcode
    *
-   * @see ::addDependency
+   * @see \Drupal\Core\Entity\DependencyTrait::addDependency
    */
   protected function addDependencies(array $dependencies) {
     foreach ($dependencies as $dependency_type => $list) {

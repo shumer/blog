@@ -7,8 +7,10 @@
 
 namespace Drupal\language\Plugin\LanguageNegotiation;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\PathProcessor\OutboundPathProcessorInterface;
+use Drupal\Core\Url;
 use Drupal\language\LanguageNegotiationMethodBase;
 use Drupal\language\LanguageSwitcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,12 +18,12 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Identify language from a request/session parameter.
  *
- * @Plugin(
+ * @LanguageNegotiation(
  *   id = Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationSession::METHOD_ID,
  *   weight = -6,
  *   name = @Translation("Session"),
  *   description = @Translation("Language from a request/session parameter."),
- *   config_path = "admin/config/regional/language/detection/session"
+ *   config_route_name = "language.negotiation_session"
  * )
  */
 class LanguageNegotiationSession extends LanguageNegotiationMethodBase implements OutboundPathProcessorInterface, LanguageSwitcherInterface {
@@ -69,11 +71,9 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
    * {@inheritdoc}
    */
   public function persist(LanguageInterface $language) {
-    parent::persist($language);
-
     // We need to update the session parameter with the request value only if we
     // have an authenticated user.
-    $langcode = $language->id;
+    $langcode = $language->getId();
     if ($langcode && $this->languageManager) {
       $languages = $this->languageManager->getLanguages();
       if ($this->currentUser->isAuthenticated() && isset($languages[$langcode])) {
@@ -86,7 +86,7 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
   /**
    * {@inheritdoc}
    */
-  public function processOutbound($path, &$options = array(), Request $request = NULL) {
+  public function processOutbound($path, &$options = array(), Request $request = NULL, CacheableMetadata $cacheable_metadata = NULL) {
     if ($request) {
       // The following values are not supposed to change during a single page
       // request processing.
@@ -115,6 +115,16 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
         if (!isset($options['query'][$this->queryParam])) {
           $options['query'][$this->queryParam] = $this->queryValue;
         }
+        if ($cacheable_metadata) {
+          // Cached URLs that have been processed by this outbound path
+          // processor must be:
+          $cacheable_metadata
+            // - invalidated when the language negotiation config changes, since
+            //   another query parameter may be used to determine the language.
+            ->addCacheTags($this->config->get('language.negotiation')->getCacheTags())
+            // - varied by the configured query parameter.
+            ->addCacheContexts(['url.query_args:' . $this->queryParam]);
+        }
       }
     }
     return $path;
@@ -123,19 +133,19 @@ class LanguageNegotiationSession extends LanguageNegotiationMethodBase implement
   /**
    * {@inheritdoc}
    */
-  function getLanguageSwitchLinks(Request $request, $type, $path) {
+  public function getLanguageSwitchLinks(Request $request, $type, Url $url) {
     $links = array();
     $config = $this->config->get('language.negotiation')->get('session');
     $param = $config['parameter'];
-    $language_query = isset($_SESSION[$param]) ? $_SESSION[$param] : $this->languageManager->getCurrentLanguage($type)->id;
+    $language_query = isset($_SESSION[$param]) ? $_SESSION[$param] : $this->languageManager->getCurrentLanguage($type)->getId();
     $query = array();
     parse_str($request->getQueryString(), $query);
 
-    foreach ($this->languageManager->getLanguages() as $language) {
-      $langcode = $language->id;
+    foreach ($this->languageManager->getNativeLanguages() as $language) {
+      $langcode = $language->getId();
       $links[$langcode] = array(
-        'href' => $path,
-        'title' => $language->name,
+        'url' => $url,
+        'title' => $language->getName(),
         'attributes' => array('class' => array('language-link')),
         'query' => $query,
       );

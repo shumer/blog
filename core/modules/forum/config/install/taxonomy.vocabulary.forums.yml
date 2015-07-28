@@ -1,7 +1,14 @@
-vid: forums
+langcode: en
+status: true
+dependencies:
+  module:
+    - forum
+  enforced:
+    module:
+      - forum
 name: Forums
+vid: forums
 description: 'Forum navigation vocabulary'
 hierarchy: 1
 weight: -10
-status: true
-langcode: en
+third_party_settings: {  }

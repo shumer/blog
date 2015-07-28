@@ -7,8 +7,9 @@
 
 namespace Drupal\system\Plugin\Block;
 
-use Drupal\block\BlockBase;
+use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Provides a 'Powered by Drupal' block.
@@ -24,21 +25,19 @@ class SystemPoweredByBlock extends BlockBase {
    * {@inheritdoc}
    */
   public function build() {
-    return array('#markup' => '<span>' . t('Powered by <a href="@poweredby">Drupal</a>', array('@poweredby' => 'https://drupal.org')) . '</span>');
+    return array('#markup' => '<span>' . $this->t('Powered by <a href="@poweredby">Drupal</a>', array('@poweredby' => 'https://www.drupal.org')) . '</span>');
   }
-
 
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
 
-    // The 'Powered by Drupal' block is permanently cacheable, because its
-    // contents can never change.
+    // @see ::getCacheMaxAge()
     $form['cache']['#disabled'] = TRUE;
     $form['cache']['max_age']['#value'] = Cache::PERMANENT;
-    $form['cache']['#description'] = t('This block is always cached forever, it is not configurable.');
+    $form['cache']['#description'] = $this->t('This block is always cached forever, it is not configurable.');
 
     return $form;
   }
@@ -47,14 +46,9 @@ class SystemPoweredByBlock extends BlockBase {
    * {@inheritdoc}
    */
   public function getCacheMaxAge() {
+    // The 'Powered by Drupal' block is permanently cacheable, because its
+    // contents can never change.
     return Cache::PERMANENT;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isCacheable() {
-    return TRUE;
   }
 
 }

@@ -8,6 +8,7 @@
 namespace Drupal\search\Plugin;
 
 use Drupal\Component\Plugin\PluginInspectionInterface;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Defines a common interface for all SearchPlugin objects.
@@ -64,6 +65,18 @@ interface SearchInterface extends PluginInspectionInterface {
   public function isSearchExecutable();
 
   /**
+   * Returns the search index type this plugin uses.
+   *
+   * @return string|null
+   *   The type used by this search plugin in the search index, or NULL if this
+   *   plugin does not use the search index.
+   *
+   * @see search_index()
+   * @see search_index_clear()
+   */
+  public function getType();
+
+  /**
    * Executes the search.
    *
    * @return array
@@ -82,6 +95,22 @@ interface SearchInterface extends PluginInspectionInterface {
   public function buildResults();
 
   /**
+   * Provides a suggested title for a page of search results.
+   *
+   * @return string
+   *   The translated suggested page title.
+   */
+  public function suggestedTitle();
+
+  /**
+   * Returns the searching help.
+   *
+   * @return array
+   *   Render array for the searching help.
+   */
+  public function getHelp();
+
+  /**
    * Alters the search form when being built for a given plugin.
    *
    * The core search module only invokes this method on active module plugins
@@ -91,14 +120,14 @@ interface SearchInterface extends PluginInspectionInterface {
    *
    * @param array $form
    *   Nested array of form elements that comprise the form.
-   * @param array $form_state
-   *   A keyed array containing the current state of the form. The arguments
-   *   that \Drupal::formBuilder()->getForm() was originally called with are
-   *   available in the array $form_state['build_info']['args'].
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form. The arguments that
+   *   \Drupal::formBuilder()->getForm() was originally called with are
+   *   available in the array $form_state->getBuildInfo()['args'].
    *
    * @see SearchInterface::buildSearchUrlQuery()
    */
-  public function searchFormAlter(array &$form, array &$form_state);
+  public function searchFormAlter(array &$form, FormStateInterface $form_state);
 
   /**
    * Builds the URL GET query parameters array for search.
@@ -108,7 +137,7 @@ interface SearchInterface extends PluginInspectionInterface {
    * method to add form elements to the search form will need to override this
    * method to gather the form input and add it to the GET query parameters.
    *
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state, with submitted form information.
    *
    * @return array
@@ -119,6 +148,6 @@ interface SearchInterface extends PluginInspectionInterface {
    *
    * @see SearchInterface::searchFormAlter()
    */
-  public function buildSearchUrlQuery($form_state);
+  public function buildSearchUrlQuery(FormStateInterface $form_state);
 
 }

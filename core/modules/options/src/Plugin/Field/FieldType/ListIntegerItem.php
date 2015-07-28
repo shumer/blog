@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\options\Type\ListIntegerItem.
+ * Contains \Drupal\options\Plugin\Field\FieldType\ListIntegerItem.
  */
 
 namespace Drupal\options\Plugin\Field\FieldType;
@@ -17,6 +17,7 @@ use Drupal\Core\TypedData\DataDefinition;
  *   id = "list_integer",
  *   label = @Translation("List (integer)"),
  *   description = @Translation("This field stores integer values from a list of allowed 'value => label' pairs, i.e. 'Lifetime in days': 1 => 1 day, 7 => 1 week, 31 => 1 month."),
+ *   category = @Translation("Number"),
  *   default_widget = "options_select",
  *   default_formatter = "list_default",
  * )
@@ -28,7 +29,8 @@ class ListIntegerItem extends ListItemBase {
    */
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('integer')
-      ->setLabel(t('Integer value'));
+      ->setLabel(t('Integer value'))
+      ->setRequired(TRUE);
 
     return $properties;
   }
@@ -41,7 +43,6 @@ class ListIntegerItem extends ListItemBase {
       'columns' => array(
         'value' => array(
           'type' => 'int',
-          'not null' => FALSE,
         ),
       ),
       'indexes' => array(
@@ -59,7 +60,7 @@ class ListIntegerItem extends ListItemBase {
     $description .= '<br/>' . t('The label is optional: if a line contains a single number, it will be used as key and label.');
     $description .= '<br/>' . t('Lists of labels are also accepted (one label per line), only if the field does not hold any values yet. Numeric keys will be automatically generated from the positions in the list.');
     $description .= '</p>';
-    $description .= '<p>' . t('Allowed HTML tags in labels: @tags', array('@tags' => _field_filter_xss_display_allowed_tags())) . '</p>';
+    $description .= '<p>' . t('Allowed HTML tags in labels: @tags', array('@tags' => $this->displayAllowedTags())) . '</p>';
     return $description;
   }
 
@@ -70,6 +71,13 @@ class ListIntegerItem extends ListItemBase {
     if (!preg_match('/^-?\d+$/', $option)) {
       return t('Allowed values list: keys must be integers.');
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected static function castAllowedValue($value) {
+    return (int) $value;
   }
 
 }

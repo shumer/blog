@@ -7,7 +7,7 @@
 
 namespace Drupal\hal\Normalizer;
 
-use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\rest\LinkManager\LinkManagerInterface;
 use Drupal\serialization\EntityResolver\EntityResolverInterface;
 use Drupal\serialization\EntityResolver\UuidReferenceInterface;
@@ -60,7 +60,7 @@ class EntityReferenceItemNormalizer extends FieldItemNormalizer implements UuidR
 
     // If this is not a content entity, let the parent implementation handle it,
     // only content entities are supported as embedded resources.
-    if (!($target_entity instanceof ContentEntityInterface)) {
+    if (!($target_entity instanceof FieldableEntityInterface)) {
       return parent::normalize($field_item, $format, $context);
     }
 
@@ -85,7 +85,7 @@ class EntityReferenceItemNormalizer extends FieldItemNormalizer implements UuidR
     // objects.
     $field_name = $field_item->getParent()->getName();
     $entity = $field_item->getEntity();
-    $field_uri = $this->linkManager->getRelationUri($entity->getEntityTypeId(), $entity->bundle(), $field_name);
+    $field_uri = $this->linkManager->getRelationUri($entity->getEntityTypeId(), $entity->bundle(), $field_name, $context);
     return array(
       '_links' => array(
         $field_uri => array($link),
@@ -103,7 +103,8 @@ class EntityReferenceItemNormalizer extends FieldItemNormalizer implements UuidR
     $field_item = $context['target_instance'];
     $field_definition = $field_item->getFieldDefinition();
     $target_type = $field_definition->getSetting('target_type');
-    if ($id = $this->entityResolver->resolve($this, $data, $target_type)) {
+    $id = $this->entityResolver->resolve($this, $data, $target_type);
+    if (isset($id)) {
       return array('target_id' => $id);
     }
     return NULL;
@@ -115,8 +116,9 @@ class EntityReferenceItemNormalizer extends FieldItemNormalizer implements UuidR
   public function getUuid($data) {
     if (isset($data['uuid'])) {
       $uuid = $data['uuid'];
-      if (is_array($uuid)) {
-        $uuid = reset($uuid);
+      // The value may be a nested array like $uuid[0]['value'].
+      if (is_array($uuid) && isset($uuid[0]['value'])) {
+        $uuid = $uuid[0]['value'];
       }
       return $uuid;
     }

@@ -16,8 +16,10 @@ use Drupal\migrate\Row;
  * @see \Drupal\migrate\Annotation\MigrateSource
  * @see \Drupal\migrate\Plugin\migrate\source\SourcePluginBase
  * @see plugin_api
+ *
+ * @ingroup migration
  */
-interface MigrateSourceInterface extends \Countable, PluginInspectionInterface {
+interface MigrateSourceInterface extends \Countable, \Iterator, PluginInspectionInterface {
 
   /**
    * Returns available fields on the source.

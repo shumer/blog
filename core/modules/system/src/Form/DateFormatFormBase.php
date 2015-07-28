@@ -7,10 +7,9 @@
 
 namespace Drupal\system\Form;
 
-use Drupal\Core\Ajax\AjaxResponse;
-use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Config\Entity\ConfigEntityStorageInterface;
-use Drupal\Core\Datetime\Date as DateFormatter;
+use Drupal\Core\Datetime\DateFormatter;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Datetime\DrupalDateTime;
@@ -24,7 +23,7 @@ abstract class DateFormatFormBase extends EntityForm {
   /**
    * The date formatter service.
    *
-   * @var \Drupal\Core\Datetime\Date
+   * @var \Drupal\Core\Datetime\DateFormatter
    */
   protected $dateFormatter;
 
@@ -38,7 +37,7 @@ abstract class DateFormatFormBase extends EntityForm {
   /**
    * Constructs a new date format form.
    *
-   * @param \Drupal\Core\Datetime\Date $date_formatter
+   * @param \Drupal\Core\Datetime\DateFormatter $date_formatter
    *   The date service.
    * @param \Drupal\Core\Config\Entity\ConfigEntityStorageInterface $date_format_storage
    *   The date format storage.
@@ -55,7 +54,7 @@ abstract class DateFormatFormBase extends EntityForm {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('date'),
+      $container->get('date.formatter'),
       $container->get('entity.manager')->getStorage('date_format')
     );
   }
@@ -67,13 +66,11 @@ abstract class DateFormatFormBase extends EntityForm {
    *   The entity ID.
    * @param array $element
    *   The form element.
-   * @param array $form_state
-   *   The form state.
    *
    * @return bool
    *   TRUE if this format already exists, FALSE otherwise.
    */
-  public function exists($entity_id, array $element,  array $form_state) {
+  public function exists($entity_id, array $element) {
     return (bool) $this->dateFormatStorage
       ->getQuery()
       ->condition('id', $element['#field_prefix'] . $entity_id)
@@ -81,33 +78,9 @@ abstract class DateFormatFormBase extends EntityForm {
   }
 
   /**
-   * Returns the date for a given format string.
-   *
-   * @param array $form
-   *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
-   *
-   * @return \Drupal\Core\Ajax\AjaxResponse
-   *   An AJAX Response to update the date-time value of the date format.
-   */
-  public static function dateTimeLookup(array $form, array $form_state) {
-    $format = '';
-    if (!empty($form_state['values']['date_format_pattern'])) {
-      $format = t('Displayed as %date_format', array('%date_format' => \Drupal::service('date')->format(REQUEST_TIME, 'custom', $form_state['values']['date_format_pattern'])));
-    }
-    // Return a command instead of a string, since the Ajax framework
-    // automatically prepends an additional empty DIV element for a string, which
-    // breaks the layout.
-    $response = new AjaxResponse();
-    $response->addCommand(new ReplaceCommand('#edit-date-format-suffix', '<small id="edit-date-format-suffix">' . $format . '</small>'));
-    return $response;
-  }
-
-  /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $form['label'] = array(
       '#type' => 'textfield',
       '#title' => 'Name',
@@ -127,20 +100,16 @@ abstract class DateFormatFormBase extends EntityForm {
         'error' => $this->t('The machine-readable name must be unique, and can only contain lowercase letters, numbers, and underscores. Additionally, it can not be the reserved word "custom".'),
       ),
     );
-
     $form['date_format_pattern'] = array(
       '#type' => 'textfield',
       '#title' => t('Format string'),
       '#maxlength' => 100,
       '#description' => $this->t('A user-defined date format. See the <a href="@url">PHP manual</a> for available options.', array('@url' => 'http://php.net/manual/function.date.php')),
-      '#default_value' => '',
-      '#field_suffix' => ' <small id="edit-date-format-suffix"></small>',
-      '#ajax' => array(
-        'callback' => array($this, 'dateTimeLookup'),
-        'event' => 'keyup',
-        'progress' => array('type' => 'throbber', 'message' => NULL),
-      ),
       '#required' => TRUE,
+      '#attributes' => [
+        'data-drupal-date-formatter' => 'source',
+      ],
+      '#field_suffix' => ' <small class="js-hide" data-drupal-date-formatter="preview">' . $this->t('Displayed as %date_format', ['%date_format' => '']) . '</small>',
     );
 
     $form['langcode'] = array(
@@ -149,23 +118,24 @@ abstract class DateFormatFormBase extends EntityForm {
       '#languages' => LanguageInterface::STATE_ALL,
       '#default_value' => $this->entity->language()->getId(),
     );
-
+    $form['#attached']['drupalSettings']['dateFormats'] = $this->dateFormatter->getSampleDateFormats();
+    $form['#attached']['library'][] = 'system/drupal.system.date';
     return parent::form($form, $form_state);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function validate(array $form, array &$form_state) {
+  public function validate(array $form, FormStateInterface $form_state) {
     parent::validate($form, $form_state);
 
     // The machine name field should already check to see if the requested
     // machine name is available. Regardless of machine_name or human readable
     // name, check to see if the provided pattern exists.
-    $pattern = trim($form_state['values']['date_format_pattern']);
+    $pattern = trim($form_state->getValue('date_format_pattern'));
     foreach ($this->dateFormatStorage->loadMultiple() as $format) {
       if ($format->getPattern() == $pattern && ($this->entity->isNew() || $format->id() != $this->entity->id())) {
-        $this->setFormError('date_format_pattern', $form_state, $this->t('This format already exists. Enter a unique format string.'));
+        $form_state->setErrorByName('date_format_pattern', $this->t('This format already exists. Enter a unique format string.'));
         continue;
       }
     }
@@ -174,12 +144,23 @@ abstract class DateFormatFormBase extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function submit(array $form, array &$form_state) {
-    $form_state['redirect_route']['route_name'] = 'system.date_format_list';
-    $form_state['values']['pattern'] = trim($form_state['values']['date_format_pattern']);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $form_state->setValue('pattern', trim($form_state->getValue('date_format_pattern')));
+    parent::submitForm($form, $form_state);
+  }
 
-    parent::submit($form, $form_state);
-    $this->entity->save();
+  /**
+   * {@inheritdoc}
+   */
+  public function save(array $form, FormStateInterface $form_state) {
+    $status = $this->entity->save();
+    if ($status == SAVED_UPDATED) {
+      drupal_set_message(t('Custom date format updated.'));
+    }
+    else {
+      drupal_set_message(t('Custom date format added.'));
+    }
+    $form_state->setRedirectUrl($this->entity->urlInfo('collection'));
   }
 
 }

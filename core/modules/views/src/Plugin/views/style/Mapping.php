@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\style\Mapping.
+ * Contains \Drupal\views\Plugin\views\style\Mapping.
  */
 
 namespace Drupal\views\Plugin\views\style;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Allows fields to be mapped to specific use cases.
@@ -59,7 +61,6 @@ abstract class Mapping extends StylePluginBase {
       if (!empty($value['#toggle'])) {
         $options['mapping']['contains']["toggle_$key"] = array(
           'default' => FALSE,
-          'bool' => TRUE,
         );
       }
     }
@@ -70,7 +71,7 @@ abstract class Mapping extends StylePluginBase {
   /**
    * Overrides Drupal\views\Plugin\views\style\StylePluginBase::buildOptionsForm().
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     // Get the mapping.
@@ -95,7 +96,7 @@ abstract class Mapping extends StylePluginBase {
       $field_options = array();
       $required = !empty($mapping[$key]['#required']);
       if (!$required && empty($mapping[$key]['#multiple'])) {
-        $field_options = array('' => t('- None -'));
+        $field_options = array('' => $this->t('- None -'));
       }
       $field_options += $field_labels;
 
@@ -116,7 +117,7 @@ abstract class Mapping extends StylePluginBase {
       if (!empty($mapping[$key]['#toggle'])) {
         $form['mapping']["toggle_$key"] = array(
           '#type' => 'checkbox',
-          '#title' => t('Use a custom %field_name', array('%field_name' => strtolower($mapping[$key]['#title']))),
+          '#title' => $this->t('Use a custom %field_name', array('%field_name' => strtolower($mapping[$key]['#title']))),
           '#default_value' => $this->options['mapping']["toggle_$key"],
         );
         $overrides['#states']['visible'][':input[name="style_options[mapping][' . "toggle_$key" . ']"]'] = array('checked' => TRUE);

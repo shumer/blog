@@ -9,8 +9,11 @@ namespace Drupal\rest\LinkManager;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
-class TypeLinkManager implements TypeLinkManagerInterface {
+class TypeLinkManager extends LinkManagerBase implements TypeLinkManagerInterface {
 
   /**
    * Injected cache backend.
@@ -20,13 +23,29 @@ class TypeLinkManager implements TypeLinkManagerInterface {
   protected $cache;
 
   /**
+   * Module handler service.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
    * Constructor.
    *
    * @param \Drupal\Core\Cache\CacheBackendInterface $cache
    *   The injected cache backend for caching type URIs.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
+   *   The module handler service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The config factory service.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   *   The request stack.
    */
-  public function __construct(CacheBackendInterface $cache) {
+  public function __construct(CacheBackendInterface $cache, ModuleHandlerInterface $module_handler, ConfigFactoryInterface $config_factory, RequestStack $request_stack) {
     $this->cache = $cache;
+    $this->configFactory = $config_factory;
+    $this->moduleHandler = $module_handler;
+    $this->requestStack = $request_stack;
   }
 
   /**
@@ -36,20 +55,23 @@ class TypeLinkManager implements TypeLinkManagerInterface {
    *   The bundle's entity type.
    * @param string $bundle
    *   The name of the bundle.
+   * @param array $context
+   *   Context of normalizer/serializer.
    *
-   * @return array
+   * @return string
    *   The URI that identifies this bundle.
    */
-  public function getTypeUri($entity_type, $bundle) {
-    // @todo Make the base path configurable.
-    return url("rest/type/$entity_type/$bundle", array('absolute' => TRUE));
+  public function getTypeUri($entity_type, $bundle, $context = array()) {
+    $uri = $this->getLinkDomain() . "/rest/type/$entity_type/$bundle";
+    $this->moduleHandler->alter('rest_type_uri', $uri, $context);
+    return $uri;
   }
 
   /**
    * Implements \Drupal\rest\LinkManager\TypeLinkManagerInterface::getTypeInternalIds().
    */
-  public function getTypeInternalIds($type_uri) {
-    $types = $this->getTypes();
+  public function getTypeInternalIds($type_uri, $context = array()) {
+    $types = $this->getTypes($context);
     if (isset($types[$type_uri])) {
       return $types[$type_uri];
     }
@@ -59,15 +81,18 @@ class TypeLinkManager implements TypeLinkManagerInterface {
   /**
    * Get the array of type links.
    *
+   * @param array $context
+   *   Context from the normalizer/serializer operation.
+   *
    * @return array
    *   An array of typed data ids (entity_type and bundle) keyed by
    *   corresponding type URI.
    */
-  public function getTypes() {
+  protected function getTypes($context = array()) {
     $cid = 'rest:links:types';
     $cache = $this->cache->get($cid);
     if (!$cache) {
-      $this->writeCache();
+      $this->writeCache($context);
       $cache = $this->cache->get($cid);
     }
     return $cache->data;
@@ -75,8 +100,11 @@ class TypeLinkManager implements TypeLinkManagerInterface {
 
   /**
    * Writes the cache of type links.
+   *
+   * @param array $context
+   *   Context from the normalizer/serializer operation.
    */
-  protected function writeCache() {
+  protected function writeCache($context = array()) {
     $data = array();
 
     // Type URIs correspond to bundles. Iterate through the bundles to get the
@@ -90,7 +118,7 @@ class TypeLinkManager implements TypeLinkManagerInterface {
       }
       foreach ($bundles as $bundle => $bundle_info) {
         // Get a type URI for the bundle.
-        $bundle_uri = $this->getTypeUri($entity_type_id, $bundle);
+        $bundle_uri = $this->getTypeUri($entity_type_id, $bundle, $context);
         $data[$bundle_uri] = array(
           'entity_type' => $entity_type_id,
           'bundle' => $bundle,
@@ -99,6 +127,7 @@ class TypeLinkManager implements TypeLinkManagerInterface {
     }
     // These URIs only change when entity info changes, so cache it permanently
     // and only clear it when entity_info is cleared.
-    $this->cache->set('rest:links:types', $data, Cache::PERMANENT, array('entity_types' => TRUE));
+    $this->cache->set('rest:links:types', $data, Cache::PERMANENT, array('entity_types'));
   }
+
 }

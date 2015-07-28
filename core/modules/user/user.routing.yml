@@ -13,29 +13,15 @@ user.logout:
   requirements:
     _user_is_logged_in: 'TRUE'
 
-user.autocomplete:
-  path: '/user/autocomplete'
-  defaults:
-    _controller: '\Drupal\user\Controller\UserAutocompleteController::autocompleteUser'
-  requirements:
-    _permission: 'access user profiles'
-
-user.autocomplete_anonymous:
-  path: '/user/autocomplete/anonymous'
-  defaults:
-    _controller: '\Drupal\user\Controller\UserAutocompleteController::autocompleteUserAnonymous'
-  requirements:
-    _permission: 'access user profiles'
-
 user.admin_index:
   path: '/admin/config/people'
   defaults:
-    _content: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
     _title: 'People'
   requirements:
     _permission: 'access administration pages'
 
-user.account_settings:
+entity.user.admin_form:
   path: '/admin/config/people/accounts'
   defaults:
     _form: '\Drupal\user\AccountSettingsForm'
@@ -43,7 +29,7 @@ user.account_settings:
   requirements:
     _permission: 'administer account settings'
 
-user.admin_account:
+entity.user.collection:
   path: '/admin/people'
   defaults:
     _entity_list: 'user'
@@ -67,7 +53,7 @@ user.admin_permissions:
   requirements:
     _permission: 'administer permissions'
 
-user.admin_permission:
+entity.user_role.edit_permissions_form:
   path: '/admin/people/permissions/{user_role}'
   defaults:
     _form: '\Drupal\user\Form\UserPermissionsRoleSpecificForm'
@@ -83,7 +69,7 @@ user.multiple_cancel_confirm:
   requirements:
     _permission: 'administer users'
 
-user.role_list:
+entity.user_role.collection:
   path: '/admin/people/roles'
   defaults:
     _entity_list: 'user_role'
@@ -99,7 +85,7 @@ user.role_add:
   requirements:
     _permission: 'administer permissions'
 
-user.role_edit:
+entity.user_role.edit_form:
   path: '/admin/people/roles/manage/{user_role}'
   defaults:
     _entity_form: user_role.default
@@ -107,7 +93,7 @@ user.role_edit:
   requirements:
     _entity_access: user_role.update
 
-user.role_delete:
+entity.user_role.delete_form:
   path: '/admin/people/roles/manage/{user_role}/delete'
   defaults:
     _entity_form: user_role.delete
@@ -119,7 +105,7 @@ user.pass:
   path: '/user/password'
   defaults:
     _form: '\Drupal\user\Form\UserPasswordForm'
-    _title: 'Request new password'
+    _title: 'Reset your password'
   requirements:
     _access: 'TRUE'
   options:
@@ -128,18 +114,10 @@ user.pass:
 user.page:
   path: '/user'
   defaults:
-    _content: '\Drupal\user\Controller\UserController::userPage'
-    _title: 'Log in'
+    _controller: '\Drupal\user\Controller\UserController::userPage'
+    _title: 'My account'
   requirements:
-    _access: 'TRUE'
-
-user.view:
-  path: '/user/{user}'
-  defaults:
-    _entity_view: 'user.full'
-    _title_callback: 'Drupal\user\Controller\UserController::userTitle'
-  requirements:
-    _entity_access: 'user.view'
+    _user_is_logged_in: 'TRUE'
 
 user.login:
   path: '/user/login'
@@ -147,35 +125,15 @@ user.login:
     _form: '\Drupal\user\Form\UserLoginForm'
     _title: 'Log in'
   requirements:
-    _access: 'TRUE'
+    _user_is_logged_in: 'FALSE'
   options:
     _maintenance_access: TRUE
-
-user.edit:
-  path: '/user/{user}/edit'
-  defaults:
-    _entity_form: 'user.default'
-    _title_callback: 'Drupal\user\Controller\UserController::userTitle'
-  options:
-    _admin_route: TRUE
-  requirements:
-    _entity_access: 'user.update'
-
-user.cancel:
-  path: '/user/{user}/cancel'
-  defaults:
-    _title: 'Cancel account'
-    _entity_form: 'user.cancel'
-  options:
-    _admin_route: TRUE
-  requirements:
-    _entity_access: 'user.delete'
 
 user.cancel_confirm:
   path: '/user/{user}/cancel/confirm/{timestamp}/{hashed_pass}'
   defaults:
     _title: 'Confirm account cancellation'
-    _content: '\Drupal\user\Controller\UserController::confirmCancel'
+    _controller: '\Drupal\user\Controller\UserController::confirmCancel'
     timestamp: 0
     hashed_pass: ''
   requirements:
@@ -184,9 +142,10 @@ user.cancel_confirm:
 user.reset:
   path: '/user/reset/{uid}/{timestamp}/{hash}'
   defaults:
-    _content: '\Drupal\user\Controller\UserController::resetPass'
+    _controller: '\Drupal\user\Controller\UserController::resetPass'
     _title: 'Reset password'
   requirements:
     _access: 'TRUE'
   options:
     _maintenance_access: TRUE
+    no_cache: TRUE

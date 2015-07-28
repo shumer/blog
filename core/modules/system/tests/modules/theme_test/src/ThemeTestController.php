@@ -8,6 +8,7 @@
 namespace Drupal\theme_test;
 
 use Drupal\Core\Controller\ControllerBase;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
  * Controller routines for theme test routes.
@@ -33,29 +34,39 @@ class ThemeTestController extends ControllerBase {
    *   A render array containing custom stylesheets.
    */
   public function testInfoStylesheets() {
-    $path = drupal_get_path('module', 'theme_test');
     return array(
       '#attached' => array(
-        'css' => array(
-          "$path/css/base-override.css",
-          "$path/css/base-override.sub-remove.css",
-          "$path/css/base-remove.css",
-          "$path/css/base-remove.sub-override.css",
-          "$path/css/sub-override.css",
-          "$path/css/sub-remove.css",
+        'library' => array(
+          'theme_test/theme_stylesheets_override_and_remove_test',
         ),
       ),
     );
   }
 
   /**
-   * Tests template overridding based on filename.
+   * Tests template overriding based on filename.
    *
    * @return array
    *   A render array containing a theme override.
    */
   public function testTemplate() {
-    return _theme('theme_test_template_test');
+    return ['#markup' => \Drupal::theme()->render('theme_test_template_test', array())];
+  }
+
+  /**
+   * Tests the inline template functionality.
+   *
+   * @return array
+   *   A render array containing an inline template.
+   */
+  public function testInlineTemplate() {
+    $element = array();
+    $element['test'] = array(
+      '#type' => 'inline_template',
+      '#template' => 'test-with-context {{ llama }}',
+      '#context' => array('llama' => 'muuh'),
+    );
+    return $element;
   }
 
   /**
@@ -65,21 +76,7 @@ class ThemeTestController extends ControllerBase {
    *   An HTML string containing the themed output.
    */
   public function testSuggestion() {
-    return _theme(array('theme_test__suggestion', 'theme_test'), array());
-  }
-
-/**
- * This is for testing that the theme can have hook_*_alter() implementations
- * that run during page callback execution, even before _theme() is called for
- * the first time.
- *
- * @return string
- *   A string containing the altered data.
- */
-  public function testAlter() {
-    $data = 'foo';
-    $this->moduleHandler()->alter('theme_test_alter', $data);
-    return "The altered data is $data.";
+    return ['#markup' => \Drupal::theme()->render(array('theme_test__suggestion', 'theme_test'), array())];
   }
 
   /**
@@ -89,7 +86,7 @@ class ThemeTestController extends ControllerBase {
    *   Content in theme_test_output GLOBAL.
    */
   public function testRequestListener() {
-    return $GLOBALS['theme_test_output'];
+    return ['#markup' =>  $GLOBALS['theme_test_output']];
   }
 
   /**
@@ -133,6 +130,17 @@ class ThemeTestController extends ControllerBase {
    */
   function suggestionAlterInclude() {
     return array('#theme' => 'theme_test_suggestions_include');
+  }
+
+  /**
+   * Controller to ensure that no theme is initialized.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   The json response with the theme initialized information.
+   */
+  public function nonHtml() {
+    $theme_initialized = \Drupal::theme()->hasActiveTheme();
+    return new JsonResponse(['theme_initialized' => $theme_initialized]);
   }
 
 }

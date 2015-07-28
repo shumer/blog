@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\File\ReadOnlyStreamWrapperTest.
+ * Contains \Drupal\system\Tests\File\ReadOnlyStreamWrapperTest.
  */
 
 namespace Drupal\system\Tests\File;
@@ -26,15 +26,16 @@ class ReadOnlyStreamWrapperTest extends FileTestBase {
    *
    * @var string
    */
-  protected $classname = 'Drupal\file_test\DummyReadOnlyStreamWrapper';
+  protected $classname = 'Drupal\file_test\StreamWrapper\DummyReadOnlyStreamWrapper';
 
   /**
-   * Test write functionality of the read-only stream wrapper.
+   * Test read-only specific behavior.
    */
-  function testWriteFunctions() {
+  function testReadOnlyBehavior() {
     // Generate a test file
-    $filename = $this->randomName();
-    $filepath = conf_path() . '/files/' . $filename;
+    $filename = $this->randomMachineName();
+    $site_path = $this->container->get('site.path');
+    $filepath = $site_path . '/files/' . $filename;
     file_put_contents($filepath, $filename);
 
     // Generate a read-only stream wrapper instance
@@ -56,15 +57,17 @@ class ReadOnlyStreamWrapperTest extends FileTestBase {
     $handle = fopen($uri, 'r');
     $this->assertTrue($handle, 'Able to open a file for reading with the read-only stream wrapper.');
     // Attempt to change file permissions
-    $this->assertFalse(@drupal_chmod($uri, 0777), 'Unable to change file permissions when using read-only stream wrapper.');
+    $this->assertFalse(@chmod($uri, 0777), 'Unable to change file permissions when using read-only stream wrapper.');
     // Attempt to acquire an exclusive lock for writing
     $this->assertFalse(@flock($handle, LOCK_EX | LOCK_NB), 'Unable to acquire an exclusive lock using the read-only stream wrapper.');
     // Attempt to obtain a shared lock
     $this->assertTrue(flock($handle, LOCK_SH | LOCK_NB), 'Able to acquire a shared lock using the read-only stream wrapper.');
     // Attempt to release a shared lock
     $this->assertTrue(flock($handle, LOCK_UN | LOCK_NB), 'Able to release a shared lock using the read-only stream wrapper.');
+    // Attempt to truncate the file
+    $this->assertFalse(@ftruncate($handle, 0), 'Unable to truncate using the read-only stream wrapper.');
     // Attempt to write to the file
-    $this->assertFalse(@fwrite($handle, $this->randomName()), 'Unable to write to file using the read-only stream wrapper.');
+    $this->assertFalse(@fwrite($handle, $this->randomMachineName()), 'Unable to write to file using the read-only stream wrapper.');
     // Attempt to flush output to the file
     $this->assertFalse(@fflush($handle), 'Unable to flush output to file using the read-only stream wrapper.');
     // Attempt to close the stream.  (Suppress errors, as fclose triggers fflush.)
@@ -76,8 +79,8 @@ class ReadOnlyStreamWrapperTest extends FileTestBase {
     $this->assertTrue(file_exists($filepath), 'Unlink File was not actually deleted.');
 
     // Test the mkdir() function by attempting to create a directory.
-    $dirname = $this->randomName();
-    $dir = conf_path() . '/files/' . $dirname;
+    $dirname = $this->randomMachineName();
+    $dir = $site_path . '/files/' . $dirname;
     $readonlydir = $this->scheme . '://' . $dirname;
     $this->assertFalse(@drupal_mkdir($readonlydir, 0775, 0), 'Unable to create directory with read-only stream wrapper.');
     // Create a temporary directory for testing purposes

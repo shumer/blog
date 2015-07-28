@@ -7,12 +7,13 @@
 
 namespace Drupal\form_test;
 
-use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\ConfigFormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Provides a test form object.
  */
-class FormTestObject extends FormBase {
+class FormTestObject extends ConfigFormBase {
 
   /**
    * {@inheritdoc}
@@ -24,7 +25,14 @@ class FormTestObject extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  protected function getEditableConfigNames() {
+    return ['form_test.object'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form['element'] = array('#markup' => 'The FormTestObject::buildForm() method was used for this form.');
 
     $form['bananas'] = array(
@@ -46,17 +54,17 @@ class FormTestObject extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     drupal_set_message($this->t('The FormTestObject::validateForm() method was used for this form.'));
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     drupal_set_message($this->t('The FormTestObject::submitForm() method was used for this form.'));
     $this->config('form_test.object')
-      ->set('bananas', $form_state['values']['bananas'])
+      ->set('bananas', $form_state->getValue('bananas'))
       ->save();
   }
 

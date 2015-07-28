@@ -19,17 +19,19 @@ use Drupal\system\Tests\Entity\EntityUnitTestBase;
  */
 class CommentDefaultFormatterCacheTagsTest extends EntityUnitTestBase {
 
+  use CommentTestTrait;
+
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
-  public static $modules = array('entity_test', 'comment', 'menu_link');
+  public static $modules = array('entity_test', 'comment');
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Set the current user to one that can access comments. Specifically, this
@@ -40,8 +42,7 @@ class CommentDefaultFormatterCacheTagsTest extends EntityUnitTestBase {
 
     // Install tables and config needed to render comments.
     $this->installSchema('comment', array('comment_entity_statistics'));
-    $this->installEntitySchema('comment');
-    $this->installConfig(array('system', 'filter'));
+    $this->installConfig(array('system', 'filter', 'comment'));
 
     // Comment rendering generates links, so build the router.
     $this->installSchema('system', array('router'));
@@ -49,26 +50,36 @@ class CommentDefaultFormatterCacheTagsTest extends EntityUnitTestBase {
 
     // Set up a field, so that the entity that'll be referenced bubbles up a
     // cache tag when rendering it entirely.
-    \Drupal::service('comment.manager')->addDefaultField('entity_test', 'entity_test');
+    $this->addDefaultCommentField('entity_test', 'entity_test');
   }
 
   /**
    * Tests the bubbling of cache tags.
    */
   public function testCacheTags() {
+    /** @var \Drupal\Core\Render\RendererInterface $renderer */
+    $renderer = $this->container->get('renderer');
+
     // Create the entity that will be commented upon.
-    $commented_entity = entity_create('entity_test', array('name' => $this->randomName()));
+    $commented_entity = entity_create('entity_test', array('name' => $this->randomMachineName()));
     $commented_entity->save();
 
     // Verify cache tags on the rendered entity before it has comments.
     $build = \Drupal::entityManager()
       ->getViewBuilder('entity_test')
       ->view($commented_entity);
-    drupal_render($build);
+    $renderer->renderRoot($build);
     $expected_cache_tags = array(
-      'entity_test_view' => TRUE,
-      'entity_test' => array(1 => $commented_entity->id()),
+      'entity_test_view',
+      'entity_test:'  . $commented_entity->id(),
+      'comment_list',
+      'config:core.entity_form_display.comment.comment.default',
+      'config:field.field.comment.comment.comment_body',
+      'config:field.field.entity_test.entity_test.comment',
+      'config:field.storage.comment.comment_body',
+      'config:user.settings',
     );
+    sort($expected_cache_tags);
     $this->assertEqual($build['#cache']['tags'], $expected_cache_tags, 'The test entity has the expected cache tags before it has comments.');
 
     // Create a comment on that entity. Comment loading requires that the uid
@@ -91,24 +102,31 @@ class CommentDefaultFormatterCacheTagsTest extends EntityUnitTestBase {
     $comment->save();
 
     // Load commented entity so comment_count gets computed.
-    // @todo remove the $reset = TRUE parameter after
-    //   https://drupal.org/node/597236 lands, it's a temporary work-around.
+    // @todo Remove the $reset = TRUE parameter after
+    //   https://www.drupal.org/node/597236 lands. It's a temporary work-around.
     $commented_entity = entity_load('entity_test', $commented_entity->id(), TRUE);
 
-    // Verify cache tags on the rendered entity before it has comments.
+    // Verify cache tags on the rendered entity when it has comments.
     $build = \Drupal::entityManager()
       ->getViewBuilder('entity_test')
       ->view($commented_entity);
-    drupal_render($build);
+    $renderer->renderRoot($build);
     $expected_cache_tags = array(
-      'entity_test_view' => TRUE,
-      'entity_test' => array(1 => $commented_entity->id()),
-      'comment_view' => TRUE,
-      'comment' => array(1 => $comment->id()),
-      'filter_format' => array(
-        'plain_text' => 'plain_text',
-      ),
+      'entity_test_view',
+      'entity_test:' . $commented_entity->id(),
+      'comment_list',
+      'comment_view',
+      'comment:' . $comment->id(),
+      'config:filter.format.plain_text',
+      'user_view',
+      'user:2',
+      'config:core.entity_form_display.comment.comment.default',
+      'config:field.field.comment.comment.comment_body',
+      'config:field.field.entity_test.entity_test.comment',
+      'config:field.storage.comment.comment_body',
+      'config:user.settings',
     );
+    sort($expected_cache_tags);
     $this->assertEqual($build['#cache']['tags'], $expected_cache_tags, 'The test entity has the expected cache tags when it has comments.');
   }
 

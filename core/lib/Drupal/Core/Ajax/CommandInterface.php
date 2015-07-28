@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Ajax\CommandInterface.
+ * Contains \Drupal\Core\Ajax\CommandInterface.
  */
 
 namespace Drupal\Core\Ajax;
@@ -12,6 +12,8 @@ namespace Drupal\Core\Ajax;
  *
  * All AJAX commands passed to AjaxResponse objects should implement these
  * methods.
+ *
+ * @ingroup ajax
  */
 interface CommandInterface {
 

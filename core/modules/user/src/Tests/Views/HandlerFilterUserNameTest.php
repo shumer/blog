@@ -96,17 +96,16 @@ class HandlerFilterUserNameTest extends ViewTestBase {
     $this->drupalGet($path);
 
     // Pass in an invalid username, the validation should catch it.
-    $users = array($this->randomName());
+    $users = array($this->randomMachineName());
     $users = array_map('strtolower', $users);
     $edit = array(
       'options[value]' => implode(', ', $users)
     );
     $this->drupalPostForm($path, $edit, t('Apply'));
-    $message = format_plural(count($users), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', $users)));
-    $this->assertText($message);
+    $this->assertRaw(t('There are no entities matching "%value".', array('%value' => implode(', ', $users))));
 
     // Pass in an invalid username and a valid username.
-    $random_name = $this->randomName();
+    $random_name = $this->randomMachineName();
     $users = array($random_name, $this->names[0]);
     $users = array_map('strtolower', $users);
     $edit = array(
@@ -114,8 +113,7 @@ class HandlerFilterUserNameTest extends ViewTestBase {
     );
     $users = array($users[0]);
     $this->drupalPostForm($path, $edit, t('Apply'));
-    $message = format_plural(count($users), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', $users)));
-    $this->assertRaw($message);
+    $this->assertRaw(t('There are no entities matching "%value".', array('%value' => implode(', ', $users))));
 
     // Pass in just valid usernames.
     $users = $this->names;
@@ -124,8 +122,7 @@ class HandlerFilterUserNameTest extends ViewTestBase {
       'options[value]' => implode(', ', $users)
     );
     $this->drupalPostForm($path, $edit, t('Apply'));
-    $message = format_plural(count($users), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', $users)));
-    $this->assertNoRaw($message);
+    $this->assertNoRaw(t('There are no entities matching "%value".', array('%value' => implode(', ', $users))));
   }
 
   /**
@@ -137,22 +134,20 @@ class HandlerFilterUserNameTest extends ViewTestBase {
     $options = array();
 
     // Pass in an invalid username, the validation should catch it.
-    $users = array($this->randomName());
+    $users = array($this->randomMachineName());
     $users = array_map('strtolower', $users);
     $options['query']['uid'] = implode(', ', $users);
     $this->drupalGet($path, $options);
-    $message = format_plural(count($users), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', $users)));
-    $this->assertRaw($message);
+    $this->assertRaw(t('There are no entities matching "%value".', array('%value' => implode(', ', $users))));
 
     // Pass in an invalid username and a valid username.
-    $users = array($this->randomName(), $this->names[0]);
-    $options['query']['uid'] = implode(', ', $users);
+    $users = array($this->randomMachineName(), $this->names[0]);
     $users = array_map('strtolower', $users);
+    $options['query']['uid'] = implode(', ', $users);
     $users = array($users[0]);
 
     $this->drupalGet($path, $options);
-    $message = format_plural(count($users), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', $users)));
-    $this->assertRaw($message);
+    $this->assertRaw(t('There are no entities matching "%value".', array('%value' => implode(', ', $users))));
 
     // Pass in just valid usernames.
     $users = $this->names;

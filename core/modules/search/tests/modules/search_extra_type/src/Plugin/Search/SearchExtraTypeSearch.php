@@ -8,6 +8,9 @@
 namespace Drupal\search_extra_type\Plugin\Search;
 
 use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Routing\UrlGeneratorTrait;
+use Drupal\Core\Url;
 use Drupal\search\Plugin\ConfigurableSearchPluginBase;
 
 /**
@@ -19,6 +22,8 @@ use Drupal\search\Plugin\ConfigurableSearchPluginBase;
  * )
  */
 class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
+
+  use UrlGeneratorTrait;
 
   /**
    * {@inheritdoc}
@@ -56,7 +61,7 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
     }
     return array(
       array(
-        'link' => url('node'),
+        'link' => Url::fromRoute('test_page_test.test_page')->toString(),
         'type' => 'Dummy result type',
         'title' => 'Dummy title',
         'snippet' => SafeMarkup::set("Dummy search snippet to display. Keywords: {$this->keywords}\n\nConditions: " . print_r($this->searchParameters, TRUE)),
@@ -79,7 +84,7 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
       );
     }
     $pager = array(
-      '#theme' => 'pager',
+      '#type' => 'pager',
     );
     $output['suffix']['#markup'] = '</ol>' . drupal_render($pager);
 
@@ -89,7 +94,7 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     // Output form for defining rank factor weights.
     $form['extra_type_settings'] = array(
       '#type' => 'fieldset',
@@ -112,8 +117,8 @@ class SearchExtraTypeSearch extends ConfigurableSearchPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, array &$form_state) {
-    $this->configuration['boost'] = $form_state['values']['extra_type_settings']['boost'];
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->configuration['boost'] = $form_state->getValue(array('extra_type_settings', 'boost'));
   }
 
   /**

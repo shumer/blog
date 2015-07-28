@@ -22,27 +22,28 @@ class TestRunnerKernel extends DrupalKernel {
   /**
    * {@inheritdoc}
    */
-  public static function createFromRequest(Request $request, ClassLoader $class_loader, $environment = 'test_runner', $allow_dumping = TRUE) {
+  public static function createFromRequest(Request $request, $class_loader, $environment = 'test_runner', $allow_dumping = TRUE) {
     return parent::createFromRequest($request, $class_loader, $environment);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function __construct($environment, ClassLoader $class_loader) {
+  public function __construct($environment, $class_loader) {
     parent::__construct($environment, $class_loader, FALSE);
 
     // Prime the module list and corresponding Extension objects.
-    // @todo Remove System module. Needed because \Drupal\Core\Datetime\Date
-    //   has a (needless) dependency on the 'date_format' entity, so calls to
-    //   format_date()/format_interval() cause a plugin not found exception.
+    // @todo Remove System module. Needed because
+    //   \Drupal\Core\Datetime\DateFormatter has a (needless) dependency on the
+    //   'date_format' entity, so calls to format_date()/format_interval() cause
+    //   a plugin not found exception.
     $this->moduleList = array(
       'system' => 0,
       'simpletest' => 0,
     );
     $this->moduleData = array(
-      'system' => new Extension('module', 'core/modules/system/system.info.yml', 'system.module'),
-      'simpletest' => new Extension('module', 'core/modules/simpletest/simpletest.info.yml', 'simpletest.module'),
+      'system' => new Extension($this->root, 'module', 'core/modules/system/system.info.yml', 'system.module'),
+      'simpletest' => new Extension($this->root, 'module', 'core/modules/simpletest/simpletest.info.yml', 'simpletest.module'),
     );
   }
 
@@ -54,6 +55,10 @@ class TestRunnerKernel extends DrupalKernel {
     if (!Settings::getAll()) {
       new Settings(array(
         'hash_salt' => 'run-tests',
+        'container_yamls' => [],
+        // If there is no settings.php, then there is no parent site. In turn,
+        // there is no public files directory; use a custom public files path.
+        'file_public_path' => 'sites/default/files',
       ));
     }
 
@@ -70,6 +75,15 @@ class TestRunnerKernel extends DrupalKernel {
     $this->getContainer()->get('module_handler')->loadAll();
 
     simpletest_classloader_register();
+
+    // Register stream wrappers.
+    $this->getContainer()->get('stream_wrapper_manager')->register();
+
+    // Create the build/artifacts directory if necessary.
+    include_once DRUPAL_ROOT . '/core/includes/file.inc';
+    if (!is_dir('public://simpletest')) {
+      mkdir('public://simpletest', 0777, TRUE);
+    }
   }
 
   /**

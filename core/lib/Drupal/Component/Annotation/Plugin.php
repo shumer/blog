@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Component\Annotation\Plugin.
+ * Contains \Drupal\Component\Annotation\Plugin.
  */
 
 namespace Drupal\Component\Annotation;
@@ -12,8 +12,8 @@ use Drupal\Component\Utility\NestedArray;
 /**
  * Defines a Plugin annotation object.
  *
- * Annotations in plugin classes can utilize this class in order to pass
- * various metadata about the plugin through the parser to
+ * Annotations in plugin classes can use this class in order to pass various
+ * metadata about the plugin through the parser to
  * DiscoveryInterface::getDefinitions() calls. This allows the metadata
  * of a class to be located with the class itself, rather than in module-based
  * info hooks.

@@ -8,6 +8,8 @@
 namespace Drupal\search\Form;
 
 use Drupal\Core\Entity\EntityForm;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /**
  * Provides a search form for site wide search.
@@ -30,16 +32,16 @@ class SearchPageForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function getFormID() {
+  public function getFormId() {
     return 'search_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function form(array $form, array &$form_state) {
+  public function form(array $form, FormStateInterface $form_state) {
     $plugin = $this->entity->getPlugin();
-    $form_state['search_page_id'] = $this->entity->id();
+    $form_state->set('search_page_id', $this->entity->id());
 
     $form['basic'] = array(
       '#type' => 'container',
@@ -54,6 +56,7 @@ class SearchPageForm extends EntityForm {
       '#size' => 30,
       '#maxlength' => 255,
     );
+
     // processed_keys is used to coordinate keyword passing between other forms
     // that hook into the basic search form.
     $form['basic']['processed_keys'] = array(
@@ -65,6 +68,13 @@ class SearchPageForm extends EntityForm {
       '#value' => $this->t('Search'),
     );
 
+    $form['help_link'] = array(
+      '#type' => 'link',
+      '#url' => new Url('search.help_' . $this->entity->id()),
+      '#title' => $this->t('Search help'),
+      '#options' => array('attributes' => array('class' => 'search-help-link')),
+    );
+
     // Allow the plugin to add to or alter the search form.
     $plugin->searchFormAlter($form, $form_state);
 
@@ -74,7 +84,7 @@ class SearchPageForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  protected function actions(array $form, array &$form_state) {
+  protected function actions(array $form, FormStateInterface $form_state) {
     // The submit button is added in the form directly.
     return array();
   }
@@ -82,17 +92,18 @@ class SearchPageForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     // Redirect to the search page with keywords in the GET parameters.
     // Plugins with additional search parameters will need to provide their
     // own form submit handler to replace this, so they can put their values
     // into the GET as well. If so, make sure to put 'keys' into the GET
     // parameters so that the search results generation is triggered.
     $query = $this->entity->getPlugin()->buildSearchUrlQuery($form_state);
-    $route = 'search.view_' . $form_state['search_page_id'];
-    $form_state['redirect_route'] = array(
-      'route_name' => $route,
-      'options' => array('query' => $query),
+    $route = 'search.view_' . $form_state->get('search_page_id');
+    $form_state->setRedirect(
+      $route,
+      array(),
+      array('query' => $query)
     );
   }
 }

@@ -7,6 +7,8 @@
 
 namespace Drupal\rest\Plugin\views\style;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Plugin\CacheablePluginInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\style\StylePluginBase;
@@ -25,7 +27,7 @@ use Symfony\Component\Serializer\SerializerInterface;
  *   display_types = {"data"}
  * )
  */
-class Serializer extends StylePluginBase {
+class Serializer extends StylePluginBase implements CacheablePluginInterface {
 
   /**
    * Overrides \Drupal\views\Plugin\views\style\StylePluginBase::$usesRowPlugin.
@@ -88,13 +90,13 @@ class Serializer extends StylePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['formats'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Accepted request formats'),
-      '#description' => t('Request formats that will be allowed in responses. If none are selected all formats will be allowed.'),
+      '#title' => $this->t('Accepted request formats'),
+      '#description' => $this->t('Request formats that will be allowed in responses. If none are selected all formats will be allowed.'),
       '#options' => array_combine($this->formats, $this->formats),
       '#default_value' => $this->options['formats'],
     );
@@ -103,10 +105,11 @@ class Serializer extends StylePluginBase {
   /**
    * {@inheritdoc}
    */
-  public function submitOptionsForm(&$form, &$form_state) {
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) {
     parent::submitOptionsForm($form, $form_state);
 
-    $form_state['values']['style_options']['formats'] = array_filter($form_state['values']['style_options']['formats']);
+    $formats = $form_state->getValue(array('style_options', 'formats'));
+    $form_state->setValue(array('style_options', 'formats'), array_filter($formats));
   }
 
   /**
@@ -123,7 +126,15 @@ class Serializer extends StylePluginBase {
       $rows[] = $this->view->rowPlugin->render($row);
     }
 
-    return $this->serializer->serialize($rows, $this->displayHandler->getContentType());
+    // Get the content type configured in the display or fallback to the
+    // default.
+    if ((empty($this->view->live_preview))) {
+      $content_type = $this->displayHandler->getContentType();
+    }
+    else {
+      $content_type = !empty($this->options['formats']) ? reset($this->options['formats']) : 'json';
+    }
+    return $this->serializer->serialize($rows, $content_type);
   }
 
   /**
@@ -136,11 +147,21 @@ class Serializer extends StylePluginBase {
    *   An array of formats.
    */
   public function getFormats() {
-    if (!empty($this->options['formats'])) {
-      return $this->options['formats'];
-    }
+    return $this->options['formats'];
+  }
 
-    return $this->formats;
+  /**
+   * {@inheritdoc}
+   */
+  public function isCacheable() {
+    return TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheContexts() {
+    return ['request_format'];
   }
 
 }

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\node\Plugin\views\filter\UidRevision.
+ * Contains \Drupal\node\Plugin\views\filter\UidRevision.
  */
 
 namespace Drupal\node\Plugin\views\filter;
@@ -21,7 +21,7 @@ class UidRevision extends Name {
   public function query($group_by = FALSE) {
     $this->ensureMyTable();
 
-    $placeholder = $this->placeholder();
+    $placeholder = $this->placeholder() . '[]';
 
     $args = array_values($this->value);
 

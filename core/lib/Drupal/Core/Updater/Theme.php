@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Updater\Theme.
+ * Contains \Drupal\Core\Updater\Theme.
  */
 
 namespace Drupal\Core\Updater;
+
+use Drupal\Core\Url;
 
 /**
  * Defines a class for updating themes using
@@ -49,11 +51,9 @@ class Theme extends Updater implements UpdaterInterface {
    * Implements Drupal\Core\Updater\UpdaterInterface::canUpdateDirectory().
    */
   static function canUpdateDirectory($directory) {
-    // This is a lousy test, but don't know how else to confirm it is a theme.
-    if (file_scan_directory($directory, '/.*\.module$/')) {
-      return FALSE;
-    }
-    return TRUE;
+    $info = static::getExtensionInfo($directory);
+
+    return (isset($info['type']) && $info['type'] == 'theme');
   }
 
   /**
@@ -74,7 +74,7 @@ class Theme extends Updater implements UpdaterInterface {
   public function postInstall() {
     // Update the theme info.
     clearstatcache();
-    system_rebuild_theme_data();
+    \Drupal::service('theme_handler')->rebuildThemeData();
   }
 
   /**
@@ -82,8 +82,8 @@ class Theme extends Updater implements UpdaterInterface {
    */
   public function postInstallTasks() {
     return array(
-      l(t('Enable newly added themes'), 'admin/appearance'),
-      l(t('Administration pages'), 'admin'),
+      \Drupal::l(t('Install newly added themes'), new Url('system.themes_page')),
+      \Drupal::l(t('Administration pages'), new Url('system.admin')),
     );
   }
 }

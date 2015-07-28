@@ -5,12 +5,11 @@
  * Preprocessors and helper functions to make theming easier.
  */
 
+use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\SafeMarkup;
-use Drupal\Component\Utility\String;
 use Drupal\Component\Utility\Xss;
 use Drupal\Core\Template\Attribute;
-use Drupal\views\Form\ViewsForm;
-use Drupal\views\ViewExecutable;
+use Drupal\Core\Url;
 
 /**
  * Prepares variables for view templates.
@@ -23,72 +22,22 @@ use Drupal\views\ViewExecutable;
  */
 function template_preprocess_views_view(&$variables) {
   $view = $variables['view'];
+  $id = $view->storage->id();
 
-  $variables['rows'] = (!empty($view->result) || $view->style_plugin->evenEmpty()) ? $view->style_plugin->render($view->result) : array();
-  // Force a render array so CSS/JS can be added.
-  if (!is_array($variables['rows'])) {
-    $variables['rows'] = array('#markup' => $variables['rows']);
-  }
-
-  $variables['css_name'] = drupal_clean_css_identifier($view->storage->id());
-  $variables['id'] = $view->storage->id();
+  $variables['css_name'] = Html::cleanCssIdentifier($id);
+  $variables['id'] = $id;
   $variables['display_id'] = $view->current_display;
-
-  // Basic classes.
-  $variables['css_class'] = '';
-
-  $variables['attributes']['class'] = array();
-  $variables['attributes']['class'][] = 'view';
-  $variables['attributes']['class'][] = 'view-' . drupal_clean_css_identifier($variables['id']);
-  $variables['attributes']['class'][] = 'view-id-' . $variables['id'];
-  $variables['attributes']['class'][] = 'view-display-id-' . $variables['display_id'];
+  // Override the title to be empty by default. For example, if viewing a page
+  // view, 'title' will already be populated in $variables. This can still be
+  // overridden to use a title when needed. See views_ui_preprocess_views_view()
+  // for an example of this.
+  $variables['title'] = '';
 
   $css_class = $view->display_handler->getOption('css_class');
   if (!empty($css_class)) {
     $variables['css_class'] = preg_replace('/[^a-zA-Z0-9- ]/', '-', $css_class);
     $variables['attributes']['class'][] = $variables['css_class'];
   }
-
-  $empty = empty($view->result);
-  $variables['header'] = $view->display_handler->renderArea('header', $empty);
-  $variables['footer'] = $view->display_handler->renderArea('footer', $empty);
-  $variables['empty'] = $empty ? $view->display_handler->renderArea('empty', $empty) : FALSE;
-
-  $variables['exposed']    = !empty($view->exposed_widgets) ? $view->exposed_widgets : '';
-  $variables['more']       = $view->display_handler->renderMoreLink();
-  $variables['feed_icon']  = !empty($view->feed_icon) ? $view->feed_icon : '';
-
-  $variables['pager']      = '';
-
-  // @todo: Figure out whether this belongs into views_ui_preprocess_views_view.
-  // Render title for the admin preview.
-  $variables['title'] = !empty($view->views_ui_context) ? Xss::filterAdmin($view->getTitle()) : '';
-
-  if ($view->display_handler->renderPager()) {
-    $exposed_input = isset($view->exposed_raw_input) ? $view->exposed_raw_input : NULL;
-    $variables['pager'] = $view->renderPager($exposed_input);
-  }
-
-  if (!empty($view->attachment_before)) {
-    $variables['attachment_before'] = $view->attachment_before;
-  }
-  else {
-    $variables['attachment_before'] = array();
-  }
-  if (!empty($view->attachment_after)) {
-    $variables['attachment_after'] = $view->attachment_after;
-  }
-  else {
-    $variables['attachment_after'] = array();
-  }
-
-  // Add contextual links to the view. We need to attach them to the dummy
-  // $view_array variable, since contextual_preprocess() requires that they be
-  // attached to an array (not an object) in order to process them. For our
-  // purposes, it doesn't matter what we attach them to, since once they are
-  // processed by contextual_preprocess() they will appear in the $title_suffix
-  // variable (which we will then render in views-view.html.twig).
-  views_add_contextual_links($variables['view_array'], 'view', $view, $view->current_display);
 
   // Attachments are always updated with the outer view, never by themselves,
   // so they do not have dom ids.
@@ -103,37 +52,6 @@ function template_preprocess_views_view(&$variables) {
     // identifier for each view. This identifier is written to both
     // drupalSettings and the DIV wrapper.
     $variables['dom_id'] = $view->dom_id;
-    $variables['attributes']['class'][] = 'view-dom-id-' . $variables['dom_id'];
-  }
-
-  // If form fields were found in the view, reformat the view output as a form.
-  if ($view->hasFormElements()) {
-    // Copy the rows so as not to modify them by reference when rendering.
-    $rows = $variables['rows'];
-    // Only render row output if there are rows. Otherwise, render the empty
-    // region.
-    if (!empty($rows)) {
-      $output = drupal_render($rows);
-    }
-    else {
-      $empty = $variables['empty'];
-      $output = drupal_render($empty);
-    }
-
-    $container = \Drupal::getContainer();
-    $form_object = new ViewsForm($container->get('class_resolver'), $container->get('url_generator'), $container->get('request_stack'), $view->storage->id(), $view->current_display);
-    $form = \Drupal::formBuilder()->getForm($form_object, $view, $output);
-    // The form is requesting that all non-essential views elements be hidden,
-    // usually because the rendered step is not a view result.
-    if ($form['show_view_elements']['#value'] == FALSE) {
-      $variables['header'] = '';
-      $variables['exposed'] = '';
-      $variables['pager'] = '';
-      $variables['footer'] = '';
-      $variables['more'] = '';
-      $variables['feed_icon'] = '';
-    }
-    $variables['rows'] = $form;
   }
 }
 
@@ -162,9 +80,11 @@ function template_preprocess_views_view_fields(&$variables) {
   // Loop through the fields for this view.
   $previous_inline = FALSE;
   $variables['fields'] = array(); // ensure it's at least an empty array.
+  /** @var \Drupal\views\ResultRow $row */
+  $row = $variables['row'];
   foreach ($view->field as $id => $field) {
     // render this even if set to exclude so it can be used elsewhere.
-    $field_output = $view->style_plugin->getField($view->row_index, $id);
+    $field_output = $view->style_plugin->getField($row->index, $id);
     $empty = $field->isValueEmpty($field_output, $field->options['empty_zero']);
     if (empty($field->options['exclude']) && (!$empty || (empty($field->options['hide_empty']) && empty($variables['options']['hide_empty'])))) {
       $object = new stdClass();
@@ -178,7 +98,7 @@ function template_preprocess_views_view_fields(&$variables) {
           $attributes['class'][] = 'field-content';
         }
 
-        if ($classes = $object->handler->elementClasses($view->row_index)) {
+        if ($classes = $object->handler->elementClasses($row->index)) {
           $attributes['class'][] = $classes;
         }
         $attributes = new Attribute($attributes);
@@ -188,15 +108,16 @@ function template_preprocess_views_view_fields(&$variables) {
         $field_output = $pre . '>' . $field_output . '</' . $object->element_type . '>';
       }
 
-      // Protect ourself somewhat for backward compatibility. This will prevent
-      // old templates from producing invalid HTML when no element type is selected.
+      // Protect ourselves somewhat for backward compatibility. This will
+      // prevent old templates from producing invalid HTML when no element type
+      // is selected.
       if (empty($object->element_type)) {
         $object->element_type = 'span';
       }
 
       $object->content = $field_output;
-      if (isset($view->field[$id]->field_alias) && isset($variables['row']->{$view->field[$id]->field_alias})) {
-        $object->raw = $variables['row']->{$view->field[$id]->field_alias};
+      if (isset($view->field[$id]->field_alias) && isset($row->{$view->field[$id]->field_alias})) {
+        $object->raw = $row->{$view->field[$id]->field_alias};
       }
       else {
         $object->raw = NULL; // make sure it exists to reduce NOTICE
@@ -206,7 +127,7 @@ function template_preprocess_views_view_fields(&$variables) {
         $object->separator = Xss::filterAdmin($variables['options']['separator']);
       }
 
-      $object->class = drupal_clean_css_identifier($id);
+      $object->class = Html::cleanCssIdentifier($id);
 
       $previous_inline = $object->inline;
       $object->inline_html = $object->handler->elementWrapperType(TRUE, TRUE);
@@ -225,7 +146,7 @@ function template_preprocess_views_view_fields(&$variables) {
           $attributes['class'][] = 'views-field-' . $object->class;
         }
 
-        if ($classes = $object->handler->elementWrapperClasses($view->row_index)) {
+        if ($classes = $object->handler->elementWrapperClasses($row->index)) {
           $attributes['class'][] = $classes;
         }
         $attributes = new Attribute($attributes);
@@ -238,7 +159,7 @@ function template_preprocess_views_view_fields(&$variables) {
 
       // Set up the label for the value and the HTML to make it easier
       // on the template.
-      $object->label = String::checkPlain($view->field[$id]->label());
+      $object->label = SafeMarkup::checkPlain($view->field[$id]->label());
       $object->label_html = '';
       if ($object->label) {
         $object->label_html .= $object->label;
@@ -254,7 +175,7 @@ function template_preprocess_views_view_fields(&$variables) {
             $attributes['class'][] = 'views-label-' . $object->class;
           }
 
-          $element_label_class = $object->handler->elementLabelClasses($view->row_index);
+          $element_label_class = $object->handler->elementLabelClasses($row->index);
           if ($element_label_class) {
             $attributes['class'][] = $element_label_class;
           }
@@ -287,6 +208,8 @@ function template_preprocess_views_view_fields(&$variables) {
  *     - wrapper_suffix: A string added to the end of the fields.
  *
  * @see template_preprocess_views_view_fields()
+ *
+ * @ingroup themeable
  */
 function theme_views_view_fields($variables) {
   $fields = $variables['fields'];
@@ -331,6 +254,8 @@ function template_preprocess_views_view_grouping(&$variables) {
  * Interesting bits of info:
  * $field->field_alias says what the raw value in $row will be. Reach it like
  * this: @code { $row->{$field->field_alias} @endcode
+ *
+ * @ingroup themeable
  */
 function theme_views_view_field($variables) {
   return $variables['output'];
@@ -365,6 +290,7 @@ function template_preprocess_views_view_field(&$variables) {
  *   - rows: The raw row data.
  */
 function template_preprocess_views_view_summary(&$variables) {
+  /** @var \Drupal\views\ViewExecutable $view */
   $view = $variables['view'];
   $argument = $view->argument[$view->build_info['summary_level']];
 
@@ -375,8 +301,14 @@ function template_preprocess_views_view_summary(&$variables) {
   }
 
   $active_urls = array(
-    url(current_path(), array('alias' => TRUE)), // force system path
-    url(current_path()), // could be an alias
+    // Force system path.
+    \Drupal::url('<current>', [], ['alias' => TRUE]),
+    // Force system path.
+    Url::fromRouteMatch(\Drupal::routeMatch())->setOption('alias', TRUE)->toString(),
+    // Could be an alias.
+    \Drupal::url('<current>'),
+    // Could be an alias.
+    Url::fromRouteMatch(\Drupal::routeMatch())->toString(),
   );
   $active_urls = array_combine($active_urls, $active_urls);
 
@@ -396,16 +328,21 @@ function template_preprocess_views_view_summary(&$variables) {
     $args = $view->args;
     $args[$argument->position] = $row_args[$id];
 
-    $base_path = NULL;
     if (!empty($argument->options['summary_options']['base_path'])) {
       $base_path = $argument->options['summary_options']['base_path'];
+      $tokens = $this->getArgumentsTokens();
+      $base_path = $this->viewsTokenReplace($base_path, $tokens);
+      // @todo Views should expect and store a leading /. See:
+      //   https://www.drupal.org/node/2423913
+      $url = Url::fromUserInput('/' . $base_path);
     }
-    $variables['rows'][$id]->url = url($view->getUrl($args, $base_path), $url_options);
+    else {
+      $url = $view->getUrl($args)->setOptions($url_options);
+    }
+    $variables['rows'][$id]->url = $url->toString();
     $variables['rows'][$id]->count = intval($row->{$argument->count_alias});
-    if (isset($active_urls[$variables['rows'][$id]->url])) {
-      $variables['rows'][$id]->attributes['class'][] = 'active';
-    }
     $variables['rows'][$id]->attributes = new Attribute($variables['rows'][$id]->attributes);
+    $variables['rows'][$id]->active = isset($active_urls[$variables['rows'][$id]->url]);
   }
 }
 
@@ -435,9 +372,9 @@ function template_preprocess_views_view_summary_unformatted(&$variables) {
   $count = 0;
   $active_urls = array(
     // Force system path.
-    url(current_path(), array('alias' => TRUE)),
+    \Drupal::url('<current>', [], ['alias' => TRUE]),
     // Could be an alias.
-    url(current_path()),
+    \Drupal::url('<current>'),
   );
   $active_urls = array_combine($active_urls, $active_urls);
 
@@ -460,15 +397,20 @@ function template_preprocess_views_view_summary_unformatted(&$variables) {
     $args = $view->args;
     $args[$argument->position] = $row_args[$id];
 
-    $base_path = NULL;
     if (!empty($argument->options['summary_options']['base_path'])) {
       $base_path = $argument->options['summary_options']['base_path'];
+      $tokens = $this->getArgumentsTokens();
+      $base_path = $this->viewsTokenReplace($base_path, $tokens);
+      // @todo Views should expect and store a leading /. See:
+      //   https://www.drupal.org/node/2423913
+      $url = Url::fromUserInput('/' . $base_path);
     }
-    $variables['rows'][$id]->url = url($view->getUrl($args, $base_path), $url_options);
+    else {
+      $url = $view->getUrl($args)->setOptions($url_options);
+    }
+    $variables['rows'][$id]->url = $url->toString();
     $variables['rows'][$id]->count = intval($row->{$argument->count_alias});
-    if (isset($active_urls[$variables['rows'][$id]->url])) {
-      $variables['rows'][$id]->attributes['class'][] = 'active';
-    }
+    $variables['rows'][$id]->active = isset($active_urls[$variables['rows'][$id]->url]);
     $variables['rows'][$id]->attributes = new Attribute($variables['rows'][$id]->attributes);
   }
 }
@@ -518,14 +460,14 @@ function template_preprocess_views_view_table(&$variables) {
   foreach ($columns as $field => $column) {
     // Create a second variable so we can easily find what fields we have and
     // what the CSS classes should be.
-    $variables['fields'][$field] = drupal_clean_css_identifier($field);
+    $variables['fields'][$field] = Html::cleanCssIdentifier($field);
     if ($active == $field) {
-      $variables['fields'][$field] .= ' active';
+      $variables['fields'][$field] .= ' is-active';
     }
 
     // Render the header labels.
     if ($field == $column && empty($fields[$field]->options['exclude'])) {
-      $label = String::checkPlain(!empty($fields[$field]) ? $fields[$field]->label() : '');
+      $label = SafeMarkup::checkPlain(!empty($fields[$field]) ? $fields[$field]->label() : '');
       if (empty($options['info'][$field]['sortable']) || !$fields[$field]->clickSortable()) {
         $variables['header'][$field]['content'] = $label;
       }
@@ -549,19 +491,15 @@ function template_preprocess_views_view_table(&$variables) {
         $query['order'] = $field;
         $query['sort'] = $initial;
         $link_options = array(
-          'html' => TRUE,
           'attributes' => array('title' => $title),
           'query' => $query,
         );
-        $variables['header'][$field]['content'] = l($label, current_path(), $link_options);
+        $variables['header'][$field]['content'] = \Drupal::l($label, new Url('<current>', [], $link_options));
       }
 
+      $variables['header'][$field]['default_classes'] = $fields[$field]->options['element_default_classes'];
       // Set up the header label class.
       $variables['header'][$field]['attributes'] = array();
-      if ($fields[$field]->options['element_default_classes']) {
-        $variables['header'][$field]['attributes']['class'][] = 'views-field';
-        $variables['header'][$field]['attributes']['class'][] = 'views-field-' . $variables['fields'][$field];
-      }
       $class = $fields[$field]->elementLabelClasses(0);
       if ($class) {
         $variables['header'][$field]['attributes']['class'][] = $class;
@@ -573,7 +511,7 @@ function template_preprocess_views_view_table(&$variables) {
       }
       // Add a CSS align class to each field if one was set.
       if (!empty($options['info'][$field]['align'])) {
-        $variables['header'][$field]['attributes']['class'][] = drupal_clean_css_identifier($options['info'][$field]['align']);
+        $variables['header'][$field]['attributes']['class'][] = Html::cleanCssIdentifier($options['info'][$field]['align']);
       }
       // Add a header label wrapper if one was selected.
       if ($variables['header'][$field]['content']) {
@@ -582,7 +520,7 @@ function template_preprocess_views_view_table(&$variables) {
           $variables['header'][$field]['content'] = '<' . $element_label_type . '>' . $variables['header'][$field]['content'] . '</' . $element_label_type . '>';
         }
         // Improves accessibility of complex tables.
-        $variables['header'][$field]['attributes']['id'] = drupal_html_id('view-' . $field . '-table-column');
+        $variables['header'][$field]['attributes']['id'] = Html::getUniqueId('view-' . $field . '-table-column');
       }
       // Check if header label is not empty.
       if (!empty($variables['header'][$field]['content'])) {
@@ -594,7 +532,7 @@ function template_preprocess_views_view_table(&$variables) {
 
     // Add a CSS align class to each field if one was set.
     if (!empty($options['info'][$field]['align'])) {
-      $variables['fields'][$field] .= ' ' . drupal_clean_css_identifier($options['info'][$field]['align']);
+      $variables['fields'][$field] .= ' ' . Html::cleanCssIdentifier($options['info'][$field]['align']);
     }
 
     // Render each field into its appropriate column.
@@ -609,11 +547,15 @@ function template_preprocess_views_view_table(&$variables) {
       // Reference to the column in the loop to make the code easier to read.
       $column_reference =& $variables['rows'][$num]['columns'][$column];
 
+      $column_reference['default_classes'] = $fields[$field]->options['element_default_classes'];
+
+      // Set the field key to the column so it can be used for adding classes
+      // in a template.
+      $column_reference['fields'][] = $variables['fields'][$field];
+
       // Add field classes.
-      $column_reference['attributes'] = array();
-      if ($fields[$field]->options['element_default_classes']) {
-        $column_reference['attributes']['class'][] = 'views-field';
-        $column_reference['attributes']['class'][] = 'views-field-' . $variables['fields'][$field];
+      if (!isset($column_reference['attributes'])) {
+        $column_reference['attributes'] = array();
       }
 
       if ($classes = $fields[$field]->elementClasses($num)) {
@@ -638,7 +580,7 @@ function template_preprocess_views_view_table(&$variables) {
         }
 
         // Only bother with separators and stuff if the field shows up.
-        if (!empty($field_output) && empty($column_reference['content'])) {
+        if (!empty($field_output)) {
           // Place the field into the column, along with an optional separator.
           if (!empty($column_reference['content'])) {
             if (!empty($options['info'][$column]['separator'])) {
@@ -687,8 +629,6 @@ function template_preprocess_views_view_table(&$variables) {
     $variables['rows'][$num]['attributes'] = new Attribute($variables['rows'][$num]['attributes']);
   }
 
-  $variables['attributes']['class'][] = 'views-table';
-  $variables['attributes']['class'][] = 'views-view-table';
   if (empty($variables['rows']) && !empty($options['empty_table'])) {
     $build = $view->display_handler->renderArea('empty');
     $variables['rows'][0]['columns'][0]['content'] = drupal_render($build);
@@ -700,11 +640,11 @@ function template_preprocess_views_view_table(&$variables) {
     ));
   }
 
+  $variables['sticky'] = FALSE;
   if (!empty($options['sticky'])) {
     $variables['view']->element['#attached']['library'][] = 'core/drupal.tableheader';
-    $variables['attributes']['class'][] = "sticky-enabled";
+    $variables['sticky'] = TRUE;
   }
-  $variables['attributes']['class'][] = 'cols-' . count($variables['header']);
 
   // Add the caption to the list if set.
   if (!empty($handler->options['caption'])) {
@@ -720,6 +660,7 @@ function template_preprocess_views_view_table(&$variables) {
   $variables['description'] = $handler->options['description'];
   $variables['caption_needed'] |= !empty($variables['summary']) || !empty($variables['description']);
 
+  $variables['responsive'] = FALSE;
   // If the table has headers and it should react responsively to columns hidden
   // with the classes represented by the constants RESPONSIVE_PRIORITY_MEDIUM
   // and RESPONSIVE_PRIORITY_LOW, add the tableresponsive behaviors.
@@ -727,7 +668,7 @@ function template_preprocess_views_view_table(&$variables) {
     $variables['view']->element['#attached']['library'][] = 'core/drupal.tableresponsive';
     // Add 'responsive-enabled' class to the table to identify it for JS.
     // This is needed to target tables constructed by this function.
-    $variables['attributes']['class'][] = 'responsive-enabled';
+    $variables['responsive'] = TRUE;
   }
 }
 
@@ -744,13 +685,6 @@ function template_preprocess_views_view_table(&$variables) {
 function template_preprocess_views_view_grid(&$variables) {
   $options = $variables['options'] = $variables['view']->style_plugin->options;
   $horizontal = ($options['alignment'] === 'horizontal');
-
-  $variables['attributes']['class'] = array(
-    'views-view-grid',
-    $options['alignment'],
-    'cols-' . $options['columns'],
-    'clearfix',
-  );
 
   $col = 0;
   $row = 0;
@@ -772,14 +706,6 @@ function template_preprocess_views_view_grid(&$variables) {
     // Create attributes for rows.
     if (!$horizontal || ($horizontal && empty($items[$row]['attributes']))) {
       $row_attributes = array('class' => array());
-      // Add default views row classes.
-      if ($options['row_class_default']) {
-        $row_attributes['class'][] = 'views-row';
-        $row_attributes['class'][] = 'row-' . ($row + 1);
-        if ($horizontal) {
-          $row_attributes['class'][] = 'clearfix';
-        }
-      }
       // Add custom row classes.
       $row_class = array_filter(explode(' ', $variables['view']->style_plugin->getCustomClass($result_index, 'row')));
       if (!empty($row_class)) {
@@ -798,13 +724,6 @@ function template_preprocess_views_view_grid(&$variables) {
     if ($horizontal || (!$horizontal && empty($items[$col]['attributes']))) {
       $col_attributes = array('class' => array());
       // Add default views column classes.
-      if ($options['col_class_default']) {
-        $col_attributes['class'][] = 'views-col';
-        $col_attributes['class'][] = 'col-' . ($col + 1);
-        if (!$horizontal) {
-          $col_attributes['class'][] = 'clearfix';
-        }
-      }
       // Add custom column classes.
       $col_class = array_filter(explode(' ', $variables['view']->style_plugin->getCustomClass($result_index, 'col')));
       if (!empty($col_class)) {
@@ -870,18 +789,15 @@ function template_preprocess_views_view_unformatted(&$variables) {
   $style = $view->style_plugin;
   $options = $style->options;
 
-  $default_row_class = isset($options['default_row_class']) ? $options['default_row_class'] : FALSE;
+  $variables['default_row_class'] = !empty($options['default_row_class']);
   foreach ($rows as $id => $row) {
     $variables['rows'][$id] = array();
     $variables['rows'][$id]['content'] = $row;
     $variables['rows'][$id]['attributes'] = array();
-    if ($default_row_class) {
-      $variables['rows'][$id]['attributes']['class'][] = 'views-row';
-    }
-    if ($row_class = $view->style_plugin->getRowClass($id)) {
-      $variables['rows'][$id]['attributes']['class'][] = $row_class;
-    }
     $variables['rows'][$id]['attributes'] = new Attribute($variables['rows'][$id]['attributes']);
+    if ($row_class = $view->style_plugin->getRowClass($id)) {
+      $variables['rows'][$id]['attributes']->addClass($row_class);
+    }
   }
 }
 
@@ -898,20 +814,20 @@ function template_preprocess_views_view_list(&$variables) {
   $handler  = $variables['view']->style_plugin;
 
   // Fetch classes from handler options.
-  $class = explode(' ', $handler->options['class']);
-  $class = array_map('drupal_clean_css_identifier', $class);
+  if ($handler->options['class']) {
+    $class = explode(' ', $handler->options['class']);
+    $class = array_map('\Drupal\Component\Utility\Html::cleanCssIdentifier', $class);
 
-  // Fetch wrapper classes from handler options.
-  $wrapper_class = explode(' ', $handler->options['wrapper_class']);
-  $wrapper_class = array_map('drupal_clean_css_identifier', $wrapper_class);
-
-  // Initialize a new attribute class for $wrapper_class.
-  if ($wrapper_class) {
-    $variables['attributes']['class'] = $wrapper_class;
+    // Initialize a new attribute class for $class.
+    $variables['list']['attributes'] = new Attribute(array('class' => $class));
   }
 
-  // Initialize a new attribute class for $class.
-  $variables['list']['attributes'] = new Attribute(array('class' => $class));
+  // Fetch wrapper classes from handler options.
+  if ($handler->options['wrapper_class']) {
+    $wrapper_class = explode(' ', $handler->options['wrapper_class']);
+    $variables['attributes']['class'] = array_map('\Drupal\Component\Utility\Html::cleanCssIdentifier', $wrapper_class);
+  }
+
   $variables['list']['type'] = $handler->options['type'];
 
   template_preprocess_views_view_unformatted($variables);
@@ -937,7 +853,7 @@ function template_preprocess_views_view_rss(&$variables) {
   // The RSS 2.0 "spec" doesn't indicate HTML can be used in the description.
   // We strip all HTML tags, but need to prevent double encoding from properly
   // escaped source data (such as &amp becoming &amp;amp;).
-  $variables['description'] = String::checkPlain(decode_entities(strip_tags($style->getDescription())));
+  $variables['description'] = SafeMarkup::checkPlain(Html::decodeEntities(strip_tags($style->getDescription())));
 
   if ($view->display_handler->getOption('sitename_title')) {
     $title = $config->get('name');
@@ -948,17 +864,17 @@ function template_preprocess_views_view_rss(&$variables) {
   else {
     $title = $view->getTitle();
   }
-  $variables['title'] = String::checkPlain($title);
+  $variables['title'] = SafeMarkup::checkPlain($title);
 
   // Figure out which display which has a path we're using for this feed. If
   // there isn't one, use the global $base_url
   $link_display_id = $view->display_handler->getLinkDisplay();
   if ($link_display_id && $display = $view->displayHandlers->get($link_display_id)) {
-    $path = $view->displayHandlers->get($link_display_id)->getPath();
+    $url = $view->getUrl(NULL, $link_display_id);
   }
 
-  if ($path) {
-    $path = $view->getUrl(NULL, $path);
+  /** @var \Drupal\Core\Url $url */
+  if ($url) {
     $url_options = array('absolute' => TRUE);
     if (!empty($view->exposed_raw_input)) {
       $url_options['query'] = $view->exposed_raw_input;
@@ -966,17 +882,18 @@ function template_preprocess_views_view_rss(&$variables) {
 
     // Compare the link to the default home page; if it's the default home page,
     // just use $base_url.
-    if ($path == $config->get('page.front')) {
-      $path = '';
+    $url_string = $url->setOptions($url_options)->toString();
+    if ($url_string === Url::fromUserInput($config->get('page.front'))->toString()) {
+      $url_string = Url::fromRoute('<front>')->setAbsolute()->toString();
     }
 
-    $variables['link'] = check_url(url($path, $url_options));
+    $variables['link'] = $url_string;
   }
 
-  $variables['langcode'] = String::checkPlain(\Drupal::languageManager()->getCurrentLanguage()->id);
+  $variables['langcode'] = SafeMarkup::checkPlain(\Drupal::languageManager()->getCurrentLanguage()->getId());
   $variables['namespaces'] = new Attribute($style->namespaces);
   $variables['items'] = $items;
-  $variables['channel_elements'] = format_xml_elements($style->channel_elements);
+  $variables['channel_elements'] = \Drupal::service('renderer')->render($style->channel_elements);
 
   // During live preview we don't want to output the header since the contents
   // of the feed are being displayed inside a normal HTML page.
@@ -996,11 +913,21 @@ function template_preprocess_views_view_rss(&$variables) {
  */
 function template_preprocess_views_view_row_rss(&$variables) {
   $item = $variables['row'];
+  $variables['title'] = $item->title;
+  $variables['link'] = $item->link;
 
-  $variables['title'] = String::checkPlain($item->title);
-  $variables['link'] = check_url($item->link);
-  $variables['description'] = String::checkPlain($item->description);
-  $variables['item_elements'] = empty($item->elements) ? '' : format_xml_elements($item->elements);
+  /** @var \Drupal\Core\Render\RendererInterface $renderer */
+  $renderer = \Drupal::service('renderer');
+  // We render the item description. It might contain entities, which attach rss
+  // elements via hook_entity_view, see comment_entity_view().
+  $variables['description'] = is_array($item->description) ? $renderer->render($item->description) : $item->description;
+  $variables['item_elements'] = array();
+  foreach ($item->elements as $element) {
+    if (isset($element['attributes']) && is_array($element['attributes'])) {
+      $element['attributes'] = new Attribute($element['attributes']);
+    }
+    $variables['item_elements'][] = $element;
+  }
 }
 
 /**
@@ -1028,7 +955,7 @@ function template_preprocess_views_view_opml(&$variables) {
   else {
     $title = $view->getTitle();
   }
-  $variables['title'] = String::checkPlain($title);
+  $variables['title'] = SafeMarkup::checkPlain($title);
   $variables['items'] = $items;
   $variables['updated'] = gmdate(DATE_RFC2822, REQUEST_TIME);
 
@@ -1070,12 +997,12 @@ function template_preprocess_views_exposed_form(&$variables) {
     $variables['q'] = $form['q'];
   }
 
-  // Include basic theming for exposed forms.
-  $form['#attached']['library'][] = 'views/views.exposed-form';
-
   foreach ($form['#info'] as $info) {
     if (!empty($info['label'])) {
       $form[$info['value']]['#title'] = $info['label'];
+    }
+    if (!empty($info['description'])) {
+      $form[$info['value']]['#description'] = $info['description'];
     }
   }
 }
@@ -1099,93 +1026,37 @@ function template_preprocess_views_mini_pager(&$variables) {
   $element = $variables['element'];
   $parameters = $variables['parameters'];
 
-  // Fill in default link labels.
-  $tags += array(
-    1 => t('‹‹'),
-    3 => t('››'),
-  );
-
   // Current is the page we are currently paged to.
-  $pager_current = $pager_page_array[$element] + 1;
-  $current_path = current_path();
+  $variables['items']['current'] = $pager_page_array[$element] + 1;
 
-  $li_previous = array();
   if ($pager_total[$element] > 1 && $pager_page_array[$element] > 0) {
-    $li_previous = array(
-      '#type' => 'link',
-      '#title' => $tags[1],
-      '#href' => $current_path,
-      '#options' => array(
-        'query' => pager_query_add_page($parameters, $element, $pager_page_array[$element] - 1),
-        'attributes' => array(
-          'title' => t('Go to previous page'),
-          'rel' => 'prev',
-        ),
-        // Below is ignored by default, supplied to support hook_link_alter
-        // implementations.
-        'pager_context' => array(
-          'link_type' => 'previous',
-          'element' => $element,
-          'interval' => -1,
-        ),
-      ),
+    $options = array(
+      'query' => pager_query_add_page($parameters, $element, $pager_page_array[$element] - 1),
     );
+    $variables['items']['previous']['href'] = \Drupal::url('<current>', [], $options);
+    if (isset($tags[1])) {
+      $variables['items']['previous']['text'] = $tags[1];
+    }
+    $variables['items']['previous']['attributes'] = new Attribute();
   }
 
-  $li_next = array();
   if ($pager_page_array[$element] < ($pager_total[$element] - 1)) {
-    $li_next = array(
-      '#type' => 'link',
-      '#title' => $tags[3],
-      '#href' => $current_path,
-      '#options' => array(
-        'query' => pager_query_add_page($parameters, $element, $pager_page_array[$element] + 1),
-        'attributes' => array(
-          'title' => t('Go to next page'),
-          'rel' => 'next',
-        ),
-        // Below is ignored by default, supplied to support hook_link_alter
-        // implementations.
-        'pager_context' => array(
-          'link_type' => 'next',
-          'element' => $element,
-          'interval' => 1,
-        ),
-      ),
+    $options = array(
+      'query' => pager_query_add_page($parameters, $element, $pager_page_array[$element] + 1),
     );
+    $variables['items']['next']['href'] = \Drupal::url('<current>', [], $options);
+    if (isset($tags[3])) {
+      $variables['items']['next']['text'] = $tags[3];
+    }
+    $variables['items']['next']['attributes'] = new Attribute();
   }
-
-  // Don't show the pager if there is neither a next page nor a previous page
-  // link, which means that we are on the first page and there is no next page
-  // available/wanted.
-  if (empty($li_next) && empty($li_previous)) {
-    return;
-  }
-
-  $items = array();
-  $items[] = array(
-    '#wrapper_attributes' => array('class' => array('pager-previous')),
-  ) + $li_previous;
-
-  $items[] = array(
-    '#wrapper_attributes' => array('class' => array('pager-current')),
-    '#markup' => t('Page @current', array('@current' => $pager_current)),
-  );
-
-  $items[] = array(
-    '#wrapper_attributes' => array('class' => array('pager-next')),
-  ) + $li_next;
-
-  $variables['items'] = array(
-    '#theme' => 'item_list__pager',
-    '#items' => $items,
-    '#attributes' => array('class' => array('pager')),
-  );
 }
 
 /**
  * @defgroup views_templates Views template files
  * @{
+ * Describes various views templates & overriding options.
+ *
  * All views templates can be overridden with a variety of names, using
  * the view, the display ID of the view, the display type of the view,
  * or some combination thereof.
@@ -1226,6 +1097,7 @@ function template_preprocess_views_mini_pager(&$variables) {
  * Important! When adding a new template to your theme, be sure to flush the
  * theme registry cache!
  *
+ * @ingroup views_overview
  * @see \Drupal\views\ViewExecutable::buildThemeFunctions()
  * @}
  */

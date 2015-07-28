@@ -7,7 +7,7 @@
 
 namespace Drupal\contextual\Tests;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests all edge cases of converting from #contextual_links to ids and vice
@@ -15,7 +15,7 @@ use Drupal\simpletest\DrupalUnitTestBase;
  *
  * @group contextual
  */
-class ContextualUnitTest extends DrupalUnitTestBase {
+class ContextualUnitTest extends KernelTestBase {
 
   /**
    * Modules to enable.
@@ -38,10 +38,10 @@ class ContextualUnitTest extends DrupalUnitTestBase {
           'route_parameters' => array(
             'node' => '14031991',
           ),
-          'metadata' => array()
+          'metadata' => array('langcode' => 'en'),
         ),
       ),
-      'id' => 'node:node=14031991:',
+      'id' => 'node:node=14031991:langcode=en',
     );
 
     // Test branch conditions:
@@ -56,10 +56,10 @@ class ContextualUnitTest extends DrupalUnitTestBase {
             'key' => 'baz',
             'qux',
           ),
-          'metadata' => array(),
+          'metadata' => array('langcode' => 'en'),
         ),
       ),
-      'id' => 'foo:0=bar&key=baz&1=qux:',
+      'id' => 'foo:0=bar&key=baz&1=qux:langcode=en',
     );
 
     // Test branch conditions:
@@ -75,10 +75,11 @@ class ContextualUnitTest extends DrupalUnitTestBase {
           'metadata' => array(
             'location' => 'page',
             'display' => 'page_1',
+            'langcode' => 'en',
           ),
         ),
       ),
-      'id' => 'views_ui_edit:view=frontpage:location=page&display=page_1',
+      'id' => 'views_ui_edit:view=frontpage:location=page&display=page_1&langcode=en',
     );
 
     // Test branch conditions:
@@ -90,7 +91,7 @@ class ContextualUnitTest extends DrupalUnitTestBase {
           'route_parameters' => array(
             'node' => '14031991',
           ),
-          'metadata' => array(),
+          'metadata' => array('langcode' => 'en'),
         ),
         'foo' => array(
           'route_parameters' => array(
@@ -98,14 +99,14 @@ class ContextualUnitTest extends DrupalUnitTestBase {
             'key' => 'baz',
             'qux',
           ),
-          'metadata' => array(),
+          'metadata' => array('langcode' => 'en'),
         ),
         'edge' => array(
           'route_parameters' => array('20011988'),
-          'metadata' => array(),
+          'metadata' => array('langcode' => 'en'),
         ),
       ),
-      'id' => 'node:node=14031991:|foo:0=bar&key=baz&1=qux:|edge:0=20011988:',
+      'id' => 'node:node=14031991:langcode=en|foo:0=bar&key=baz&1=qux:langcode=en|edge:0=20011988:langcode=en',
     );
 
     return $tests;
@@ -130,4 +131,5 @@ class ContextualUnitTest extends DrupalUnitTestBase {
       $this->assertIdentical(_contextual_id_to_links($test['id']), $test['links']);
     }
   }
+
 }

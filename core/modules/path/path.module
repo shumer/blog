@@ -5,10 +5,11 @@
  * Enables users to rename URLs.
  */
 
-use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
@@ -19,7 +20,7 @@ function path_help($route_name, RouteMatchInterface $route_match) {
     case 'help.page.path':
       $output = '';
       $output .= '<h3>' . t('About') . '</h3>';
-      $output .= '<p>' . t('The Path module allows you to specify an alias, or custom URL, for any existing internal system path. Aliases should not be confused with URL redirects, which allow you to forward a changed or inactive URL to a new URL. In addition to making URLs more readable, aliases also help search engines index content more effectively. Multiple aliases may be used for a single internal system path. To automate the aliasing of paths, you can install the contributed module <a href="!pathauto">Pathauto</a>. For more information, see the <a href="!path">online documentation for the Path module</a>.', array('!path' => 'https://drupal.org/documentation/modules/path', '!pathauto' => 'https://drupal.org/project/pathauto')) . '</p>';
+      $output .= '<p>' . t('The Path module allows you to specify an alias, or custom URL, for any existing internal system path. Aliases should not be confused with URL redirects, which allow you to forward a changed or inactive URL to a new URL. In addition to making URLs more readable, aliases also help search engines index content more effectively. Multiple aliases may be used for a single internal system path. To automate the aliasing of paths, you can install the contributed module <a href="!pathauto">Pathauto</a>. For more information, see the <a href="!path">online documentation for the Path module</a>.', array('!path' => 'https://www.drupal.org/documentation/modules/path', '!pathauto' => 'https://www.drupal.org/project/pathauto')) . '</p>';
       $output .= '<h3>' . t('Uses') . '</h3>';
       $output .= '<dl>';
       $output .= '<dt>' . t('Creating aliases') . '</dt>';
@@ -38,40 +39,25 @@ function path_help($route_name, RouteMatchInterface $route_match) {
 }
 
 /**
- * Implements hook_permission().
- */
-function path_permission() {
-  return array(
-    'administer url aliases' => array(
-      'title' => t('Administer URL aliases'),
-    ),
-    'create url aliases' => array(
-      'title' => t('Create and edit URL aliases'),
-    ),
-  );
-}
-
-/**
  * Implements hook_form_BASE_FORM_ID_alter() for node_form().
  */
-function path_form_node_form_alter(&$form, $form_state) {
-  $node = $form_state['controller']->getEntity();
-  if ($node->hasField('path') && $node->get('path')->access('edit')) {
-    $form['path_settings'] = array(
-      '#type' => 'details',
-      '#title' => t('URL path settings'),
-      '#open' => !empty($form['path']['widget'][0]['alias']['#value']),
-      '#group' => 'advanced',
-      '#attributes' => array(
-        'class' => array('path-form'),
-      ),
-      '#attached' => array(
-        'library' => array('path/drupal.path'),
-      ),
-      '#weight' => 30,
-    );
-    $form['path']['#group'] = 'path_settings';
-  }
+function path_form_node_form_alter(&$form, FormStateInterface $form_state) {
+  $node = $form_state->getFormObject()->getEntity();
+  $form['path_settings'] = array(
+    '#type' => 'details',
+    '#title' => t('URL path settings'),
+    '#open' => !empty($form['path']['widget'][0]['alias']['#value']),
+    '#group' => 'advanced',
+    '#access' => !empty($form['path']['#access']) && $node->hasField('path') && $node->get('path')->access('edit'),
+    '#attributes' => array(
+      'class' => array('path-form'),
+    ),
+    '#attached' => array(
+      'library' => array('path/drupal.path'),
+    ),
+    '#weight' => 30,
+  );
+  $form['path']['#group'] = 'path_settings';
 }
 
 /**
@@ -79,7 +65,7 @@ function path_form_node_form_alter(&$form, $form_state) {
  */
 function path_entity_base_field_info(EntityTypeInterface $entity_type) {
   if ($entity_type->id() === 'taxonomy_term' || $entity_type->id() === 'node') {
-    $fields['path'] = FieldDefinition::create('path')
+    $fields['path'] = BaseFieldDefinition::create('path')
       ->setLabel(t('URL alias'))
       ->setTranslatable(TRUE)
       ->setDisplayOptions('form', array(
@@ -91,4 +77,13 @@ function path_entity_base_field_info(EntityTypeInterface $entity_type) {
 
     return $fields;
   }
+}
+
+/**
+ * Implements hook_entity_translation_delete().
+ */
+function path_entity_translation_delete(EntityInterface $translation) {
+  $path = $translation->urlInfo()->getInternalPath();
+  $conditions = array('source' => '/' . $path, 'langcode' => $translation->language()->getId());
+  \Drupal::service('path.alias_storage')->delete($conditions);
 }

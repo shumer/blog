@@ -1,21 +1,23 @@
 <?php
-
 namespace GuzzleHttp\Post;
 
-use GuzzleHttp\Stream;
+use GuzzleHttp\Stream\AppendStream;
+use GuzzleHttp\Stream\Stream;
+use GuzzleHttp\Stream\StreamDecoratorTrait;
+use GuzzleHttp\Stream\StreamInterface;
 
 /**
  * Stream that when read returns bytes for a streaming multipart/form-data body
  */
-class MultipartBody implements Stream\StreamInterface
+class MultipartBody implements StreamInterface
 {
-    /** @var Stream\StreamInterface */
-    private $stream;
+    use StreamDecoratorTrait;
+
     private $boundary;
 
     /**
      * @param array  $fields   Associative array of field names to values where
-     *                         each value is a string.
+     *                         each value is a string or array of strings.
      * @param array  $files    Associative array of PostFileInterface objects
      * @param string $boundary You can optionally provide a specific boundary
      * @throws \InvalidArgumentException
@@ -26,17 +28,7 @@ class MultipartBody implements Stream\StreamInterface
         $boundary = null
     ) {
         $this->boundary = $boundary ?: uniqid();
-        $this->createStream($fields, $files);
-    }
-
-    public function __toString()
-    {
-        return (string) $this->stream;
-    }
-
-    public function getContents($maxLength = -1)
-    {
-        return $this->stream->getContents($maxLength);
+        $this->stream = $this->createStream($fields, $files);
     }
 
     /**
@@ -49,59 +41,7 @@ class MultipartBody implements Stream\StreamInterface
         return $this->boundary;
     }
 
-    public function close()
-    {
-        $this->stream->close();
-        $this->detach();
-    }
-
-    public function detach()
-    {
-        $this->stream->detach();
-        $this->size = 0;
-    }
-
-    public function eof()
-    {
-        return $this->stream->eof();
-    }
-
-    public function tell()
-    {
-        return $this->stream->tell();
-    }
-
-    public function isReadable()
-    {
-        return true;
-    }
-
     public function isWritable()
-    {
-        return false;
-    }
-
-    public function isSeekable()
-    {
-        return $this->stream->isSeekable();
-    }
-
-    public function getSize()
-    {
-        return $this->stream->getSize();
-    }
-
-    public function read($length)
-    {
-        return $this->stream->read($length);
-    }
-
-    public function seek($offset, $whence = SEEK_SET)
-    {
-        return $this->stream->seek($offset, $whence);
-    }
-
-    public function write($string)
     {
         return false;
     }
@@ -135,14 +75,16 @@ class MultipartBody implements Stream\StreamInterface
     /**
      * Create the aggregate stream that will be used to upload the POST data
      */
-    private function createStream(array $fields, array $files)
+    protected function createStream(array $fields, array $files)
     {
-        $this->stream = new Stream\AppendStream();
+        $stream = new AppendStream();
 
-        foreach ($fields as $name => $field) {
-            $this->stream->addStream(
-                Stream\create($this->getFieldString($name, $field))
-            );
+        foreach ($fields as $name => $fieldValues) {
+            foreach ((array) $fieldValues as $value) {
+                $stream->addStream(
+                    Stream::factory($this->getFieldString($name, $value))
+                );
+            }
         }
 
         foreach ($files as $file) {
@@ -152,14 +94,16 @@ class MultipartBody implements Stream\StreamInterface
                     . 'implement PostFieldInterface');
             }
 
-            $this->stream->addStream(
-                Stream\create($this->getFileHeaders($file))
+            $stream->addStream(
+                Stream::factory($this->getFileHeaders($file))
             );
-            $this->stream->addStream($file->getContent());
-            $this->stream->addStream(Stream\create("\r\n"));
+            $stream->addStream($file->getContent());
+            $stream->addStream(Stream::factory("\r\n"));
         }
 
-        // Add the trailing boundary
-        $this->stream->addStream(Stream\create("--{$this->boundary}--"));
+        // Add the trailing boundary with CRLF
+        $stream->addStream(Stream::factory("--{$this->boundary}--\r\n"));
+
+        return $stream;
     }
 }

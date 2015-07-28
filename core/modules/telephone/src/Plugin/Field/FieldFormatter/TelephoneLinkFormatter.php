@@ -2,13 +2,15 @@
 
 /**
  * @file
- * Contains \Drupal\telephone\Plugin\field\formatter\TelephoneLinkFormatter.
+ * Contains \Drupal\telephone\Plugin\Field\FieldFormatter\TelephoneLinkFormatter.
  */
 
 namespace Drupal\telephone\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FormatterBase;
 use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /**
  * Plugin implementation of the 'telephone_link' formatter.
@@ -35,10 +37,10 @@ class TelephoneLinkFormatter extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function settingsForm(array $form, array &$form_state) {
+  public function settingsForm(array $form, FormStateInterface $form_state) {
     $elements['title'] = array(
       '#type' => 'textfield',
-      '#title' => t('Title to replace basic numeric telephone number display.'),
+      '#title' => t('Title to replace basic numeric telephone number display'),
       '#default_value' => $this->getSetting('title'),
     );
 
@@ -77,7 +79,7 @@ class TelephoneLinkFormatter extends FormatterBase {
         // itself as title.
         '#title' => $title_setting ?: $item->value,
         // Prepend 'tel:' to the telephone number.
-        '#href' => 'tel:' . rawurlencode(preg_replace('/\s+/', '', $item->value)),
+        '#url' => Url::fromUri('tel:' . rawurlencode(preg_replace('/\s+/', '', $item->value))),
         '#options' => array('external' => TRUE),
       );
 

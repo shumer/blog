@@ -17,7 +17,7 @@ use Drupal\taxonomy\VocabularyInterface;
  * @ConfigEntityType(
  *   id = "taxonomy_vocabulary",
  *   label = @Translation("Taxonomy vocabulary"),
- *   controllers = {
+ *   handlers = {
  *     "storage" = "Drupal\taxonomy\VocabularyStorage",
  *     "list_builder" = "Drupal\taxonomy\VocabularyListBuilder",
  *     "form" = {
@@ -35,11 +35,19 @@ use Drupal\taxonomy\VocabularyInterface;
  *     "weight" = "weight"
  *   },
  *   links = {
- *     "add-form" = "taxonomy.term_add",
- *     "delete-form" = "taxonomy.vocabulary_delete",
- *     "reset" = "taxonomy.vocabulary_reset",
- *     "overview-form" = "taxonomy.overview_terms",
- *     "edit-form" = "taxonomy.vocabulary_edit"
+ *     "add-form" = "/admin/structure/taxonomy/manage/{taxonomy_vocabulary}/add",
+ *     "delete-form" = "/admin/structure/taxonomy/manage/{taxonomy_vocabulary}/delete",
+ *     "reset-form" = "/admin/structure/taxonomy/manage/{taxonomy_vocabulary}/reset",
+ *     "overview-form" = "/admin/structure/taxonomy/manage/{taxonomy_vocabulary}/overview",
+ *     "edit-form" = "/admin/structure/taxonomy/manage/{taxonomy_vocabulary}",
+ *     "collection" = "/admin/structure/taxonomy",
+ *   },
+ *   config_export = {
+ *     "name",
+ *     "vid",
+ *     "description",
+ *     "hierarchy",
+ *     "weight",
  *   }
  * )
  */
@@ -50,21 +58,21 @@ class Vocabulary extends ConfigEntityBundleBase implements VocabularyInterface {
    *
    * @var string
    */
-  public $vid;
+  protected $vid;
 
   /**
    * Name of the vocabulary.
    *
    * @var string
    */
-  public $name;
+  protected $name;
 
   /**
    * Description of the vocabulary.
    *
    * @var string
    */
-  public $description;
+  protected $description;
 
   /**
    * The type of hierarchy allowed within the vocabulary.
@@ -76,20 +84,42 @@ class Vocabulary extends ConfigEntityBundleBase implements VocabularyInterface {
    *
    * @var integer
    */
-  public $hierarchy = TAXONOMY_HIERARCHY_DISABLED;
+  protected $hierarchy = TAXONOMY_HIERARCHY_DISABLED;
 
   /**
    * The weight of this vocabulary in relation to other vocabularies.
    *
    * @var integer
    */
-  public $weight = 0;
+  protected $weight = 0;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getHierarchy() {
+    return $this->hierarchy;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setHierarchy($hierarchy) {
+    $this->hierarchy = $hierarchy;
+    return $this;
+  }
 
   /**
    * {@inheritdoc}
    */
   public function id() {
     return $this->vid;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getDescription() {
+    return $this->description;
   }
 
   /**
@@ -102,29 +132,32 @@ class Vocabulary extends ConfigEntityBundleBase implements VocabularyInterface {
       // Reflect machine name changes in the definitions of existing 'taxonomy'
       // fields.
       $field_ids = array();
-      $field_map = \Drupal::entityManager()->getFieldMap();
-      foreach ($field_map as $entity_type => $fields) {
-        foreach ($fields as $field => $info) {
-          if ($info['type'] == 'taxonomy_term_reference') {
-            $field_ids[] = $entity_type . '.' . $field;
-          }
+      $field_map = \Drupal::entityManager()->getFieldMapByFieldType('entity_reference');
+      foreach ($field_map as $entity_type => $field_storages) {
+        foreach ($field_storages as $field_storage => $info) {
+          $field_ids[] = $entity_type . '.' . $field_storage;
         }
       }
 
-      $fields = \Drupal::entityManager()->getStorage('field_storage_config')->loadMultiple($field_ids);
+      $field_storages = \Drupal::entityManager()->getStorage('field_storage_config')->loadMultiple($field_ids);
+      $taxonomy_fields = array_filter($field_storages, function ($field_storage) {
+        return $field_storage->getType() == 'entity_reference' && $field_storage->getSetting('target_type') == 'taxonomy_term';
+      });
 
-      foreach ($fields as $field) {
-        $update_field = FALSE;
+      foreach ($taxonomy_fields as $field_storage) {
+        $update_storage = FALSE;
 
-        foreach ($field->settings['allowed_values'] as &$value) {
+        $allowed_values = $field_storage->getSetting('allowed_values');
+        foreach ($allowed_values as &$value) {
           if ($value['vocabulary'] == $this->getOriginalId()) {
             $value['vocabulary'] = $this->id();
-            $update_field = TRUE;
+            $update_storage = TRUE;
           }
         }
+        $field_storage->setSetting('allowed_values', $allowed_values);
 
-        if ($update_field) {
-          $field->save();
+        if ($update_storage) {
+          $field_storage->save();
         }
       }
     }
@@ -160,24 +193,27 @@ class Vocabulary extends ConfigEntityBundleBase implements VocabularyInterface {
     }
     // Load all Taxonomy module fields and delete those which use only this
     // vocabulary.
-    $taxonomy_fields = entity_load_multiple_by_properties('field_storage_config', array('module' => 'taxonomy'));
-    foreach ($taxonomy_fields as $taxonomy_field) {
-      $modified_field = FALSE;
+    $field_storages = entity_load_multiple_by_properties('field_storage_config', array('module' => 'taxonomy'));
+    foreach ($field_storages as $field_storage) {
+      $modified_storage = FALSE;
       // Term reference fields may reference terms from more than one
       // vocabulary.
-      foreach ($taxonomy_field->settings['allowed_values'] as $key => $allowed_value) {
+      foreach ($field_storage->getSetting('allowed_values') as $key => $allowed_value) {
         if (isset($vocabularies[$allowed_value['vocabulary']])) {
-          unset($taxonomy_field->settings['allowed_values'][$key]);
-          $modified_field = TRUE;
+          $allowed_values = $field_storage->getSetting('allowed_values');
+          unset($allowed_values[$key]);
+          $field_storage->setSetting('allowed_values', $allowed_values);
+          $modified_storage = TRUE;
         }
       }
-      if ($modified_field) {
-        if (empty($taxonomy_field->settings['allowed_values'])) {
-          $taxonomy_field->delete();
+      if ($modified_storage) {
+        $allowed_values = $field_storage->getSetting('allowed_values');
+        if (empty($allowed_values)) {
+          $field_storage->delete();
         }
         else {
           // Update the field definition with the new allowed values.
-          $taxonomy_field->save();
+          $field_storage->save();
         }
       }
     }

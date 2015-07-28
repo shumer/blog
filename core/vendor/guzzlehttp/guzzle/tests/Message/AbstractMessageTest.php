@@ -1,9 +1,9 @@
 <?php
-
 namespace GuzzleHttp\Tests\Message;
 
 use GuzzleHttp\Message\AbstractMessage;
 use GuzzleHttp\Message\Request;
+use GuzzleHttp\Message\Response;
 use GuzzleHttp\Stream\Stream;
 
 /**
@@ -13,13 +13,13 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 {
     public function testHasProtocolVersion()
     {
-        $m = new Message();
+        $m = new Request('GET', '/');
         $this->assertEquals(1.1, $m->getProtocolVersion());
     }
 
     public function testHasHeaders()
     {
-        $m = new Message();
+        $m = new Request('GET', 'http://foo.com');
         $this->assertFalse($m->hasHeader('foo'));
         $m->addHeader('foo', 'bar');
         $this->assertTrue($m->hasHeader('foo'));
@@ -35,7 +35,7 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testHasBody()
     {
-        $m = new Message();
+        $m = new Request('GET', 'http://foo.com');
         $this->assertNull($m->getBody());
         $s = Stream::factory('test');
         $m->setBody($s);
@@ -45,9 +45,10 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testCanRemoveBodyBySettingToNullAndRemovesCommonBodyHeaders()
     {
-        $m = new Message();
+        $m = new Request('GET', 'http://foo.com');
         $m->setBody(Stream::factory('foo'));
-        $m->setHeader('Content-Length', 3)->setHeader('Transfer-Encoding', 'chunked');
+        $m->setHeader('Content-Length', 3);
+        $m->setHeader('Transfer-Encoding', 'chunked');
         $m->setBody(null);
         $this->assertNull($m->getBody());
         $this->assertFalse($m->hasHeader('Content-Length'));
@@ -56,10 +57,10 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testCastsToString()
     {
-        $m = new Message();
+        $m = new Request('GET', 'http://foo.com');
         $m->setHeader('foo', 'bar');
         $m->setBody(Stream::factory('baz'));
-        $this->assertEquals("Foo!\r\nfoo: bar\r\n\r\nbaz", (string) $m);
+        $this->assertEquals("GET / HTTP/1.1\r\nHost: foo.com\r\nfoo: bar\r\n\r\nbaz", (string) $m);
     }
 
     public function parseParamsProvider()
@@ -115,12 +116,12 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
     public function testParseParams($header, $result)
     {
         $request = new Request('GET', '/', ['foo' => $header]);
-        $this->assertEquals($result, Message::parseHeader($request, 'foo'));
+        $this->assertEquals($result, Request::parseHeader($request, 'foo'));
     }
 
     public function testAddsHeadersWhenNotPresent()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->addHeader('foo', 'bar');
         $this->assertInternalType('string', $h->getHeader('foo'));
         $this->assertEquals('bar', $h->getHeader('foo'));
@@ -128,50 +129,45 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testAddsHeadersWhenPresentSameCase()
     {
-        $h = new Message();
-        $h->addHeader('foo', 'bar')->addHeader('foo', 'baz');
+        $h = new Request('GET', 'http://foo.com');
+        $h->addHeader('foo', 'bar');
+        $h->addHeader('foo', 'baz');
         $this->assertEquals('bar, baz', $h->getHeader('foo'));
-        $this->assertEquals(['bar', 'baz'], $h->getHeader('foo', true));
+        $this->assertEquals(['bar', 'baz'], $h->getHeaderAsArray('foo'));
     }
 
     public function testAddsMultipleHeaders()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->addHeaders([
             'foo' => ' bar',
             'baz' => [' bam ', 'boo']
         ]);
         $this->assertEquals([
             'foo' => ['bar'],
-            'baz' => ['bam', 'boo']
+            'baz' => ['bam', 'boo'],
+            'Host' => ['foo.com']
         ], $h->getHeaders());
     }
 
     public function testAddsHeadersWhenPresentDifferentCase()
     {
-        $h = new Message();
-        $h->addHeader('Foo', 'bar')->addHeader('fOO', 'baz');
+        $h = new Request('GET', 'http://foo.com');
+        $h->addHeader('Foo', 'bar');
+        $h->addHeader('fOO', 'baz');
         $this->assertEquals('bar, baz', $h->getHeader('foo'));
     }
 
     public function testAddsHeadersWithArray()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->addHeader('Foo', ['bar', 'baz']);
         $this->assertEquals('bar, baz', $h->getHeader('foo'));
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
-    public function testThrowsExceptionWhenInvalidValueProvidedToAddHeader()
-    {
-        (new Message())->addHeader('foo', false);
-    }
-
     public function testGetHeadersReturnsAnArrayOfOverTheWireHeaderValues()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->addHeader('foo', 'bar');
         $h->addHeader('Foo', 'baz');
         $h->addHeader('boO', 'test');
@@ -186,7 +182,7 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testSetHeaderOverwritesExistingValues()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', 'bar');
         $this->assertEquals('bar', $h->getHeader('foo'));
         $h->setHeader('Foo', 'baz');
@@ -196,29 +192,21 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testSetHeaderOverwritesExistingValuesUsingHeaderArray()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', ['bar']);
         $this->assertEquals('bar', $h->getHeader('foo'));
     }
 
     public function testSetHeaderOverwritesExistingValuesUsingArray()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', ['bar']);
         $this->assertEquals('bar', $h->getHeader('foo'));
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
-    public function testThrowsExceptionWhenInvalidValueProvidedToSetHeader()
-    {
-        (new Message())->setHeader('foo', false);
-    }
-
     public function testSetHeadersOverwritesAllHeaders()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', 'bar');
         $h->setHeaders(['foo' => 'a', 'boo' => 'b']);
         $this->assertEquals(['foo' => ['a'], 'boo' => ['b']], $h->getHeaders());
@@ -226,7 +214,7 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testChecksIfCaseInsensitiveHeaderIsPresent()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', 'bar');
         $this->assertTrue($h->hasHeader('foo'));
         $this->assertTrue($h->hasHeader('Foo'));
@@ -236,7 +224,7 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testRemovesHeaders()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', 'bar');
         $h->removeHeader('foo');
         $this->assertFalse($h->hasHeader('foo'));
@@ -247,14 +235,14 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
 
     public function testReturnsCorrectTypeWhenMissing()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $this->assertInternalType('string', $h->getHeader('foo'));
-        $this->assertInternalType('array', $h->getHeader('foo', true));
+        $this->assertInternalType('array', $h->getHeaderAsArray('foo'));
     }
 
     public function testSetsIntegersAndFloatsAsHeaders()
     {
-        $h = new Message();
+        $h = new Request('GET', 'http://foo.com');
         $h->setHeader('foo', 10);
         $h->setHeader('bar', 10.5);
         $h->addHeader('foo', 10);
@@ -262,12 +250,20 @@ class AbstractMessageTest extends \PHPUnit_Framework_TestCase
         $this->assertSame('10, 10', $h->getHeader('foo'));
         $this->assertSame('10.5, 10.5', $h->getHeader('bar'));
     }
-}
 
-class Message extends AbstractMessage
-{
-    protected function getStartLine()
+    public function testGetsResponseStartLine()
     {
-        return 'Foo!';
+        $m = new Response(200);
+        $this->assertEquals('HTTP/1.1 200 OK', Response::getStartLine($m));
+    }
+
+    /**
+     * @expectedException \InvalidArgumentException
+     */
+    public function testThrowsWhenMessageIsUnknown()
+    {
+        $m = $this->getMockBuilder('GuzzleHttp\Message\AbstractMessage')
+            ->getMockForAbstractClass();
+        AbstractMessage::getStartLine($m);
     }
 }

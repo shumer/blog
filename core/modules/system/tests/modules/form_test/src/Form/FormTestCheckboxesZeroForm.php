@@ -8,6 +8,7 @@
 namespace Drupal\form_test\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
@@ -25,8 +26,8 @@ class FormTestCheckboxesZeroForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state, $json = TRUE) {
-    $form_state['json'] = $json;
+  public function buildForm(array $form, FormStateInterface $form_state, $json = TRUE) {
+    $form_state->set('json', $json);
     $form['checkbox_off'] = array(
       '#title' => t('Checkbox off'),
       '#type' => 'checkboxes',
@@ -54,12 +55,12 @@ class FormTestCheckboxesZeroForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    if (!empty($form_state['json'])) {
-      $form_state['response'] = new JsonResponse($form_state['values']);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    if ($form_state->has('json')) {
+      $form_state->setResponse(new JsonResponse($form_state->getValues()));
     }
     else {
-      $form_state['redirect'] = FALSE;
+      $form_state->disableRedirect();
     }
   }
 

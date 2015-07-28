@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Menu\MenuRouterTest.
+ * Contains \Drupal\system\Tests\Menu\MenuRouterTest.
  */
 
 namespace Drupal\system\Tests\Menu;
 
+use Drupal\Core\Url;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -21,23 +22,23 @@ class MenuRouterTest extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = array('block', 'menu_test', 'test_page_test');
+  public static $modules = ['block', 'menu_test', 'test_page_test'];
 
   /**
    * Name of the administrative theme to use for tests.
    *
    * @var string
    */
-  protected $admin_theme;
+  protected $adminTheme;
 
   /**
    * Name of the default theme to use for tests.
    *
    * @var string
    */
-  protected $default_theme;
+  protected $defaultTheme;
 
-  function setUp() {
+  protected function setUp() {
     // Enable dummy module that implements hook_menu.
     parent::setUp();
 
@@ -50,13 +51,10 @@ class MenuRouterTest extends WebTestBase {
   public function testMenuIntegration() {
     $this->doTestTitleMenuCallback();
     $this->doTestMenuOptionalPlaceholders();
+    $this->doTestMenuHierarchy();
     $this->doTestMenuOnRoute();
     $this->doTestMenuName();
-    $this->doTestMenuLinkDefaultsAlter();
-    $this->doTestMenuItemTitlesCases();
-    $this->doTestMenuLinkMaintain();
-    $this->doTestMenuLinkOptions();
-    $this->doTestMenuItemHooks();
+    $this->doTestMenuLinksDiscoveredAlter();
     $this->doTestHookMenuIntegration();
     $this->doTestExoticPath();
   }
@@ -66,7 +64,8 @@ class MenuRouterTest extends WebTestBase {
    */
   protected function doTestHookMenuIntegration() {
     // Generate base path with random argument.
-    $base_path = 'foo/' . $this->randomName(8);
+    $machine_name = $this->randomMachineName(8);
+    $base_path = 'foo/' . $machine_name;
     $this->drupalGet($base_path);
     // Confirm correct controller activated.
     $this->assertText('test1');
@@ -74,8 +73,8 @@ class MenuRouterTest extends WebTestBase {
     $this->assertLink('Local task A');
     $this->assertLink('Local task B');
     // Confirm correct local task href.
-    $this->assertLinkByHref(url($base_path));
-    $this->assertLinkByHref(url($base_path . '/b'));
+    $this->assertLinkByHref(Url::fromRoute('menu_test.router_test1', ['bar' => $machine_name])->toString());
+    $this->assertLinkByHref(Url::fromRoute('menu_test.router_test2', ['bar' => $machine_name])->toString());
   }
 
   /**
@@ -109,182 +108,59 @@ class MenuRouterTest extends WebTestBase {
   }
 
   /**
-   * Tests for menu_link_maintain().
-   */
-  protected function doTestMenuLinkMaintain() {
-    $admin_user = $this->drupalCreateUser(array('administer site configuration'));
-    $this->drupalLogin($admin_user);
-
-    // Create three menu items.
-    menu_link_maintain('menu_test', 'insert', 'menu_test_maintain/1', 'Menu link #1');
-    menu_link_maintain('menu_test', 'insert', 'menu_test_maintain/1', 'Menu link #1-main');
-    menu_link_maintain('menu_test', 'insert', 'menu_test_maintain/2', 'Menu link #2');
-
-    // Move second link to the main-menu, to test caching later on.
-    $menu_links_to_update = entity_load_multiple_by_properties('menu_link', array('link_title' => 'Menu link #1-main', 'customized' => 0, 'module' => 'menu_test'));
-    foreach ($menu_links_to_update as $menu_link) {
-      $menu_link->menu_name = 'main';
-      $menu_link->save();
-    }
-
-    // Load front page.
-    $this->drupalGet('');
-    $this->assertLink('Menu link #1');
-    $this->assertLink('Menu link #1-main');
-    $this->assertLink('Menu link #2');
-
-    // Rename all links for the given path.
-    menu_link_maintain('menu_test', 'update', 'menu_test_maintain/1', 'Menu link updated');
-    // Load a different page to be sure that we have up to date information.
-    $this->drupalGet('menu_test_maintain/1');
-    $this->assertLink('Menu link updated');
-    $this->assertNoLink('Menu link #1');
-    $this->assertNoLink('Menu link #1-main');
-    $this->assertLink('Menu link #2');
-
-    // Delete all links for the given path.
-    menu_link_maintain('menu_test', 'delete', 'menu_test_maintain/1', '');
-    // Load a different page to be sure that we have up to date information.
-    $this->drupalGet('menu_test_maintain/2');
-    $this->assertNoLink('Menu link updated');
-    $this->assertNoLink('Menu link #1');
-    $this->assertNoLink('Menu link #1-main');
-    $this->assertLink('Menu link #2');
-  }
-
-  /**
    * Tests for menu_name parameter for default menu links.
    */
   protected function doTestMenuName() {
     $admin_user = $this->drupalCreateUser(array('administer site configuration'));
     $this->drupalLogin($admin_user);
-
-    $menu_links = entity_load_multiple_by_properties('menu_link', array('link_path' => 'menu_name_test'));
+    /** @var \Drupal\Core\Menu\MenuLinkManagerInterface $menu_link_manager */
+    $menu_link_manager = \Drupal::service('plugin.manager.menu.link');
+    $menu_links = $menu_link_manager->loadLinksByRoute('menu_test.menu_name_test');
     $menu_link = reset($menu_links);
-    $this->assertEqual($menu_link->menu_name, 'original', 'Menu name is "original".');
+    $this->assertEqual($menu_link->getMenuName(), 'original', 'Menu name is "original".');
 
     // Change the menu_name parameter in menu_test.module, then force a menu
     // rebuild.
     menu_test_menu_name('changed');
-    \Drupal::service('router.builder')->rebuild();
+    $menu_link_manager->rebuild();
 
-    $menu_links = entity_load_multiple_by_properties('menu_link', array('link_path' => 'menu_name_test'));
+    $menu_links = $menu_link_manager->loadLinksByRoute('menu_test.menu_name_test');
     $menu_link = reset($menu_links);
-    $this->assertEqual($menu_link->menu_name, 'changed', 'Menu name was successfully changed after rebuild.');
+    $this->assertEqual($menu_link->getMenuName(), 'changed', 'Menu name was successfully changed after rebuild.');
   }
 
   /**
-   * Tests menu links added in hook_menu_link_defaults_alter().
+   * Tests menu links added in hook_menu_links_discovered_alter().
    */
-  protected function doTestMenuLinkDefaultsAlter() {
+  protected function doTestMenuLinksDiscoveredAlter() {
     // Check that machine name does not need to be defined since it is already
     // set as the key of each menu link.
-    $menu_links = entity_load_multiple_by_properties('menu_link', array('route_name' => 'menu_test.custom'));
+    /** @var \Drupal\Core\Menu\MenuLinkManagerInterface $menu_link_manager */
+    $menu_link_manager = \Drupal::service('plugin.manager.menu.link');
+    $menu_links = $menu_link_manager->loadLinksByRoute('menu_test.custom');
     $menu_link = reset($menu_links);
-    $this->assertEqual($menu_link->machine_name, 'menu_test.custom', 'Menu links added at hook_menu_link_defaults_alter() obtain the machine name from the $links key.');
+    $this->assertEqual($menu_link->getPluginId(), 'menu_test.custom', 'Menu links added at hook_menu_links_discovered_alter() obtain the machine name from the $links key.');
     // Make sure that rebuilding the menu tree does not produce duplicates of
-    // links added by hook_menu_link_defaults_alter().
+    // links added by hook_menu_links_discovered_alter().
     \Drupal::service('router.builder')->rebuild();
     $this->drupalGet('menu-test');
-    $this->assertUniqueText('Custom link', 'Menu links added by hook_menu_link_defaults_alter() do not duplicate after a menu rebuild.');
+    $this->assertUniqueText('Custom link', 'Menu links added by hook_menu_links_discovered_alter() do not duplicate after a menu rebuild.');
   }
 
   /**
    * Tests for menu hierarchy.
    */
   protected function doTestMenuHierarchy() {
-    $parent_links = entity_load_multiple_by_properties('menu_link', array('link_path' => 'menu-test/hierarchy/parent'));
-    $parent_link = reset($parent_links);
-    $child_links = entity_load_multiple_by_properties('menu_link', array('link_path' => 'menu-test/hierarchy/parent/child'));
-    $child_link = reset($child_links);
-    $unattached_child_links = entity_load_multiple_by_properties('menu_link', array('link_path' => 'menu-test/hierarchy/parent/child2/child'));
-    $unattached_child_link = reset($unattached_child_links);
-
-    $this->assertEqual($child_link['plid'], $parent_link['mlid'], 'The parent of a directly attached child is correct.');
-    $this->assertEqual($unattached_child_link['plid'], $parent_link['mlid'], 'The parent of a non-directly attached child is correct.');
-  }
-
-  /**
-   * Test menu maintenance hooks.
-   */
-  protected function doTestMenuItemHooks() {
-    // Create an item.
-    menu_link_maintain('menu_test', 'insert', 'menu_test_maintain/4', 'Menu link #4');
-    $this->assertEqual(menu_test_static_variable(), 'insert', 'hook_menu_link_insert() fired correctly');
-    // Update the item.
-    menu_link_maintain('menu_test', 'update', 'menu_test_maintain/4', 'Menu link updated');
-    $this->assertEqual(menu_test_static_variable(), 'update', 'hook_menu_link_update() fired correctly');
-    // Delete the item.
-    menu_link_maintain('menu_test', 'delete', 'menu_test_maintain/4', '');
-    $this->assertEqual(menu_test_static_variable(), 'delete', 'hook_menu_link_delete() fired correctly');
-  }
-
-  /**
-   * Test menu link 'options' storage and rendering.
-   */
-  protected function doTestMenuLinkOptions() {
-    // Create a menu link with options.
-    $menu_link = entity_create('menu_link', array(
-      'link_title' => 'Menu link options test',
-      'link_path' => 'test-page',
-      'module' => 'menu_test',
-      'options' => array(
-        'attributes' => array(
-          'title' => 'Test title attribute',
-        ),
-        'query' => array(
-          'testparam' => 'testvalue',
-        ),
-      ),
-    ));
-    menu_link_save($menu_link);
-
-    // Load front page.
-    $this->drupalGet('test-page');
-    $this->assertRaw('title="Test title attribute"', 'Title attribute of a menu link renders.');
-    $this->assertRaw('testparam=testvalue', 'Query parameter added to menu link.');
-  }
-
-  /**
-   * Tests the possible ways to set the title for menu items.
-   * Also tests that menu item titles work with string overrides.
-   */
-  protected function doTestMenuItemTitlesCases() {
-
-    // Build array with string overrides.
-    $test_data = array(
-      1 => array('Example title - Case 1' => 'Alternative example title - Case 1'),
-      2 => array('Example title' => 'Alternative example title'),
-      3 => array('Example title' => 'Alternative example title'),
-    );
-
-    foreach ($test_data as $case_no => $override) {
-      $this->menuItemTitlesCasesHelper($case_no);
-      $this->addCustomTranslations('en', array('' => $override));
-      $this->writeCustomTranslations();
-
-      $this->menuItemTitlesCasesHelper($case_no, TRUE);
-      $this->addCustomTranslations('en', array());
-      $this->writeCustomTranslations();
-    }
-  }
-
-  /**
-   * Get a URL and assert the title given a case number. If override is true,
-   * the title is asserted to begin with "Alternative".
-   */
-  protected function menuItemTitlesCasesHelper($case_no, $override = FALSE) {
-    $this->drupalGet('menu-title-test/case' . $case_no);
-    $this->assertResponse(200);
-    $asserted_title = $override ? 'Alternative example title - Case ' . $case_no : 'Example title - Case ' . $case_no;
-    $this->assertTitle($asserted_title . ' | Drupal', format_string('Menu title is: %title.', array('%title' => $asserted_title)), 'Menu');
-  }
-
-  /**
-   * Load the router for a given path.
-   */
-  protected function menuLoadRouter($router_path) {
-    return db_query('SELECT * FROM {menu_router} WHERE path = :path', array(':path' => $router_path))->fetchAssoc();
+    /** @var \Drupal\Core\Menu\MenuLinkManagerInterface $menu_link_manager */
+    $menu_link_manager = \Drupal::service('plugin.manager.menu.link');
+    $menu_links = $menu_link_manager->loadLinksByRoute('menu_test.hierarchy_parent');
+    $parent_link = reset($menu_links);
+    $menu_links = $menu_link_manager->loadLinksByRoute('menu_test.hierarchy_parent_child');
+    $child_link = reset($menu_links);
+    $menu_links = $menu_link_manager->loadLinksByRoute('menu_test.hierarchy_parent_child2');
+    $unattached_child_link = reset($menu_links);
+    $this->assertEqual($child_link->getParent(), $parent_link->getPluginId(), 'The parent of a directly attached child is correct.');
+    $this->assertEqual($unattached_child_link->getParent(), $child_link->getPluginId(), 'The parent of a non-directly attached child is correct.');
   }
 
   /**
@@ -304,7 +180,7 @@ class MenuRouterTest extends WebTestBase {
    * Tests a menu on a router page.
    */
   protected function doTestMenuOnRoute() {
-    \Drupal::moduleHandler()->install(array('router_test'));
+    \Drupal::service('module_installer')->install(array('router_test'));
     \Drupal::service('router.builder')->rebuild();
     $this->resetAll();
 
@@ -323,7 +199,7 @@ class MenuRouterTest extends WebTestBase {
       "%23%25%26%2B%2F%3F" . // Characters that look like a percent-escaped string.
       "éøïвβ中國書۞"; // Characters from various non-ASCII alphabets.
     $this->drupalGet($path);
-    $this->assertRaw('This is menu_test_callback().');
+    $this->assertRaw('This is the menuTestCallback content.');
   }
 
   /**
@@ -334,7 +210,7 @@ class MenuRouterTest extends WebTestBase {
   public function testMaintenanceModeLoginPaths() {
     $this->container->get('state')->set('system.maintenance_mode', TRUE);
 
-    $offline_message = t('@site is currently under maintenance. We should be back shortly. Thank you for your patience.', array('@site' => \Drupal::config('system.site')->get('name')));
+    $offline_message = t('@site is currently under maintenance. We should be back shortly. Thank you for your patience.', array('@site' => $this->config('system.site')->get('name')));
     $this->drupalGet('test-page');
     $this->assertText($offline_message);
     $this->drupalGet('menu_login_callback');
@@ -353,27 +229,26 @@ class MenuRouterTest extends WebTestBase {
 
     $this->drupalGet('user/login');
     // Check that we got to 'user'.
-    $this->assertTrue($this->url == url('user/' . $this->loggedInUser->id(), array('absolute' => TRUE)), "Logged-in user redirected to user on accessing user/login");
+    $this->assertUrl($this->loggedInUser->url('canonical', ['absolute' => TRUE]));
 
     // user/register should redirect to user/UID/edit.
     $this->drupalGet('user/register');
-    $this->assertTrue($this->url == url('user/' . $this->loggedInUser->id() . '/edit', array('absolute' => TRUE)), "Logged-in user redirected to user/UID/edit on accessing user/register");
+    $this->assertUrl($this->loggedInUser->url('edit-form', ['absolute' => TRUE]));
   }
 
   /**
    * Tests theme integration.
    */
   public function testThemeIntegration() {
-    $this->default_theme = 'bartik';
-    $this->admin_theme = 'seven';
+    $this->defaultTheme = 'bartik';
+    $this->adminTheme = 'seven';
 
     $theme_handler = $this->container->get('theme_handler');
-    $theme_handler->enable(array($this->default_theme, $this->admin_theme));
-    $this->container->get('config.factory')->get('system.theme')
-      ->set('default', $this->default_theme)
-      ->set('admin', $this->admin_theme)
+    $theme_handler->install([$this->defaultTheme, $this->adminTheme]);
+    $this->config('system.theme')
+      ->set('default', $this->defaultTheme)
+      ->set('admin', $this->adminTheme)
       ->save();
-    $theme_handler->disable(array('stark'));
 
     $this->doTestThemeCallbackMaintenanceMode();
 
@@ -392,7 +267,7 @@ class MenuRouterTest extends WebTestBase {
   protected function doTestThemeCallbackAdministrative() {
     $this->drupalGet('menu-test/theme-callback/use-admin-theme');
     $this->assertText('Active theme: seven. Actual theme: seven.', 'The administrative theme can be correctly set in a theme negotiation.');
-    $this->assertRaw('seven/css/style.css', "The administrative theme's CSS appears on the page.");
+    $this->assertRaw('seven/css/base/elements.css', "The administrative theme's CSS appears on the page.");
   }
 
   /**
@@ -404,14 +279,14 @@ class MenuRouterTest extends WebTestBase {
     // For a regular user, the fact that the site is in maintenance mode means
     // we expect the theme callback system to be bypassed entirely.
     $this->drupalGet('menu-test/theme-callback/use-admin-theme');
-    $this->assertRaw('bartik/css/style.css', "The maintenance theme's CSS appears on the page.");
+    $this->assertRaw('bartik/css/base/elements.css', "The maintenance theme's CSS appears on the page.");
 
     // An administrator, however, should continue to see the requested theme.
     $admin_user = $this->drupalCreateUser(array('access site in maintenance mode'));
     $this->drupalLogin($admin_user);
     $this->drupalGet('menu-test/theme-callback/use-admin-theme');
     $this->assertText('Active theme: seven. Actual theme: seven.', 'The theme negotiation system is correctly triggered for an administrator when the site is in maintenance mode.');
-    $this->assertRaw('seven/css/style.css', "The administrative theme's CSS appears on the page.");
+    $this->assertRaw('seven/css/base/elements.css', "The administrative theme's CSS appears on the page.");
 
     $this->container->get('state')->set('system.maintenance_mode', FALSE);
   }
@@ -420,20 +295,20 @@ class MenuRouterTest extends WebTestBase {
    * Test the theme negotiation when it is set to use an optional theme.
    */
   protected function doTestThemeCallbackOptionalTheme() {
-    // Request a theme that is not enabled.
-    $this->drupalGet('menu-test/theme-callback/use-stark-theme');
-    $this->assertText('Active theme: bartik. Actual theme: bartik.', 'The theme negotiation system falls back on the default theme when a theme that is not enabled is requested.');
-    $this->assertRaw('bartik/css/style.css', "The default theme's CSS appears on the page.");
+    // Request a theme that is not installed.
+    $this->drupalGet('menu-test/theme-callback/use-test-theme');
+    $this->assertText('Active theme: bartik. Actual theme: bartik.', 'The theme negotiation system falls back on the default theme when a theme that is not installed is requested.');
+    $this->assertRaw('bartik/css/base/elements.css', "The default theme's CSS appears on the page.");
 
-    // Now enable the theme and request it again.
+    // Now install the theme and request it again.
     $theme_handler = $this->container->get('theme_handler');
-    $theme_handler->enable(array('stark'));
+    $theme_handler->install(array('test_theme'));
 
-    $this->drupalGet('menu-test/theme-callback/use-stark-theme');
-    $this->assertText('Active theme: stark. Actual theme: stark.', 'The theme negotiation system uses an optional theme once it has been enabled.');
-    $this->assertRaw('stark/css/layout.css', "The optional theme's CSS appears on the page.");
+    $this->drupalGet('menu-test/theme-callback/use-test-theme');
+    $this->assertText('Active theme: test_theme. Actual theme: test_theme.', 'The theme negotiation system uses an optional theme once it has been installed.');
+    $this->assertRaw('test_theme/kitten.css', "The optional theme's CSS appears on the page.");
 
-    $theme_handler->disable(array('stark'));
+    $theme_handler->uninstall(array('test_theme'));
   }
 
   /**
@@ -442,7 +317,7 @@ class MenuRouterTest extends WebTestBase {
   protected function doTestThemeCallbackFakeTheme() {
     $this->drupalGet('menu-test/theme-callback/use-fake-theme');
     $this->assertText('Active theme: bartik. Actual theme: bartik.', 'The theme negotiation system falls back on the default theme when a theme that does not exist is requested.');
-    $this->assertRaw('bartik/css/style.css', "The default theme's CSS appears on the page.");
+    $this->assertRaw('bartik/css/base/elements.css', "The default theme's CSS appears on the page.");
   }
 
   /**
@@ -451,7 +326,7 @@ class MenuRouterTest extends WebTestBase {
   protected function doTestThemeCallbackNoThemeRequested() {
     $this->drupalGet('menu-test/theme-callback/no-theme-requested');
     $this->assertText('Active theme: bartik. Actual theme: bartik.', 'The theme negotiation system falls back on the default theme when no theme is requested.');
-    $this->assertRaw('bartik/css/style.css', "The default theme's CSS appears on the page.");
+    $this->assertRaw('bartik/css/base/elements.css', "The default theme's CSS appears on the page.");
   }
 
 }

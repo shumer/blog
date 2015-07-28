@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\statistics\Tests\StatisticsTestBase.
+ * Contains \Drupal\statistics\Tests\StatisticsTestBase.
  */
 
 namespace Drupal\statistics\Tests;
@@ -21,7 +21,14 @@ abstract class StatisticsTestBase extends WebTestBase {
    */
   public static $modules = array('node', 'block', 'ban', 'statistics');
 
-  function setUp() {
+  /**
+   * User with permissions to ban IP's.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $blockingUser;
+
+  protected function setUp() {
     parent::setUp();
 
     // Create Basic page node type.
@@ -30,7 +37,7 @@ abstract class StatisticsTestBase extends WebTestBase {
     }
 
     // Create user.
-    $this->blocking_user = $this->drupalCreateUser(array(
+    $this->blockingUser = $this->drupalCreateUser(array(
       'access administration pages',
       'access site reports',
       'ban IP addresses',
@@ -38,10 +45,10 @@ abstract class StatisticsTestBase extends WebTestBase {
       'administer statistics',
       'administer users',
     ));
-    $this->drupalLogin($this->blocking_user);
+    $this->drupalLogin($this->blockingUser);
 
     // Enable logging.
-    \Drupal::config('statistics.settings')
+    $this->config('statistics.settings')
       ->set('count_content_views', 1)
       ->save();
   }

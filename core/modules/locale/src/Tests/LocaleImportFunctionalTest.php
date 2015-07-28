@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\locale\Tests\LocaleImportFunctionalTest.
+ * Contains \Drupal\locale\Tests\LocaleImportFunctionalTest.
  */
 
 namespace Drupal\locale\Tests;
@@ -26,13 +26,23 @@ class LocaleImportFunctionalTest extends WebTestBase {
 
   /**
    * A user able to create languages and import translations.
+   *
+   * @var \Drupal\user\Entity\User
    */
-  protected $adminUser = NULL;
+  protected $adminUser;
+
+  /**
+   * A user able to create languages, import translations and access site
+   * reports.
+   *
+   * @var \Drupal\user\Entity\User
+   */
+  protected $adminUserAccessSiteReports;
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Copy test po files to the translations directory.
@@ -40,11 +50,12 @@ class LocaleImportFunctionalTest extends WebTestBase {
     file_unmanaged_copy(drupal_get_path('module', 'locale') . '/tests/test.xx.po', 'translations://', FILE_EXISTS_REPLACE);
 
     $this->adminUser = $this->drupalCreateUser(array('administer languages', 'translate interface', 'access administration pages'));
+    $this->adminUserAccessSiteReports = $this->drupalCreateUser(array('administer languages', 'translate interface', 'access administration pages', 'access site reports'));
     $this->drupalLogin($this->adminUser);
 
     // Enable import of translations. By default this is disabled for automated
     // tests.
-    \Drupal::config('locale.settings')
+    $this->config('locale.settings')
       ->set('translation.import_enabled', TRUE)
       ->save();
   }
@@ -57,7 +68,7 @@ class LocaleImportFunctionalTest extends WebTestBase {
     $this->importPoFile($this->getPoFile(), array(
       'langcode' => 'fr',
     ));
-    \Drupal::config('locale.settings');
+    $this->config('locale.settings');
     // The import should automatically create the corresponding language.
     $this->assertRaw(t('The language %language has been created.', array('%language' => 'French')), 'The language has been automatically created.');
 
@@ -69,7 +80,7 @@ class LocaleImportFunctionalTest extends WebTestBase {
     $this->assert($locale_plurals['fr']['plurals'] == 2, 'Plural number initialized.');
 
     // Ensure we were redirected correctly.
-    $this->assertEqual($this->getUrl(), url('admin/config/regional/translate', array('absolute' => TRUE)), 'Correct page redirection.');
+    $this->assertUrl(\Drupal::url('locale.translate_page', [], ['absolute' => TRUE]), [], 'Correct page redirection.');
 
     // Try importing a .po file with invalid tags.
     $this->importPoFile($this->getBadPoFile(), array(
@@ -79,24 +90,47 @@ class LocaleImportFunctionalTest extends WebTestBase {
     // The import should have created 1 string and rejected 2.
     $this->assertRaw(t('One translation file imported. %number translations were added, %update translations were updated and %delete translations were removed.', array('%number' => 1, '%update' => 0, '%delete' => 0)), 'The translation file was successfully imported.');
 
-    $skip_message = format_plural(2, 'One translation string was skipped because of disallowed or malformed HTML. <a href="@url">See the log</a> for details.', '@count translation strings were skipped because of disallowed or malformed HTML. <a href="@url">See the log</a> for details.', array('@url' => url('admin/reports/dblog')));
+    $skip_message = \Drupal::translation()->formatPlural(2, 'One translation string was skipped because of disallowed or malformed HTML. <a href="@url">See the log</a> for details.', '@count translation strings were skipped because of disallowed or malformed HTML. See the log for details.', array('@url' => \Drupal::url('dblog.overview')));
     $this->assertRaw($skip_message, 'Unsafe strings were skipped.');
 
+    // Repeat the process with a user that can access site reports, and this
+    // time the different warnings must contain links to the log.
+    $this->drupalLogin($this->adminUserAccessSiteReports);
+
+    // Try importing a .po file with invalid tags.
+    $this->importPoFile($this->getBadPoFile(), array(
+      'langcode' => 'fr',
+    ));
+
+    $skip_message = \Drupal::translation()->formatPlural(2, 'One translation string was skipped because of disallowed or malformed HTML. <a href="@url">See the log</a> for details.', '@count translation strings were skipped because of disallowed or malformed HTML. <a href="@url">See the log</a> for details.', array('@url' => \Drupal::url('dblog.overview')));
+    $this->assertRaw($skip_message, 'Unsafe strings were skipped.');
+
+    // Check empty files import with a user that cannot access site reports..
+    $this->drupalLogin($this->adminUser);
     // Try importing a zero byte sized .po file.
     $this->importPoFile($this->getEmptyPoFile(), array(
       'langcode' => 'fr',
     ));
-
     // The import should have created 0 string and rejected 0.
-    $this->assertRaw(t('One translation file could not be imported. <a href="@url">See the log</a> for details.', array('@url' => url('admin/reports/dblog'))), 'The empty translation file was successfully imported.');
+    $this->assertRaw(t('One translation file could not be imported. See the log for details.'), 'The empty translation file import reported no translations imported.');
+
+    // Repeat the process with a user that can access site reports, and this
+    // time the different warnings must contain links to the log.
+    $this->drupalLogin($this->adminUserAccessSiteReports);
+    // Try importing a zero byte sized .po file.
+    $this->importPoFile($this->getEmptyPoFile(), array(
+      'langcode' => 'fr',
+    ));
+    // The import should have created 0 string and rejected 0.
+    $this->assertRaw(t('One translation file could not be imported. <a href="@url">See the log</a> for details.', array('@url' => \Drupal::url('dblog.overview'))), 'The empty translation file import reported no translations imported.');
 
     // Try importing a .po file which doesn't exist.
-    $name = $this->randomName(16);
+    $name = $this->randomMachineName(16);
     $this->drupalPostForm('admin/config/regional/translate/import', array(
       'langcode' => 'fr',
       'files[file]' => $name,
     ), t('Import'));
-    $this->assertEqual($this->getUrl(), url('admin/config/regional/translate/import', array('absolute' => TRUE)), 'Correct page redirection.');
+    $this->assertUrl(\Drupal::url('locale.translate_import', [], ['absolute' => TRUE]), [], 'Correct page redirection.');
     $this->assertText(t('File to import not found.'), 'File to import not found message.');
 
     // Try importing a .po file with overriding strings, and ensure existing
@@ -263,7 +297,7 @@ class LocaleImportFunctionalTest extends WebTestBase {
     $edit = array(
       'predefined_langcode' => 'custom',
       'langcode' => $langcode,
-      'name' => $this->randomName(16),
+      'label' => $this->randomMachineName(16),
       'direction' => LanguageInterface::DIRECTION_LTR,
     );
     $this->drupalPostForm('admin/config/regional/language/add', $edit, t('Add custom language'));
@@ -293,24 +327,49 @@ class LocaleImportFunctionalTest extends WebTestBase {
       $this->assertText($config_string[1], format_string('Translation of @string found.', array('@string' => $config_string[0])));
     }
 
-    $locale_config = $this->container->get('locale.config.typed');
-    // Translations got recorded in the config system.
+    // Test that translations got recorded in the config system.
+    $overrides = \Drupal::service('language.config_factory_override');
     foreach ($config_strings as $config_key => $config_string) {
-      $wrapper = $locale_config->get($config_key);
-      $translation = $wrapper->getTranslation($langcode);
-      $properties = $translation->getProperties();
-      $this->assertEqual(count($properties), 1, 'Got the right number of properties with strict translation');
-      $this->assertEqual($properties[$config_string[2]]->getValue(), $config_string[1]);
+      $override = $overrides->getOverride($langcode, $config_key);
+      $this->assertEqual($override->get($config_string[2]), $config_string[1]);
     }
+  }
+
+  /**
+   * Tests .po file import with user.settings configuration.
+   */
+  public function testConfigtranslationImportingPoFile() {
+    // Set the language code.
+    $langcode = 'de';
+
+    // Import a .po file to translate.
+    $this->importPoFile($this->getPoFileWithConfigDe(), array(
+      'langcode' => $langcode));
+
+    // Check that the 'Anonymous' string is translated.
+    $config = \Drupal::languageManager()->getLanguageConfigOverride($langcode, 'user.settings');
+    $this->assertEqual($config->get('anonymous'), 'Anonymous German');
+  }
+
+  /**
+   * Test the translation are imported when a new language is created.
+   */
+  public function testCreatedLanguageTranslation() {
+    // Import a .po file to add de language.
+    $this->importPoFile($this->getPoFileWithConfigDe(), array('langcode' => 'de'));
+
+    // Get the language.entity.de label and check it's been translated.
+    $override = \Drupal::languageManager()->getLanguageConfigOverride('de', 'language.entity.de');
+    $this->assertEqual($override->get('label'), 'Deutsch');
   }
 
   /**
    * Helper function: import a standalone .po file in a given language.
    *
-   * @param $contents
+   * @param string $contents
    *   Contents of the .po file to import.
-   * @param $options
-   *   Additional options to pass to the translation import form.
+   * @param array $options
+   *   (optional) Additional options to pass to the translation import form.
    */
   public function importPoFile($contents, array $options = array()) {
     $name = tempnam('temporary://', "po_") . '.po';
@@ -478,8 +537,8 @@ EOF;
    * Helper function that returns a .po file with context.
    */
   public function getPoFileWithContext() {
-    // Croatian (code hr) is one the the languages that have a different
-    // form for the full name and the abbreviated name for the month May.
+    // Croatian (code hr) is one of the languages that have a different
+    // form for the full name and the abbreviated name for the month of May.
     return <<< EOF
 msgid ""
 msgstr ""
@@ -561,4 +620,25 @@ msgstr "Névtelen felhasználó"
 EOF;
   }
 
+  /**
+   * Helper function that returns a .po file with configuration translations.
+   */
+  public function getPoFileWithConfigDe() {
+    return <<< EOF
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal 8\\n"
+"MIME-Version: 1.0\\n"
+"Content-Type: text/plain; charset=UTF-8\\n"
+"Content-Transfer-Encoding: 8bit\\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\\n"
+
+msgid "Anonymous"
+msgstr "Anonymous German"
+
+msgid "German"
+msgstr "Deutsch"
+
+EOF;
+  }
 }

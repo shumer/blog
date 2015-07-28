@@ -7,6 +7,7 @@
 
 namespace Drupal\book;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\node\NodeInterface;
 
@@ -56,6 +57,12 @@ interface BookManagerInterface {
   /**
    * Loads a single book entry.
    *
+   * The entries of a book entry is documented in
+   * \Drupal\book\BookOutlineStorageInterface::loadMultiple.
+   *
+   * If $translate is TRUE, it also checks access ('access' key) and
+   * loads the title from the node itself.
+   *
    * @param int $nid
    *   The node ID of the book.
    * @param bool $translate
@@ -63,11 +70,19 @@ interface BookManagerInterface {
    *
    * @return array
    *   The book data of that node.
+   *
+   * @see \Drupal\book\BookOutlineStorageInterface::loadMultiple
    */
   public function loadBookLink($nid, $translate = TRUE);
 
   /**
    * Loads multiple book entries.
+   *
+   * The entries of a book entry is documented in
+   * \Drupal\book\BookOutlineStorageInterface::loadMultiple.
+   *
+   * If $translate is TRUE, it also checks access ('access' key) and
+   * loads the title from the node itself.
    *
    * @param int[] $nids
    *   An array of nids to load.
@@ -77,6 +92,8 @@ interface BookManagerInterface {
    *
    * @return array[]
    *   The book data of each node keyed by NID.
+   *
+   * @see \Drupal\book\BookOutlineStorageInterface::loadMultiple
    */
   public function loadBookLinks($nids, $translate = TRUE);
 
@@ -203,8 +220,8 @@ interface BookManagerInterface {
    *
    * @param array $form
    *   An associative array containing the structure of the form.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the form.
    * @param \Drupal\node\NodeInterface $node
    *   The node whose form is being viewed.
    * @param \Drupal\Core\Session\AccountInterface $account
@@ -215,7 +232,7 @@ interface BookManagerInterface {
    * @return array
    *   The form structure, with the book elements added.
    */
-  public function addFormElements(array $form, array &$form_state, NodeInterface $node, AccountInterface $account, $collapsed = TRUE);
+  public function addFormElements(array $form, FormStateInterface $form_state, NodeInterface $node, AccountInterface $account, $collapsed = TRUE);
 
   /**
    * Deletes node's entry from book table.
@@ -231,7 +248,6 @@ interface BookManagerInterface {
    * The menu item's LI element is given one of the following classes:
    * - expanded: The menu item is showing its submenu.
    * - collapsed: The menu item has a submenu which is not shown.
-   * - leaf: The menu item has no submenu.
    *
    * @param array $tree
    *   A data structure representing the tree as returned from buildBookOutlineData.
@@ -239,8 +255,7 @@ interface BookManagerInterface {
    * @return array
    *   A structured array to be rendered by drupal_render().
    *
-   * @todo This was copied from menu_tree_output() but with some changes that
-   *   may be obsolete. Attempt to resolve the differences.
+   * @see \Drupal\Core\Menu\MenuLinkTree::build
    */
   public function bookTreeOutput(array $tree);
 

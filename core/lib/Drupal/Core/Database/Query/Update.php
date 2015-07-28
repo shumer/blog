@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Database\Query\Update
+ * Contains \Drupal\Core\Database\Query\Update.
  */
 
 namespace Drupal\Core\Database\Query;
@@ -83,7 +83,7 @@ class Update extends Query implements ConditionInterface {
   /**
    * Implements Drupal\Core\Database\Query\ConditionInterface::condition().
    */
-  public function condition($field, $value = NULL, $operator = NULL) {
+  public function condition($field, $value = NULL, $operator = '=') {
     $this->condition->condition($field, $value, $operator);
     return $this;
   }

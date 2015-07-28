@@ -11,6 +11,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Routing\LinkGeneratorTrait;
+use Drupal\Core\Routing\RedirectDestinationTrait;
 use Drupal\Core\Routing\UrlGeneratorTrait;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -22,9 +23,11 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * @ingroup form_api
  */
 abstract class FormBase implements FormInterface, ContainerInjectionInterface {
-  use StringTranslationTrait;
+
   use DependencySerializationTrait;
   use LinkGeneratorTrait;
+  use RedirectDestinationTrait;
+  use StringTranslationTrait;
   use UrlGeneratorTrait;
 
   /**
@@ -47,11 +50,18 @@ abstract class FormBase implements FormInterface, ContainerInjectionInterface {
   protected $configFactory;
 
   /**
-   * The form error handler.
+   * The logger factory.
    *
-   * @var \Drupal\Core\Form\FormErrorInterface
+   * @var \Drupal\Core\Logger\LoggerChannelFactoryInterface
    */
-  protected $errorHandler;
+  protected $loggerFactory;
+
+  /**
+   * The route match.
+   *
+   * @var \Drupal\Core\Routing\RouteMatchInterface
+   */
+  protected $routeMatch;
 
   /**
    * {@inheritdoc}
@@ -63,7 +73,7 @@ abstract class FormBase implements FormInterface, ContainerInjectionInterface {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     // Validation is optional.
   }
 
@@ -80,7 +90,7 @@ abstract class FormBase implements FormInterface, ContainerInjectionInterface {
    *   the config object returned will contain the contents of book.admin
    *   configuration file.
    *
-   * @return \Drupal\Core\Config\Config
+   * @return \Drupal\Core\Config\ImmutableConfig
    *   A configuration object.
    */
   protected function config($name) {
@@ -136,6 +146,18 @@ abstract class FormBase implements FormInterface, ContainerInjectionInterface {
   }
 
   /**
+   * Gets the route match.
+   *
+   * @return \Drupal\Core\Routing\RouteMatchInterface
+   */
+  protected function getRouteMatch() {
+    if (!$this->routeMatch) {
+      $this->routeMatch = \Drupal::routeMatch();
+    }
+    return $this->routeMatch;
+  }
+
+  /**
    * Sets the request stack object to use.
    *
    * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
@@ -174,35 +196,19 @@ abstract class FormBase implements FormInterface, ContainerInjectionInterface {
   }
 
   /**
-   * Returns the form error handler.
+   * Gets the logger for a specific channel.
    *
-   * @return \Drupal\Core\Form\FormErrorInterface
-   *   The form error handler.
+   * @param string $channel
+   *   The name of the channel.
+   *
+   * @return \Psr\Log\LoggerInterface
+   *   The logger for this channel.
    */
-  protected function errorHandler() {
-    if (!$this->errorHandler) {
-      $this->errorHandler = \Drupal::service('form_builder');
+  protected function logger($channel) {
+    if (!$this->loggerFactory) {
+      $this->loggerFactory = $this->container()->get('logger.factory');
     }
-    return $this->errorHandler;
-  }
-
-  /**
-   * Files an error against a form element.
-   *
-   * @param string $name
-   *   The name of the form element.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
-   * @param string $message
-   *   (optional) The error message to present to the user.
-   *
-   * @see \Drupal\Core\Form\FormErrorInterface::setErrorByName()
-   *
-   * @return $this
-   */
-  protected function setFormError($name, array &$form_state, $message = '') {
-    $this->errorHandler()->setErrorByName($name, $form_state, $message);
-    return $this;
+    return $this->loggerFactory->get($channel);
   }
 
 }

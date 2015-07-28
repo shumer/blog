@@ -8,12 +8,12 @@
 namespace Drupal\config_translation\Controller;
 
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityListBuilder;
+use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 
 /**
  * Defines the configuration translation list builder for entities.
  */
-class ConfigTranslationEntityListBuilder extends EntityListBuilder implements ConfigTranslationEntityListBuilderInterface {
+class ConfigTranslationEntityListBuilder extends ConfigEntityListBuilder implements ConfigTranslationEntityListBuilderInterface {
 
   /**
    * Provides user facing strings for the filter element.
@@ -31,16 +31,17 @@ class ConfigTranslationEntityListBuilder extends EntityListBuilder implements Co
    * {@inheritdoc}
    */
   public function render() {
-    $table = parent::render();
+    $build = parent::render();
     $filter = $this->getFilterLabels();
 
-    usort($table['#rows'], array($this, 'sortRows'));
+    usort($build['table']['#rows'], array($this, 'sortRows'));
 
     $build['filters'] = array(
       '#type' => 'container',
       '#attributes' => array(
         'class' => array('table-filter', 'js-show'),
       ),
+      '#weight' => -10,
     );
 
     $build['filters']['text'] = array(
@@ -56,8 +57,8 @@ class ConfigTranslationEntityListBuilder extends EntityListBuilder implements Co
       ),
     );
 
-    $build['table'] = $table;
     $build['table']['#attributes']['class'][] = 'config-translation-entity-list';
+    $build['table']['#weight'] = 0;
     $build['#attached']['library'][] = 'system/drupal.system.modules';
 
     return $build;
@@ -68,7 +69,7 @@ class ConfigTranslationEntityListBuilder extends EntityListBuilder implements Co
    */
   public function buildRow(EntityInterface $entity) {
     $row['label']['data'] = $this->getLabel($entity);
-    $row['label']['class'] = 'table-filter-text-source';
+    $row['label']['class'][] = 'table-filter-text-source';
     return $row + parent::buildRow($entity);
   }
 

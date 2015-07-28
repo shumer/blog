@@ -41,7 +41,7 @@ class ParamConversionEnhancerTest extends UnitTestCase {
   }
 
   /**
-   * @covers ::enhance()
+   * @covers ::enhance
    */
   public function testEnhance() {
     $route = new Route('/test/{id}/{literal}/{null}');
@@ -61,7 +61,7 @@ class ParamConversionEnhancerTest extends UnitTestCase {
 
     $this->paramConverterManager->expects($this->any())
       ->method('convert')
-      ->with($this->isType('array'), $this->isInstanceOf('Symfony\Component\HttpFoundation\Request'))
+      ->with($this->isType('array'))
       ->will($this->returnValue($expected));
 
     $result = $this->paramConversionEnhancer->enhance($defaults, new Request());
@@ -70,7 +70,7 @@ class ParamConversionEnhancerTest extends UnitTestCase {
   }
 
   /**
-   * @covers ::copyRawVariables()
+   * @covers ::copyRawVariables
    */
   public function testCopyRawVariables() {
     $route = new Route('/test/{id}');
@@ -82,7 +82,7 @@ class ParamConversionEnhancerTest extends UnitTestCase {
     $defaults['bar'] = &$defaults['id'];
     $this->paramConverterManager->expects($this->any())
       ->method('convert')
-      ->with($this->isType('array'), $this->isInstanceOf('Symfony\Component\HttpFoundation\Request'))
+      ->with($this->isType('array'))
       ->will($this->returnCallback(function ($defaults) {
         // Convert the mirrored default to another value.
         $defaults['bar'] = '2';

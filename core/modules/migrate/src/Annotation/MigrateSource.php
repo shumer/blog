@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\migrate\Annotation\MigrateDestination.
+ * Contains \Drupal\migrate\Annotation\MigrateSource.
  */
 
 namespace Drupal\migrate\Annotation;
@@ -24,6 +24,8 @@ use Drupal\Component\Annotation\Plugin;
  * @see \Drupal\migrate\Annotation\MigrateProcessPlugin
  * @see \Drupal\migrate\Annotation\MigrateDestination
  * @see plugin_api
+ *
+ * @ingroup migration
  *
  * @Annotation
  */

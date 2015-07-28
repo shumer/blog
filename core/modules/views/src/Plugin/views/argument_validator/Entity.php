@@ -7,8 +7,10 @@
 
 namespace Drupal\views\Plugin\views\argument_validator;
 
+use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\argument\ArgumentPluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -75,9 +77,9 @@ class Entity extends ArgumentValidatorPluginBase {
     $options = parent::defineOptions();
 
     $options['bundles'] = array('default' => array());
-    $options['access'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['access'] = array('default' => FALSE);
     $options['operation'] = array('default' => 'view');
-    $options['multiple'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['multiple'] = array('default' => FALSE);
 
     return $options;
   }
@@ -85,7 +87,7 @@ class Entity extends ArgumentValidatorPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $entity_type_id = $this->definition['entity_type'];
@@ -149,7 +151,7 @@ class Entity extends ArgumentValidatorPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function submitOptionsForm(&$form, &$form_state, &$options = array()) {
+  public function submitOptionsForm(&$form, FormStateInterface $form_state, &$options = array()) {
     // Filter out unused options so we don't store giant unnecessary arrays.
     $options['bundles'] = array_filter($options['bundles']);
   }
@@ -198,7 +200,7 @@ class Entity extends ArgumentValidatorPluginBase {
    */
   protected function validateEntity(EntityInterface $entity) {
     // If access restricted by entity operation.
-    if ($this->options['access'] && ! $entity->access($this->options['operation'])) {
+    if ($this->options['access'] && !$entity->access($this->options['operation'])) {
       return FALSE;
     }
     // If restricted by bundle.
@@ -208,6 +210,28 @@ class Entity extends ArgumentValidatorPluginBase {
     }
 
     return TRUE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    $dependencies = parent::calculateDependencies();
+
+    $entity_type_id = $this->definition['entity_type'];
+    $bundle_entity_type = $this->entityManager->getDefinition($entity_type_id)->getBundleEntityType();
+
+    // The bundle entity type might not exist. For example, users do not have
+    // bundles.
+    if ($this->entityManager->hasHandler($bundle_entity_type, 'storage')) {
+      $bundle_entity_storage = $this->entityManager->getStorage($bundle_entity_type);
+
+      foreach ($bundle_entity_storage->loadMultiple(array_keys($this->options['bundles'])) as $bundle_entity) {
+        $dependencies[$bundle_entity->getConfigDependencyKey()][] = $bundle_entity->getConfigDependencyName();
+      }
+    }
+
+    return $dependencies;
   }
 
 }

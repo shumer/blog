@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\language\Plugin\LanguageNegotiation\LanguageNegotiationUrl.
+ * Contains \Drupal\user\Plugin\LanguageNegotiation\LanguageNegotiationUser.
  */
 
 namespace Drupal\user\Plugin\LanguageNegotiation;
@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Class for identifying language from the user preferences.
  *
- * @Plugin(
+ * @LanguageNegotiation(
  *   id = \Drupal\user\Plugin\LanguageNegotiation\LanguageNegotiationUser::METHOD_ID,
  *   weight = -4,
  *   name = @Translation("User"),
@@ -36,7 +36,7 @@ class LanguageNegotiationUser extends LanguageNegotiationMethodBase {
     // User preference (only for authenticated users).
     if ($this->languageManager && $this->currentUser->isAuthenticated()) {
       $preferred_langcode = $this->currentUser->getPreferredLangcode();
-      $default_langcode = $this->languageManager->getDefaultLanguage()->id;
+      $default_langcode = $this->languageManager->getDefaultLanguage()->getId();
       $languages = $this->languageManager->getLanguages();
       if (!empty($preferred_langcode) && $preferred_langcode != $default_langcode && isset($languages[$preferred_langcode])) {
         $langcode = $preferred_langcode;

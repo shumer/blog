@@ -23,20 +23,17 @@
 {% endif %}
 
 {% if tips|length %}
-  {% if multiple %}
-    <div class="compose-tips">
-  {% endif %}
+  {% for name, tip in tips %}
 
-  {% for tip in tips %}
     {% if multiple %}
-      <div{{ tip.attributes }}>
+      <div{{ attributes }}>
       <h3>{{ tip.name }}</h3>
     {% endif %}
 
     {% if tip.list|length %}
-      <ul class="tips">
+      <ul>
       {% for item in tip.list %}
-        <li{{ item.attributes }}>{{ item.tip }}</li>
+        <li{{ tip.attributes }}>{{ item.tip }}</li>
       {% endfor %}
       </ul>
     {% endif %}
@@ -44,9 +41,6 @@
     {% if multiple %}
       </div>
     {% endif %}
-  {% endfor %}
 
-  {% if multiple %}
-    </div>
-  {% endif %}
+  {% endfor %}
 {% endif %}

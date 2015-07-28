@@ -2,17 +2,17 @@
 
 /**
  * @file
- * Definition of Drupal\language\Tests\LanguageTestBase.
+ * Contains \Drupal\language\Tests\LanguageTestBase.
  */
 
 namespace Drupal\language\Tests;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Test for dependency injected language object.
  */
-abstract class LanguageTestBase extends DrupalUnitTestBase {
+abstract class LanguageTestBase extends KernelTestBase {
 
   public static $modules = array('system', 'language', 'language_test');
   /**

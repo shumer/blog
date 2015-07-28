@@ -33,11 +33,11 @@ class SettingsTest extends UnitTestCase {
   /**
    * @covers ::__construct
    */
-  public function setUp(){
+  protected function setUp(){
     $this->config = array(
       'one' => '1',
       'two' => '2',
-      'hash_salt' => $this->randomName(),
+      'hash_salt' => $this->randomMachineName(),
     );
     $this->settings = new Settings($this->config);
   }
@@ -105,6 +105,17 @@ class SettingsTest extends UnitTestCase {
      array(array('hash_salt' => '')),
      array(array('hash_salt' => NULL)),
    );
+  }
+
+  /**
+   * Ensures settings cannot be serialized.
+   *
+   * @covers ::__sleep
+   *
+   * @expectedException \LogicException
+   */
+  public function testSerialize() {
+    serialize(new Settings([]));
   }
 
 }

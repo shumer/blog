@@ -57,14 +57,14 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
   public function getPropertyDefinitions() {
     if (!isset($this->propertyDefinitions)) {
       if ($entity_type_id = $this->getEntityTypeId()) {
-        // Return an empty array for entity types that don't support typed data.
+        // Return an empty array for entities that are not content entities.
         $entity_type_class = \Drupal::entityManager()->getDefinition($entity_type_id)->getClass();
-        if (!in_array('Drupal\Core\TypedData\TypedDataInterface', class_implements($entity_type_class))) {
+        if (!in_array('Drupal\Core\Entity\FieldableEntityInterface', class_implements($entity_type_class))) {
           $this->propertyDefinitions = array();
         }
         else {
           // @todo: Add support for handling multiple bundles.
-          // See https://drupal.org/node/2169813.
+          // See https://www.drupal.org/node/2169813.
           $bundles = $this->getBundles();
           if (is_array($bundles) && count($bundles) == 1) {
             $this->propertyDefinitions = \Drupal::entityManager()->getFieldDefinitions($entity_type_id, reset($bundles));
@@ -89,9 +89,13 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
     $type = 'entity';
     if ($entity_type = $this->getEntityTypeId()) {
       $type .= ':' . $entity_type;
-      // Append the bundle only if we know it for sure.
+      // Append the bundle only if we know it for sure and it is not the default
+      // bundle.
       if (($bundles = $this->getBundles()) && count($bundles) == 1) {
-        $type .= ':' . reset($bundles);
+        $bundle = reset($bundles);
+        if ($bundle != $entity_type) {
+          $type .= ':' . $bundle;
+        }
       }
     }
     return $type;

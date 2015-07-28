@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Database\Query\Merge
+ * Contains \Drupal\Core\Database\Query\Merge.
  */
 
 namespace Drupal\Core\Database\Query;
@@ -39,7 +39,7 @@ use Drupal\Core\Database\IntegrityConstraintViolationException;
  * MergeQuery::updateFields() and MergeQuery::insertFields() needs to be called
  * instead. MergeQuery::fields() can also be called which calls both of these
  * methods as the common case is to use the same column-value pairs for both
- * INSERT and UPDATE. However, this is not mandatory. Another convinient
+ * INSERT and UPDATE. However, this is not mandatory. Another convenient
  * wrapper is MergeQuery::key() which adds the same column-value pairs to the
  * condition and the INSERT query part.
  *
@@ -119,7 +119,7 @@ class Merge extends Query implements ConditionInterface {
   /**
    * Flag indicating whether an UPDATE is necessary.
    *
-   * @var boolean
+   * @var bool
    */
   protected $needsUpdate = FALSE;
 
@@ -342,7 +342,7 @@ class Merge extends Query implements ConditionInterface {
   /**
    * Implements Drupal\Core\Database\Query\ConditionInterface::condition().
    */
-  public function condition($field, $value = NULL, $operator = NULL) {
+  public function condition($field, $value = NULL, $operator = '=') {
     $this->condition->condition($field, $value, $operator);
     return $this;
   }

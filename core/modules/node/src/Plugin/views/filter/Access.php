@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\node\Plugin\views\filter\Access.
+ * Contains \Drupal\node\Plugin\views\filter\Access.
  */
 
 namespace Drupal\node\Plugin\views\filter;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Plugin\views\filter\FilterPluginBase;
 
 /**
@@ -19,7 +20,7 @@ use Drupal\views\Plugin\views\filter\FilterPluginBase;
 class Access extends FilterPluginBase {
 
   public function adminSummary() { }
-  protected function operatorForm(&$form, &$form_state) { }
+  protected function operatorForm(&$form, FormStateInterface $form_state) { }
   public function canExpose() {
     return FALSE;
   }
@@ -44,6 +45,17 @@ class Access extends FilterPluginBase {
       $this->query->addWhere('AND', $grants);
       $this->query->addWhere('AND', $table . '.grant_view', 1, '>=');
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getCacheContexts() {
+    $contexts = parent::getCacheContexts();
+
+    $contexts[] = 'user.node_grants:view';
+
+    return $contexts;
   }
 
 }

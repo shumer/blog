@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\user\Tests\UserLanguageTest.
+ * Contains \Drupal\user\Tests\UserLanguageTest.
  */
 
 namespace Drupal\user\Tests;
@@ -38,11 +38,11 @@ class UserLanguageTest extends WebTestBase {
     // Code for the language.
     $langcode = 'xx';
     // The English name for the language.
-    $name = $this->randomName(16);
+    $name = $this->randomMachineName(16);
     $edit = array(
       'predefined_langcode' => 'custom',
       'langcode' => $langcode,
-      'name' => $name,
+      'label' => $name,
       'direction' => LanguageInterface::DIRECTION_LTR,
     );
     $this->drupalPostForm('admin/config/regional/language/add', $edit, t('Add custom language'));

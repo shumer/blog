@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Database\SelectTest.
+ * Contains \Drupal\system\Tests\Database\SelectTest.
  */
 
 namespace Drupal\system\Tests\Database;
@@ -39,10 +39,10 @@ class SelectTest extends DatabaseTestBase {
     $records = $result->fetchAll();
 
     $query = (string) $query;
-    $expected = "/* Testing query comments */ SELECT test.name AS name, test.age AS age\nFROM \n{test} test";
+    $expected = "/* Testing query comments */";
 
     $this->assertEqual(count($records), 4, 'Returned the correct number of rows.');
-    $this->assertEqual($query, $expected, 'The flattened query contains the comment string.');
+    $this->assertNotIdentical(FALSE, strpos($query, $expected), 'The flattened query contains the comment string.');
   }
 
   /**
@@ -57,10 +57,10 @@ class SelectTest extends DatabaseTestBase {
     $records = $result->fetchAll();
 
     $query = (string) $query;
-    $expected = "/* Testing query comments SELECT nid FROM {node}; -- */ SELECT test.name AS name, test.age AS age\nFROM \n{test} test";
+    $expected = "/* Testing query comments SELECT nid FROM {node}; -- */";
 
     $this->assertEqual(count($records), 4, 'Returned the correct number of rows.');
-    $this->assertEqual($query, $expected, 'The flattened query contains the sanitised comment string.');
+    $this->assertNotIdentical(FALSE, strpos($query, $expected), 'The flattened query contains the sanitised comment string.');
   }
 
   /**
@@ -220,7 +220,7 @@ class SelectTest extends DatabaseTestBase {
   /**
    * Tests that we can UNION multiple Select queries together.
    *
-   * This is semantically equal to UNION DISTINCT, so we don't explicity test
+   * This is semantically equal to UNION DISTINCT, so we don't explicitly test
    * that.
    */
   function testUnion() {
@@ -310,7 +310,7 @@ class SelectTest extends DatabaseTestBase {
     // after shuffling it (in other words, nearly impossible).
     $number_of_items = 52;
     while (db_query("SELECT MAX(id) FROM {test}")->fetchField() < $number_of_items) {
-      db_insert('test')->fields(array('name' => $this->randomName()))->execute();
+      db_insert('test')->fields(array('name' => $this->randomMachineName()))->execute();
     }
 
     // First select the items in order and make sure we get an ordered list.

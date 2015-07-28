@@ -2,18 +2,18 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\File\FileTestBase.
+ * Contains \Drupal\system\Tests\File\FileTestBase.
  */
 
 namespace Drupal\system\Tests\File;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Base class for file tests that adds some additional file specific
  * assertions and helper functions.
  */
-abstract class FileTestBase extends DrupalUnitTestBase {
+abstract class FileTestBase extends KernelTestBase {
 
   /**
    * Modules to enable.
@@ -36,7 +36,7 @@ abstract class FileTestBase extends DrupalUnitTestBase {
    */
   protected $classname;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
     $this->installConfig(array('system'));
     $this->registerStreamWrapper('private', 'Drupal\Core\StreamWrapper\PrivateStream');
@@ -129,7 +129,7 @@ abstract class FileTestBase extends DrupalUnitTestBase {
   function createDirectory($path = NULL) {
     // A directory to operate on.
     if (!isset($path)) {
-      $path = file_default_scheme() . '://' . $this->randomName();
+      $path = file_default_scheme() . '://' . $this->randomMachineName();
     }
     $this->assertTrue(drupal_mkdir($path) && is_dir($path), 'Directory was created successfully.');
     return $path;
@@ -154,7 +154,7 @@ abstract class FileTestBase extends DrupalUnitTestBase {
     if (!isset($filepath)) {
       // Prefix with non-latin characters to ensure that all file-related
       // tests work with international filenames.
-      $filepath = 'Файл для тестирования ' . $this->randomName();
+      $filepath = 'Файл для тестирования ' . $this->randomMachineName();
     }
     if (!isset($scheme)) {
       $scheme = file_default_scheme();

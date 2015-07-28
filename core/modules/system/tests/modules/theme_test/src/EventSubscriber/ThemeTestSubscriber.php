@@ -7,6 +7,9 @@
 
 namespace Drupal\theme_test\EventSubscriber;
 
+use Drupal\Core\Render\RendererInterface;
+use Drupal\Core\Url;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -23,6 +26,31 @@ class ThemeTestSubscriber implements EventSubscriberInterface {
    */
   protected $container;
 
+  /**
+   * The current route match.
+   *
+   * @var \Drupal\Core\Routing\RouteMatchInterface
+   */
+  protected $currentRouteMatch;
+
+  /**
+   * The renderer.
+   *
+   * @var \Drupal\Core\Render\RendererInterface
+   */
+  protected $renderer;
+
+  /**
+   * Constructs a new ThemeTestSubscriber.
+   *
+   * @param \Drupal\Core\Routing\RouteMatchInterface $current_route_match
+   * @param \Drupal\Core\Render\RendererInterface $renderer
+   *   The renderer.
+   */
+  public function __construct(RouteMatchInterface $current_route_match, RendererInterface $renderer) {
+    $this->currentRouteMatch = $current_route_match;
+    $this->renderer = $renderer;
+  }
 
   /**
    * Generates themed output early in a page request.
@@ -30,9 +58,7 @@ class ThemeTestSubscriber implements EventSubscriberInterface {
    * @see \Drupal\system\Tests\Theme\ThemeEarlyInitializationTest::testRequestListener()
    */
   public function onRequest(GetResponseEvent $event) {
-    $request = $event->getRequest();
-    $current_path = $request->attributes->get('_system_path');
-    if ($current_path == 'theme-test/request-listener') {
+    if ($this->currentRouteMatch->getRouteName() === 'theme_test.request_listener') {
       // First, force the theme registry to be rebuilt on this page request.
       // This allows us to test a full initialization of the theme system in
       // the code below.
@@ -43,11 +69,11 @@ class ThemeTestSubscriber implements EventSubscriberInterface {
       // theme system is initialized this early, it is still capable of
       // returning output and theming the page as a whole.
       $more_link = array(
-        '#theme' => 'more_link',
-        '#url' => 'user',
-        '#title' => 'Themed output generated in a KernelEvents::REQUEST listener',
+        '#type' => 'more_link',
+        '#url' => Url::fromRoute('user.page'),
+        '#attributes' => array('title' => 'Themed output generated in a KernelEvents::REQUEST listener'),
       );
-      $GLOBALS['theme_test_output'] = drupal_render($more_link);
+      $GLOBALS['theme_test_output'] = $this->renderer->renderPlain($more_link);
     }
   }
 
@@ -55,9 +81,12 @@ class ThemeTestSubscriber implements EventSubscriberInterface {
    * Ensures that the theme registry was not initialized.
    */
   public function onView(GetResponseEvent $event) {
-    $request = $event->getRequest();
-    $current_path = $request->attributes->get('_system_path');
-    if (strpos($current_path, 'user/autocomplete') === 0) {
+    $current_route = $this->currentRouteMatch->getRouteName();
+    $entity_autcomplete_route = array(
+      'system.entity_autocomplete',
+    );
+
+    if (in_array($current_route, $entity_autcomplete_route)) {
       if ($this->container->initialized('theme.registry')) {
         throw new \Exception('registry initialized');
       }

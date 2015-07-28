@@ -8,6 +8,7 @@
 namespace Drupal\image\Tests;
 
 use Drupal\simpletest\WebTestBase;
+use Drupal\image\Entity\ImageStyle;
 
 /**
  * Tests the file move function for images and image styles.
@@ -31,7 +32,7 @@ class FileMoveTest extends WebTestBase {
     $file = entity_create('file', (array) current($this->drupalGetTestFiles('image')));
 
     // Create derivative image.
-    $styles = entity_load_multiple('image_style');
+    $styles = ImageStyle::loadMultiple();
     $style = reset($styles);
     $original_uri = $file->getFileUri();
     $derivative_uri = $style->buildUri($original_uri);
@@ -42,7 +43,7 @@ class FileMoveTest extends WebTestBase {
 
     // Clone the object so we don't have to worry about the function changing
     // our reference copy.
-    $desired_filepath = 'public://' . $this->randomName();
+    $desired_filepath = 'public://' . $this->randomMachineName();
     $result = file_move(clone $file, $desired_filepath, FILE_EXISTS_ERROR);
 
     // Check if image has been moved.

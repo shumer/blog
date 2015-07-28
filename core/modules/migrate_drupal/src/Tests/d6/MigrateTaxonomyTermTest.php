@@ -8,7 +8,7 @@
 namespace Drupal\migrate_drupal\Tests\d6;
 
 use Drupal\migrate\MigrateExecutable;
-use Drupal\migrate_drupal\Tests\MigrateDrupalTestBase;
+use Drupal\migrate_drupal\Tests\d6\MigrateDrupal6TestBase;
 use Drupal\taxonomy\Entity\Term;
 
 /**
@@ -16,16 +16,19 @@ use Drupal\taxonomy\Entity\Term;
  *
  * @group migrate_drupal
  */
-class MigrateTaxonomyTermTest extends MigrateDrupalTestBase {
+class MigrateTaxonomyTermTest extends MigrateDrupal6TestBase {
 
-  static $modules = array('taxonomy');
+  static $modules = array('taxonomy', 'text');
 
   /**
    * {@inheritdoc}
    */
   protected function setUp() {
     parent::setUp();
-    $this->prepareIdMappings(array(
+
+    $this->installEntitySchema('taxonomy_term');
+
+    $this->prepareMigrations(array(
       'd6_taxonomy_vocabulary' => array(
         array(array(1), array('vocabulary_1_i_0_')),
         array(array(2), array('vocabulary_2_i_1_')),
@@ -34,8 +37,10 @@ class MigrateTaxonomyTermTest extends MigrateDrupalTestBase {
     /** @var \Drupal\migrate\entity\Migration $migration */
     $migration = entity_load('migration', 'd6_taxonomy_term');
     $dumps = array(
-      $this->getDumpDirectory() . '/Drupal6TaxonomyTerm.php',
-      $this->getDumpDirectory() . '/Drupal6TaxonomyVocabulary.php',
+      $this->getDumpDirectory() . '/TermData.php',
+      $this->getDumpDirectory() . '/TermHierarchy.php',
+      $this->getDumpDirectory() . '/Vocabulary.php',
+      $this->getDumpDirectory() . '/VocabularyNodeTypes.php',
     );
     $this->prepare($migration, $dumps);
     $executable = new MigrateExecutable($migration, $this);
@@ -84,23 +89,23 @@ class MigrateTaxonomyTermTest extends MigrateDrupalTestBase {
         'parent' => array(4, 5),
       ),
     );
-    $terms = entity_load_multiple('taxonomy_term', array_keys($expected_results));
+    $terms = Term::loadMultiple(array_keys($expected_results));
     foreach ($expected_results as $tid => $values) {
       /** @var Term $term */
       $term = $terms[$tid];
-      $this->assertIdentical($term->name->value, "term {$tid} of vocabulary {$values['source_vid']}");
-      $this->assertIdentical($term->description->value, "description of term {$tid} of vocabulary {$values['source_vid']}");
-      $this->assertEqual($term->vid->target_id, $values['vid']);
-      $this->assertEqual($term->weight->value, $values['weight']);
+      $this->assertIdentical("term {$tid} of vocabulary {$values['source_vid']}", $term->name->value);
+      $this->assertIdentical("description of term {$tid} of vocabulary {$values['source_vid']}", $term->description->value);
+      $this->assertIdentical($values['vid'], $term->vid->target_id);
+      $this->assertIdentical((string) $values['weight'], $term->weight->value);
       if ($values['parent'] === array(0)) {
-        $this->assertEqual($term->parent->value, 0);
+        $this->assertNull($term->parent->target_id);
       }
       else {
         $parents = array();
-        foreach (taxonomy_term_load_parents($tid) as $parent) {
-          $parents[] = $parent->id();
+        foreach (\Drupal::entityManager()->getStorage('taxonomy_term')->loadParents($tid) as $parent) {
+          $parents[] = (int) $parent->id();
         }
-        $this->assertEqual($values['parent'], $parents);
+        $this->assertIdentical($parents, $values['parent']);
       }
     }
   }

@@ -2,11 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\exposed_form\InputRequired.
+ * Contains \Drupal\views\Plugin\views\exposed_form\InputRequired.
  */
 
 namespace Drupal\views\Plugin\views\exposed_form;
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Views;
 
 /**
@@ -25,27 +26,28 @@ class InputRequired extends ExposedFormPluginBase {
   protected function defineOptions() {
     $options = parent::defineOptions();
 
-    $options['text_input_required'] = array('default' => 'Select any filter and click on Apply to see results', 'translatable' => TRUE);
+    $options['text_input_required'] = array('default' => $this->t('Select any filter and click on Apply to see results'));
     $options['text_input_required_format'] = array('default' => NULL);
     return $options;
   }
 
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['text_input_required'] = array(
       '#type' => 'text_format',
-      '#title' => t('Text on demand'),
-      '#description' => t('Text to display instead of results until the user selects and applies an exposed filter.'),
+      '#title' => $this->t('Text on demand'),
+      '#description' => $this->t('Text to display instead of results until the user selects and applies an exposed filter.'),
       '#default_value' => $this->options['text_input_required'],
       '#format' => isset($this->options['text_input_required_format']) ? $this->options['text_input_required_format'] : filter_default_format(),
       '#editor' => FALSE,
     );
   }
 
-  public function submitOptionsForm(&$form, &$form_state) {
-    $form_state['values']['exposed_form_options']['text_input_required_format'] = $form_state['values']['exposed_form_options']['text_input_required']['format'];
-    $form_state['values']['exposed_form_options']['text_input_required'] = $form_state['values']['exposed_form_options']['text_input_required']['value'];
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) {
+    $exposed_form_options = $form_state->getValue('exposed_form_options');
+    $form_state->setValue(array('exposed_form_options', 'text_input_required_format'), $exposed_form_options['text_input_required']['format']);
+    $form_state->setValue(array('exposed_form_options', 'text_input_required'), $exposed_form_options['text_input_required']['value']);
     parent::submitOptionsForm($form, $form_state);
   }
 
@@ -57,7 +59,7 @@ class InputRequired extends ExposedFormPluginBase {
         foreach ($view->filter as $filter) {
           if ($filter->isExposed()) {
             $identifier = $filter->options['expose']['identifier'];
-            if (isset($view->exposed_input[$identifier])) {
+            if (isset($view->getExposedInput()[$identifier])) {
               $cache = TRUE;
               return $cache;
             }

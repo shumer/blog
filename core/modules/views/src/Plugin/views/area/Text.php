@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\area\Text.
+ * Contains \Drupal\views\Plugin\views\area\Text.
  */
 
 namespace Drupal\views\Plugin\views\area;
+
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Views area text handler.
@@ -21,23 +23,27 @@ class Text extends TokenizeAreaPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['content'] = array('default' => '', 'translatable' => TRUE, 'format_key' => 'format');
-    $options['format'] = array('default' => NULL);
+    $options['content'] = array(
+      'contains' => array(
+        'value' => array('default' => ''),
+        'format' => array('default' => NULL),
+      ),
+    );
     return $options;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
 
     $form['content'] = array(
-      '#title' => t('Content'),
+      '#title' => $this->t('Content'),
       '#type' => 'text_format',
-      '#default_value' => $this->options['content'],
+      '#default_value' => $this->options['content']['value'],
       '#rows' => 6,
-      '#format' => isset($this->options['format']) ? $this->options['format'] : filter_default_format(),
+      '#format' => isset($this->options['content']['format']) ? $this->options['content']['format'] : filter_default_format(),
       '#editor' => FALSE,
     );
   }
@@ -45,21 +51,12 @@ class Text extends TokenizeAreaPluginBase {
   /**
    * {@inheritdoc}
    */
-  public function submitOptionsForm(&$form, &$form_state) {
-    $form_state['values']['options']['format'] = $form_state['values']['options']['content']['format'];
-    $form_state['values']['options']['content'] = $form_state['values']['options']['content']['value'];
-    parent::submitOptionsForm($form, $form_state);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function render($empty = FALSE) {
-    $format = isset($this->options['format']) ? $this->options['format'] : filter_default_format();
+    $format = isset($this->options['content']['format']) ? $this->options['content']['format'] : filter_default_format();
     if (!$empty || !empty($this->options['empty'])) {
       return array(
         '#type' => 'processed_text',
-        '#text' => $this->tokenizeValue($this->options['content']),
+        '#text' => $this->tokenizeValue($this->options['content']['value']),
         '#format' => $format,
       );
     }

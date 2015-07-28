@@ -7,12 +7,47 @@
 
 namespace Drupal\views_ui\Form;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Form\ConfigFormBase;
+use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Form builder for the admin display defaults page.
  */
 class BasicSettingsForm extends ConfigFormBase {
+
+  /**
+   * The theme handler.
+   *
+   * @var \Drupal\Core\Extension\ThemeHandlerInterface
+   */
+  protected $themeHandler;
+
+  /**
+   * Constructs a \Drupal\views_ui\Form\BasicSettingsForm object.
+   *
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The factory for configuration objects.
+   * @param \Drupal\Core\Extension\ThemeHandlerInterface $theme_handler
+   *   The theme handler.
+   */
+  public function __construct(ConfigFactoryInterface $config_factory, ThemeHandlerInterface $theme_handler) {
+    parent::__construct($config_factory);
+
+    $this->themeHandler = $theme_handler;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('config.factory'),
+      $container->get('theme_handler')
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -24,12 +59,19 @@ class BasicSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  protected function getEditableConfigNames() {
+    return ['views.settings'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildForm($form, $form_state);
 
     $config = $this->config('views.settings');
     $options = array();
-    foreach (list_themes() as $name => $theme) {
+    foreach ($this->themeHandler->listInfo() as $name => $theme) {
       if ($theme->status) {
         $options[$name] = $theme->info['name'];
       }
@@ -126,18 +168,18 @@ class BasicSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('views.settings')
-      ->set('ui.show.master_display', $form_state['values']['ui_show_master_display'])
-      ->set('ui.show.advanced_column', $form_state['values']['ui_show_advanced_column'])
-      ->set('ui.show.display_embed', $form_state['values']['ui_show_display_embed'])
-      ->set('ui.exposed_filter_any_label', $form_state['values']['ui_exposed_filter_any_label'])
-      ->set('ui.always_live_preview', $form_state['values']['ui_always_live_preview'])
-      ->set('ui.show.preview_information', $form_state['values']['ui_show_preview_information'])
-      ->set('ui.show.sql_query.where', $form_state['values']['ui_show_sql_query_where'])
-      ->set('ui.show.sql_query.enabled', $form_state['values']['ui_show_sql_query_enabled'])
-      ->set('ui.show.performance_statistics', $form_state['values']['ui_show_performance_statistics'])
-      ->set('ui.show.additional_queries', $form_state['values']['ui_show_additional_queries'])
+      ->set('ui.show.master_display', $form_state->getValue('ui_show_master_display'))
+      ->set('ui.show.advanced_column', $form_state->getValue('ui_show_advanced_column'))
+      ->set('ui.show.display_embed', $form_state->getValue('ui_show_display_embed'))
+      ->set('ui.exposed_filter_any_label', $form_state->getValue('ui_exposed_filter_any_label'))
+      ->set('ui.always_live_preview', $form_state->getValue('ui_always_live_preview'))
+      ->set('ui.show.preview_information', $form_state->getValue('ui_show_preview_information'))
+      ->set('ui.show.sql_query.where', $form_state->getValue('ui_show_sql_query_where'))
+      ->set('ui.show.sql_query.enabled', $form_state->getValue('ui_show_sql_query_enabled'))
+      ->set('ui.show.performance_statistics', $form_state->getValue('ui_show_performance_statistics'))
+      ->set('ui.show.additional_queries', $form_state->getValue('ui_show_additional_queries'))
       ->save();
 
     parent::submitForm($form, $form_state);

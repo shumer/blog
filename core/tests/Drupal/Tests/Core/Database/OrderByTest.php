@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains Drupal\Tests\Core\Database\OrderByTest.
+ * Contains \Drupal\Tests\Core\Database\OrderByTest.
  */
 
 namespace Drupal\Tests\Core\Database;
@@ -27,7 +27,7 @@ class OrderByTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     $connection = $this->getMockBuilder('Drupal\Core\Database\Connection')
       ->disableOriginalConstructor()
       ->getMockForAbstractClass();

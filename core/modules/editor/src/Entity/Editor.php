@@ -18,6 +18,12 @@ use Drupal\editor\EditorInterface;
  *   label = @Translation("Text Editor"),
  *   entity_keys = {
  *     "id" = "format"
+ *   },
+ *   config_export = {
+ *     "format",
+ *     "editor",
+ *     "settings",
+ *     "image_upload",
  *   }
  * )
  */
@@ -80,12 +86,7 @@ class Editor extends ConfigEntityBase implements EditorInterface {
     parent::__construct($values, $entity_type);
 
     $plugin = $this->editorPluginManager()->createInstance($this->editor);
-
-    // Initialize settings, merging module-provided defaults.
-    $default_settings = $plugin->getDefaultSettings();
-    $default_settings += \Drupal::moduleHandler()->invokeAll('editor_default_settings', array($this->editor));
-    \Drupal::moduleHandler()->alter('editor_default_settings', $default_settings, $this->editor);
-    $this->settings += $default_settings;
+    $this->settings += $plugin->getDefaultSettings();
   }
 
   /**
@@ -101,9 +102,9 @@ class Editor extends ConfigEntityBase implements EditorInterface {
   public function calculateDependencies() {
     parent::calculateDependencies();
     // Create a dependency on the associated FilterFormat.
-    $this->addDependency('entity', $this->getFilterFormat()->getConfigDependencyName());
-    // @todo use EntityWithPluginBagsInterface so configuration between config
-    //   entity and dependency on provider is managed automatically.
+    $this->addDependency('config', $this->getFilterFormat()->getConfigDependencyName());
+    // @todo use EntityWithPluginCollectionInterface so configuration between
+    //   config entity and dependency on provider is managed automatically.
     $definition = $this->editorPluginManager()->createInstance($this->editor)->getPluginDefinition();
     $this->addDependency('module', $definition['provider']);
     return $this->dependencies;
@@ -144,6 +145,14 @@ class Editor extends ConfigEntityBase implements EditorInterface {
    */
   public function getEditor() {
     return $this->editor;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setEditor($editor) {
+    $this->editor = $editor;
+    return $this;
   }
 
   /**

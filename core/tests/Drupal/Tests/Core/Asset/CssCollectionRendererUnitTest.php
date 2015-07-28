@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\system\Tests\Asset\CssCollectionRendererUnitTest.
+ * Contains \Drupal\Tests\Core\Asset\CssCollectionRendererUnitTest.
  */
 
 
@@ -54,14 +54,7 @@ class CssCollectionRendererUnitTest extends UnitTestCase {
    *
    * @var array
    */
-  protected $file_css_group;
-
-  /**
-   * A valid inline CSS asset group.
-   *
-   * @var array
-   */
-  protected $inline_css_group;
+  protected $fileCssGroup;
 
   /**
    * The state mock class.
@@ -70,13 +63,13 @@ class CssCollectionRendererUnitTest extends UnitTestCase {
    */
   protected $state;
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->state = $this->getMock('Drupal\Core\State\StateInterface');
 
     $this->renderer = new CssCollectionRenderer($this->state);
-    $this->file_css_group = array(
+    $this->fileCssGroup = array(
       'group' => -100,
       'every_page' => TRUE,
       'type' => 'file',
@@ -105,36 +98,6 @@ class CssCollectionRendererUnitTest extends UnitTestCase {
           'data' => 'tests/Drupal/Tests/Core/Asset/bar.css',
           'browsers' => array('IE' => TRUE, '!IE' => TRUE),
           'basename' => 'bar.css',
-        ),
-      ),
-    );
-    $this->inline_css_group = array(
-      'group' => 0,
-      'every_page' => FALSE,
-      'type' => 'inline',
-      'media' => 'all',
-      'preprocess' => TRUE,
-      'browsers' => array('IE' => TRUE, '!IE' => TRUE),
-      'items' => array(
-        0 => array(
-          'group' => 0,
-          'every_page' => FALSE,
-          'type' => 'inline',
-          'weight' => 0.012,
-          'media' => 'all',
-          'preprocess' => TRUE,
-          'data' => '.girlfriend { display: none; }',
-          'browsers' => array('IE' => TRUE, '!IE' => TRUE),
-        ),
-        1 => array(
-          'group' => 0,
-          'every_page' => FALSE,
-          'type' => 'file',
-          'weight' => 0.013,
-          'media' => 'all',
-          'preprocess' => FALSE,
-          'data' => '#home body { position: fixed; }',
-          'browsers' => array('IE' => TRUE, '!IE' => TRUE),
         ),
       ),
     );
@@ -189,15 +152,6 @@ class CssCollectionRendererUnitTest extends UnitTestCase {
         // Render elements.
         array(
           0 => $create_link_element('http://example.com/popular.js', 'all'),
-        ),
-      ),
-      // Single inline CSS asset.
-      1 => array(
-        array(
-          0 => array('group' => 0, 'every_page' => FALSE, 'type' => 'inline', 'media' => 'all', 'preprocess' => FALSE, 'data' => '.girlfriend { display: none; }', 'browsers' => array()),
-        ),
-        array(
-          0 => $create_style_element('.girlfriend { display: none; }', 'all', array(), TRUE),
         ),
       ),
       // Single file CSS asset.

@@ -9,7 +9,7 @@ namespace Drupal\entity_test\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\user\EntityOwnerInterface;
 use Drupal\user\UserInterface;
@@ -20,31 +20,33 @@ use Drupal\user\UserInterface;
  * @ContentEntityType(
  *   id = "entity_test",
  *   label = @Translation("Test entity"),
- *   controllers = {
+ *   handlers = {
  *     "list_builder" = "Drupal\entity_test\EntityTestListBuilder",
  *     "view_builder" = "Drupal\entity_test\EntityTestViewBuilder",
- *     "access" = "Drupal\entity_test\EntityTestAccessController",
+ *     "access" = "Drupal\entity_test\EntityTestAccessControlHandler",
  *     "form" = {
  *       "default" = "Drupal\entity_test\EntityTestForm",
  *       "delete" = "Drupal\entity_test\EntityTestDeleteForm"
  *     },
- *     "translation" = "Drupal\content_translation\ContentTranslationHandler"
+ *     "translation" = "Drupal\content_translation\ContentTranslationHandler",
+ *     "views_data" = "Drupal\entity_test\EntityTestViewsData"
  *   },
  *   base_table = "entity_test",
- *   fieldable = TRUE,
  *   persistent_cache = FALSE,
+ *   list_cache_contexts = { "entity_test_view_grants" },
  *   entity_keys = {
  *     "id" = "id",
  *     "uuid" = "uuid",
  *     "bundle" = "type",
- *     "label" = "name"
+ *     "label" = "name",
+ *     "langcode" = "langcode",
  *   },
  *   links = {
- *     "canonical" = "entity_test.render",
- *     "edit-form" = "entity_test.edit_entity_test",
- *     "delete-form" = "entity_test.delete_entity_test",
- *     "admin-form" = "entity_test.admin_entity_test"
- *   }
+ *     "canonical" = "/entity_test/{entity_test}",
+ *     "edit-form" = "/entity_test/manage/{entity_test}",
+ *     "delete-form" = "/entity_test/delete/entity_test/{entity_test}",
+ *   },
+ *   field_ui_base_route = "entity.entity_test.admin_form",
  * )
  */
 class EntityTest extends ContentEntityBase implements EntityOwnerInterface {
@@ -63,22 +65,23 @@ class EntityTest extends ContentEntityBase implements EntityOwnerInterface {
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    $fields['id'] = FieldDefinition::create('integer')
+    $fields['id'] = BaseFieldDefinition::create('integer')
       ->setLabel(t('ID'))
       ->setDescription(t('The ID of the test entity.'))
       ->setReadOnly(TRUE)
       ->setSetting('unsigned', TRUE);
 
-    $fields['uuid'] = FieldDefinition::create('uuid')
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
       ->setLabel(t('UUID'))
       ->setDescription(t('The UUID of the test entity.'))
       ->setReadOnly(TRUE);
 
-    $fields['langcode'] = FieldDefinition::create('language')
+    $fields['langcode'] = BaseFieldDefinition::create('language')
       ->setLabel(t('Language code'))
-      ->setDescription(t('The language code of the test entity.'));
+      ->setDescription(t('The language code of the test entity.'))
+      ->setTranslatable(TRUE);
 
-    $fields['name'] = FieldDefinition::create('string')
+    $fields['name'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Name'))
       ->setDescription(t('The name of the test entity.'))
       ->setTranslatable(TRUE)
@@ -87,19 +90,41 @@ class EntityTest extends ContentEntityBase implements EntityOwnerInterface {
         'label' => 'hidden',
         'type' => 'string',
         'weight' => -5,
+      ))
+      ->setDisplayOptions('form', array(
+        'type' => 'string_textfield',
+        'weight' => -5,
       ));
 
     // @todo: Add allowed values validation.
-    $fields['type'] = FieldDefinition::create('string')
+    $fields['type'] = BaseFieldDefinition::create('string')
       ->setLabel(t('Type'))
       ->setDescription(t('The bundle of the test entity.'))
       ->setRequired(TRUE);
 
-    $fields['user_id'] = FieldDefinition::create('entity_reference')
+    $fields['created'] = BaseFieldDefinition::create('created')
+      ->setLabel(t('Authored on'))
+      ->setDescription(t('Time the entity was created'))
+      ->setTranslatable(TRUE);
+
+    $fields['user_id'] = BaseFieldDefinition::create('entity_reference')
       ->setLabel(t('User ID'))
       ->setDescription(t('The ID of the associated user.'))
-      ->setSettings(array('target_type' => 'user'))
-      ->setTranslatable(TRUE);
+      ->setSetting('target_type', 'user')
+      ->setSetting('handler', 'default')
+      // Default EntityTest entities to have the root user as the owner, to
+      // simplify testing.
+      ->setDefaultValue(array(0 => array('target_id' => 1)))
+      ->setTranslatable(TRUE)
+      ->setDisplayOptions('form', array(
+        'type' => 'entity_reference_autocomplete',
+        'weight' => -1,
+        'settings' => array(
+          'match_operator' => 'CONTAINS',
+          'size' => '60',
+          'placeholder' => '',
+        ),
+      ));
 
     return $fields;
   }

@@ -8,7 +8,8 @@
 namespace Drupal\config_translation\Tests;
 
 use Drupal\Component\Utility\Unicode;
-use Drupal\Core\Language\Language;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -47,7 +48,7 @@ class ConfigTranslationListUiTest extends WebTestBase {
    */
   protected $adminUser;
 
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $permissions = array(
@@ -76,7 +77,7 @@ class ConfigTranslationListUiTest extends WebTestBase {
 
     // Enable import of translations. By default this is disabled for automated
     // tests.
-    \Drupal::config('locale.settings')
+    $this->config('locale.settings')
       ->set('translation.import_enabled', TRUE)
       ->save();
   }
@@ -90,7 +91,7 @@ class ConfigTranslationListUiTest extends WebTestBase {
   protected function doBlockListTest() {
     // Add a test block, any block will do.
     // Set the machine name so the translate link can be built later.
-    $id = Unicode::strtolower($this->randomName(16));
+    $id = Unicode::strtolower($this->randomMachineName(16));
     $this->drupalPlaceBlock('system_powered_by_block', array('id' => $id));
 
     // Get the Block listing.
@@ -113,8 +114,8 @@ class ConfigTranslationListUiTest extends WebTestBase {
     // this does not test more than necessary.
     $this->drupalGet('admin/structure/menu/add');
     // Lowercase the machine name.
-    $menu_name = Unicode::strtolower($this->randomName(16));
-    $label = $this->randomName(16);
+    $menu_name = Unicode::strtolower($this->randomMachineName(16));
+    $label = $this->randomMachineName(16);
     $edit = array(
       'id' => $menu_name,
       'description' => '',
@@ -159,9 +160,9 @@ class ConfigTranslationListUiTest extends WebTestBase {
     // Create a test vocabulary to decouple looking for translate operations
     // link so this does not test more than necessary.
     $vocabulary = entity_create('taxonomy_vocabulary', array(
-      'name' => $this->randomName(),
-      'description' => $this->randomName(),
-      'vid' => Unicode::strtolower($this->randomName()),
+      'name' => $this->randomMachineName(),
+      'description' => $this->randomMachineName(),
+      'vid' => Unicode::strtolower($this->randomMachineName()),
     ));
     $vocabulary->save();
 
@@ -184,8 +185,8 @@ class ConfigTranslationListUiTest extends WebTestBase {
     // Create a test custom block type to decouple looking for translate
     // operations link so this does not test more than necessary.
     $block_content_type = entity_create('block_content_type', array(
-      'id' => Unicode::strtolower($this->randomName(16)),
-      'label' => $this->randomName(),
+      'id' => Unicode::strtolower($this->randomMachineName(16)),
+      'label' => $this->randomMachineName(),
       'revision' => FALSE
     ));
     $block_content_type->save();
@@ -208,9 +209,9 @@ class ConfigTranslationListUiTest extends WebTestBase {
   public function doContactFormsListTest() {
     // Create a test contact form to decouple looking for translate operations
     // link so this does not test more than necessary.
-    $contact_form = entity_create('contact_category', array(
-      'id' => Unicode::strtolower($this->randomName(16)),
-      'label' => $this->randomName(),
+    $contact_form = entity_create('contact_form', array(
+      'id' => Unicode::strtolower($this->randomMachineName(16)),
+      'label' => $this->randomMachineName(),
     ));
     $contact_form->save();
 
@@ -232,11 +233,10 @@ class ConfigTranslationListUiTest extends WebTestBase {
   public function doContentTypeListTest() {
     // Create a test content type to decouple looking for translate operations
     // link so this does not test more than necessary.
-    $content_type = entity_create('node_type', array(
-      'type' => Unicode::strtolower($this->randomName(16)),
-      'name' => $this->randomName(),
+    $content_type = $this->drupalCreateContentType(array(
+      'type' => Unicode::strtolower($this->randomMachineName(16)),
+      'name' => $this->randomMachineName(),
     ));
-    $content_type->save();
 
     // Get the content type listing.
     $this->drupalGet('admin/structure/types');
@@ -257,8 +257,8 @@ class ConfigTranslationListUiTest extends WebTestBase {
     // Create a test format to decouple looking for translate operations
     // link so this does not test more than necessary.
     $filter_format = entity_create('filter_format', array(
-      'format' => Unicode::strtolower($this->randomName(16)),
-      'name' => $this->randomName(),
+      'format' => Unicode::strtolower($this->randomMachineName(16)),
+      'name' => $this->randomMachineName(),
     ));
     $filter_format->save();
 
@@ -281,7 +281,7 @@ class ConfigTranslationListUiTest extends WebTestBase {
     // Create a test shortcut to decouple looking for translate operations
     // link so this does not test more than necessary.
     $shortcut = entity_create('shortcut_set', array(
-      'id' => Unicode::strtolower($this->randomName(16)),
+      'id' => Unicode::strtolower($this->randomMachineName(16)),
       'label' => $this->randomString(),
     ));
     $shortcut->save();
@@ -304,7 +304,7 @@ class ConfigTranslationListUiTest extends WebTestBase {
   public function doUserRoleListTest() {
     // Create a test role to decouple looking for translate operations
     // link so this does not test more than necessary.
-    $role_id = Unicode::strtolower($this->randomName(16));
+    $role_id = Unicode::strtolower($this->randomMachineName(16));
     $this->drupalCreateRole(array(), $role_id);
 
     // Get the role listing.
@@ -325,8 +325,7 @@ class ConfigTranslationListUiTest extends WebTestBase {
   public function doLanguageListTest() {
     // Create a test language to decouple looking for translate operations
     // link so this does not test more than necessary.
-    $language = new Language(array('id' => 'ga', 'name' => 'Irish'));
-    language_save($language);
+    ConfigurableLanguage::createFromLangcode('ga')->save();
 
     // Get the language listing.
     $this->drupalGet('admin/config/regional/language');
@@ -361,16 +360,17 @@ class ConfigTranslationListUiTest extends WebTestBase {
    */
   public function doResponsiveImageListTest() {
     $edit = array();
-    $edit['label'] = $this->randomName();
+    $edit['label'] = $this->randomMachineName();
     $edit['id'] = strtolower($edit['label']);
+    $edit['fallback_image_style'] = 'thumbnail';
 
-    $this->drupalPostForm('admin/config/media/responsive-image-mapping/add', $edit, t('Save'));
-    $this->assertRaw(t('Responsive image mapping %label saved.', array('%label' => $edit['label'])));
+    $this->drupalPostForm('admin/config/media/responsive-image-style/add', $edit, t('Save'));
+    $this->assertRaw(t('Responsive image style %label saved.', array('%label' => $edit['label'])));
 
-    // Get the responsive image mapping listing.
-    $this->drupalGet('admin/config/media/responsive-image-mapping');
+    // Get the responsive image style listing.
+    $this->drupalGet('admin/config/media/responsive-image-style');
 
-    $translate_link = 'admin/config/media/responsive-image-mapping/' . $edit['id'] . '/translate';
+    $translate_link = 'admin/config/media/responsive-image-style/' . $edit['id'] . '/translate';
     // Test if the link to translate the style is on the page.
     $this->assertLinkByHref($translate_link);
 
@@ -384,11 +384,27 @@ class ConfigTranslationListUiTest extends WebTestBase {
    */
   public function doFieldListTest() {
     // Create a base content type.
-    $content_type = entity_create('node_type', array(
-      'type' => Unicode::strtolower($this->randomName(16)),
-      'name' => $this->randomName(),
+    $content_type = $this->drupalCreateContentType(array(
+      'type' => Unicode::strtolower($this->randomMachineName(16)),
+      'name' => $this->randomMachineName(),
     ));
-    $content_type->save();
+
+    // Create a block content type.
+    $block_content_type = entity_create('block_content_type', array(
+      'id' => 'basic',
+      'label' => 'Basic',
+      'revision' => FALSE
+    ));
+    $block_content_type->save();
+    $field = entity_create('field_config', array(
+      // The field storage is guaranteed to exist because it is supplied by the
+      // block_content module.
+      'field_storage' => FieldStorageConfig::loadByName('block_content', 'body'),
+      'bundle' => $block_content_type->id(),
+      'label' => 'Body',
+      'settings' => array('display_summary' => FALSE),
+    ));
+    $field->save();
 
     // Look at a few fields on a few entity types.
     $pages = array(

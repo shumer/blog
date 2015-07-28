@@ -7,6 +7,7 @@
 
 namespace Drupal\system\Tests\Theme;
 
+use Drupal\Core\Url;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -23,16 +24,16 @@ class EngineTwigTest extends WebTestBase {
    */
   public static $modules = array('theme_test', 'twig_theme_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
-    theme_enable(array('test_theme'));
+    \Drupal::service('theme_handler')->install(array('test_theme'));
   }
 
   /**
    * Tests that the Twig engine handles PHP data correctly.
    */
   function testTwigVariableDataTypes() {
-    \Drupal::config('system.theme')
+    $this->config('system.theme')
       ->set('default', 'test_theme')
       ->save();
     $this->drupalGet('twig-theme-test/php-variables');
@@ -55,12 +56,84 @@ class EngineTwigTest extends WebTestBase {
       'url (as route) absolute despite option: ' . $url_generator->generateFromRoute('user.register', array(), array('absolute' => TRUE)),
       'url (as route) absolute with fragment: ' . $url_generator->generateFromRoute('user.register', array(), array('absolute' => TRUE, 'fragment' => 'bottom')),
     );
+
+    // Verify that url() has the ability to bubble cacheability metadata:
+    // absolute URLs should bubble the 'url.site' cache context. (This only
+    // needs to test that cacheability metadata is bubbled *at all*; detailed
+    // tests for *which* cacheability metadata is bubbled live elsewhere.)
+    $this->assertCacheContext('url.site');
+
     // Make sure we got something.
-    $content = $this->drupalGetContent();
+    $content = $this->getRawContent();
     $this->assertFalse(empty($content), 'Page content is not empty');
     foreach ($expected as $string) {
       $this->assertRaw('<div>' . $string . '</div>');
     }
+  }
+
+  /**
+   * Tests the link_generator Twig functions.
+   */
+  public function testTwigLinkGenerator() {
+    $this->drupalGet('twig-theme-test/link-generator');
+
+     /** @var \Drupal\Core\Utility\LinkGenerator $link_generator */
+    $link_generator = $this->container->get('link_generator');
+
+    $expected = [
+      'link via the linkgenerator: ' . $link_generator->generate('register', new Url('user.register', [], ['absolute' => TRUE])),
+      'link via the linkgenerator: ' . $link_generator->generate('register', new Url('user.register', [], ['absolute' => TRUE, 'attributes' => ['foo' => 'bar']])),
+      'link via the linkgenerator: ' . $link_generator->generate('register', new Url('user.register', [], ['attributes' => ['foo' => 'bar', 'id' => 'kitten']])),
+      'link via the linkgenerator: ' . $link_generator->generate('register', new Url('user.register', [], ['attributes' => ['id' => 'kitten']])),
+    ];
+
+    // Verify that link() has the ability to bubble cacheability metadata:
+    // absolute URLs should bubble the 'url.site' cache context. (This only
+    // needs to test that cacheability metadata is bubbled *at all*; detailed
+    // tests for *which* cacheability metadata is bubbled live elsewhere.)
+    $this->assertCacheContext('url.site');
+
+    $content = $this->getRawContent();
+    $this->assertFalse(empty($content), 'Page content is not empty');
+    foreach ($expected as $string) {
+      $this->assertRaw('<div>' . $string . '</div>');
+    }
+  }
+
+  /**
+   * Tests the magic url to string Twig functions.
+   *
+   * @see \Drupal\Core\Url
+   */
+  public function testTwigUrlToString() {
+    $this->drupalGet('twig-theme-test/url-to-string');
+
+    $expected = [
+      'rendered url: ' . Url::fromRoute('user.register')->toString(),
+    ];
+
+    $content = $this->getRawContent();
+    $this->assertFalse(empty($content), 'Page content is not empty');
+    foreach ($expected as $string) {
+      $this->assertRaw('<div>' . $string . '</div>');
+    }
+  }
+
+  /**
+   * Tests the automatic/magic calling of toString() on objects, if exists.
+   */
+  public function testTwigFileUrls() {
+    $this->drupalGet('/twig-theme-test/file-url');
+    $filepath = file_create_url('core/modules/system/tests/modules/twig_theme_test/twig_theme_test.js');
+    $this->assertRaw('<div>file_url: ' . $filepath . '</div>');
+  }
+
+  /**
+   * Tests the attach of asset libraries.
+   */
+  public function testTwigAttachLibrary() {
+    $this->drupalGet('/twig-theme-test/attach-library');
+    $this->assertRaw('ckeditor.js');
   }
 
 }

@@ -9,6 +9,7 @@ namespace Drupal\locale\Form;
 
 use Drupal\Component\Gettext\PoStreamWriter;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\locale\PoDatabaseReader;
@@ -49,19 +50,19 @@ class ExportForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function getFormID() {
+  public function getFormId() {
     return 'locale_translate_export_form';
   }
 
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $languages = $this->languageManager->getLanguages();
     $language_options = array();
     foreach ($languages as $langcode => $language) {
-      if ($langcode != 'en' || locale_translate_english()) {
-        $language_options[$langcode] = $language->name;
+      if (locale_is_translatable($langcode)) {
+        $language_options[$langcode] = $language->getName();
       }
     }
     $language_default = $this->languageManager->getDefaultLanguage();
@@ -82,7 +83,7 @@ class ExportForm extends FormBase {
         '#type' => 'select',
         '#title' => $this->t('Language'),
         '#options' => $language_options,
-        '#default_value' => $language_default->id,
+        '#default_value' => $language_default->getId(),
         '#empty_option' => $this->t('Source text only, no translations'),
         '#empty_value' => LanguageInterface::LANGCODE_SYSTEM,
       );
@@ -127,23 +128,23 @@ class ExportForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
+  public function submitForm(array &$form, FormStateInterface $form_state) {
     // If template is required, language code is not given.
-    if ($form_state['values']['langcode'] != LanguageInterface::LANGCODE_SYSTEM) {
-      $language = $this->languageManager->getLanguage($form_state['values']['langcode']);
+    if ($form_state->getValue('langcode') != LanguageInterface::LANGCODE_SYSTEM) {
+      $language = $this->languageManager->getLanguage($form_state->getValue('langcode'));
     }
     else {
       $language = NULL;
     }
-    $content_options = isset($form_state['values']['content_options']) ? $form_state['values']['content_options'] : array();
+    $content_options = $form_state->getValue('content_options', array());
     $reader = new PoDatabaseReader();
     $language_name = '';
     if ($language != NULL) {
-      $reader->setLangcode($language->id);
+      $reader->setLangcode($language->getId());
       $reader->setOptions($content_options);
       $languages = $this->languageManager->getLanguages();
-      $language_name = isset($languages[$language->id]) ? $languages[$language->id]->name : '';
-      $filename = $language->id . '.po';
+      $language_name = isset($languages[$language->getId()]) ? $languages[$language->getId()]->getName() : '';
+      $filename = $language->getId() .'.po';
     }
     else {
       // Template required.
@@ -168,7 +169,7 @@ class ExportForm extends FormBase {
 
       $response = new BinaryFileResponse($uri);
       $response->setContentDisposition('attachment', $filename);
-      $form_state['response'] = $response;
+      $form_state->setResponse($response);
     }
     else {
       drupal_set_message($this->t('Nothing to export.'));

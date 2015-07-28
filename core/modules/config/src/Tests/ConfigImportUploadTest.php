@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\config\Tests\ConfigImportUploadTest.
+ * Contains \Drupal\config\Tests\ConfigImportUploadTest.
  */
 
 namespace Drupal\config\Tests;
@@ -16,13 +16,25 @@ use Drupal\simpletest\WebTestBase;
  */
 class ConfigImportUploadTest extends WebTestBase {
 
+  /**
+   * A user with the 'import configuration' permission.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $webUser;
+
+  /**
+   * Modules to install.
+   *
+   * @var array
+   */
   public static $modules = array('config');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    $this->web_user = $this->drupalCreateUser(array('import configuration'));
-    $this->drupalLogin($this->web_user);
+    $this->webUser = $this->drupalCreateUser(array('import configuration'));
+    $this->drupalLogin($this->webUser);
   }
 
   /**

@@ -10,19 +10,32 @@
  *    Changing this file will not change your CKEditor configuration.
  */
 
+/* exported CKBUILDER_CONFIG */
+
 var CKBUILDER_CONFIG = {
 	skin: 'moono',
 	ignore: [
 		// CKEditor repository structure: unrelated to the usage of CKEditor itself.
 		'dev',
-		'.mailmap',
+		'README.md',
+		'.editorconfig',
 		'.gitignore',
 		'.gitattributes',
+		'.idea',
+		'.mailmap',
+		'.DS_Store',
+		'tests',
+		'package.json',
+		'bender.js',
+		'.bender',
+		'bender-err.log',
+		'bender-out.log',
+		'node_modules',
 		// Parts of CKEditor that we consciously don't ship with Drupal.
 		'adapters',
-		'README.md',
 		'config.js',
 		'contents.css',
+		'Gruntfile.js',
 		'styles.js',
 		'samples',
 		'skins/moono/readme.md'

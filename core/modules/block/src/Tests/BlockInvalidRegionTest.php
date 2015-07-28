@@ -2,12 +2,13 @@
 
 /**
  * @file
- * Definition of Drupal\block\Tests\BlockInvalidRegionTest.
+ * Contains \Drupal\block\Tests\BlockInvalidRegionTest.
  */
 
 namespace Drupal\block\Tests;
 
 use Drupal\simpletest\WebTestBase;
+use Drupal\block\Entity\Block;
 
 /**
  * Tests that an active block assigned to a non-existing region triggers the
@@ -18,13 +19,13 @@ use Drupal\simpletest\WebTestBase;
 class BlockInvalidRegionTest extends WebTestBase {
 
   /**
-   * Modules to enable.
+   * Modules to install.
    *
    * @var array
    */
   public static $modules = array('block', 'block_test');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
     // Create an admin user.
     $admin_user = $this->drupalCreateUser(array(
@@ -41,7 +42,7 @@ class BlockInvalidRegionTest extends WebTestBase {
   function testBlockInInvalidRegion() {
     // Enable a test block and place it in an invalid region.
     $block = $this->drupalPlaceBlock('test_html');
-    $block->set('region', 'invalid_region');
+    $block->setRegion('invalid_region');
     $block->save();
 
     $warning_message = t('The block %info was assigned to the invalid region %region and has been disabled.', array('%info' => $block->id(), '%region' => 'invalid_region'));
@@ -55,8 +56,8 @@ class BlockInvalidRegionTest extends WebTestBase {
     $this->assertNoRaw($warning_message, 'Disabled block in the invalid region will not trigger the warning.');
 
     // Place disabled test block in the invalid region of the default theme.
-    $block = entity_load('block', $block->id());
-    $block->set('region', 'invalid_region');
+    $block = Block::load($block->id());
+    $block->setRegion('invalid_region');
     $block->save();
 
     // Clear the cache to check if the warning message is not triggered.

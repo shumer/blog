@@ -9,13 +9,15 @@ namespace Drupal\Tests\Core\Menu;
 
 use Drupal\Component\Plugin\Discovery\DiscoveryInterface;
 use Drupal\Component\Plugin\Factory\FactoryInterface;
-use Drupal\Core\Access\AccessManager;
+use Drupal\Core\Access\AccessManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Menu\LocalActionManager;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Routing\RouteProviderInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Url;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -65,7 +67,7 @@ class LocalActionManagerTest extends UnitTestCase {
   /**
    * The mocked access manager.
    *
-   * @var \Drupal\Core\Access\AccessManager|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\Access\AccessManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $accessManager;
 
@@ -107,18 +109,20 @@ class LocalActionManagerTest extends UnitTestCase {
     $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
     $this->cacheBackend = $this->getMock('Drupal\Core\Cache\CacheBackendInterface');
 
-    $this->accessManager = $this->getMockBuilder('Drupal\Core\Access\AccessManager')
-      ->disableOriginalConstructor()
-      ->getMock();
+    $this->accessManager = $this->getMock('Drupal\Core\Access\AccessManagerInterface');
+    $this->accessManager->expects($this->any())
+      ->method('checkNamedRoute')
+      ->will($this->returnValue(FALSE));
     $this->account = $this->getMock('Drupal\Core\Session\AccountInterface');
     $this->discovery = $this->getMock('Drupal\Component\Plugin\Discovery\DiscoveryInterface');
     $this->factory = $this->getMock('Drupal\Component\Plugin\Factory\FactoryInterface');
+    $route_match = $this->getMock('Drupal\Core\Routing\RouteMatchInterface');
 
-    $this->localActionManager = new TestLocalActionManager($this->controllerResolver, $this->request, $this->routeProvider, $this->moduleHandler, $this->cacheBackend, $this->accessManager, $this->account, $this->discovery, $this->factory);
+    $this->localActionManager = new TestLocalActionManager($this->controllerResolver, $this->request, $route_match, $this->routeProvider, $this->moduleHandler, $this->cacheBackend, $this->accessManager, $this->account, $this->discovery, $this->factory);
   }
 
   /**
-   * @covers \Drupal\Core\Menu\LocalActionManager::getTitle()
+   * @covers ::getTitle
    */
   public function testGetTitle() {
     $local_action = $this->getMock('Drupal\Core\Menu\LocalActionInterface');
@@ -135,7 +139,7 @@ class LocalActionManagerTest extends UnitTestCase {
   }
 
   /**
-   * @covers \Drupal\Core\Menu\LocalActionManager::getActionsForRoute()
+   * @covers ::getActionsForRoute
    *
    * @dataProvider getActionsForRouteProvider
    */
@@ -195,11 +199,10 @@ class LocalActionManagerTest extends UnitTestCase {
           '#theme' => 'menu_local_action',
           '#link' => array(
             'title' => 'Plugin ID 1',
-            'route_name' => 'test_route_2',
-            'route_parameters' => array(),
+            'url' => Url::fromRoute('test_route_2'),
             'localized_options' => '',
           ),
-          '#access' => NULL,
+          '#access' => FALSE,
           '#weight' => 0,
         ),
       ),
@@ -230,11 +233,10 @@ class LocalActionManagerTest extends UnitTestCase {
           '#theme' => 'menu_local_action',
           '#link' => array(
             'title' => 'Plugin ID 1',
-            'route_name' => 'test_route_2',
-            'route_parameters' => array(),
+            'url' => Url::fromRoute('test_route_2'),
             'localized_options' => '',
           ),
-          '#access' => NULL,
+          '#access' => FALSE,
           '#weight' => 0,
         ),
       ),
@@ -266,22 +268,20 @@ class LocalActionManagerTest extends UnitTestCase {
           '#theme' => 'menu_local_action',
           '#link' => array(
             'title' => 'Plugin ID 1',
-            'route_name' => 'test_route_2',
-            'route_parameters' => array(),
+            'url' => Url::fromRoute('test_route_2'),
             'localized_options' => '',
           ),
-          '#access' => NULL,
+          '#access' => FALSE,
           '#weight' => 1,
         ),
         'plugin_id_2' => array(
           '#theme' => 'menu_local_action',
           '#link' => array(
             'title' => 'Plugin ID 2',
-            'route_name' => 'test_route_3',
-            'route_parameters' => array(),
+            'url' => Url::fromRoute('test_route_3'),
             'localized_options' => '',
           ),
-          '#access' => NULL,
+          '#access' => FALSE,
           '#weight' => 0,
         ),
       ),
@@ -315,22 +315,20 @@ class LocalActionManagerTest extends UnitTestCase {
           '#theme' => 'menu_local_action',
           '#link' => array(
             'title' => 'Plugin ID 1',
-            'route_name' => 'test_route_2',
-            'route_parameters' => array('test1'),
+            'url' => Url::fromRoute('test_route_2', ['test1']),
             'localized_options' => '',
           ),
-          '#access' => NULL,
+          '#access' => FALSE,
           '#weight' => 1,
         ),
         'plugin_id_2' => array(
           '#theme' => 'menu_local_action',
           '#link' => array(
             'title' => 'Plugin ID 2',
-            'route_name' => 'test_route_2',
-            'route_parameters' => array('test2'),
+            'url' => Url::fromRoute('test_route_2', ['test2']),
             'localized_options' => '',
           ),
-          '#access' => NULL,
+          '#access' => FALSE,
           '#weight' => 0,
         ),
       ),
@@ -343,7 +341,7 @@ class LocalActionManagerTest extends UnitTestCase {
 
 class TestLocalActionManager extends LocalActionManager {
 
-  public function __construct(ControllerResolverInterface $controller_resolver, Request $request, RouteProviderInterface $route_provider, ModuleHandlerInterface $module_handler, CacheBackendInterface $cache_backend, AccessManager $access_manager, AccountInterface $account, DiscoveryInterface $discovery, FactoryInterface $factory) {
+  public function __construct(ControllerResolverInterface $controller_resolver, Request $request, RouteMatchInterface $route_match, RouteProviderInterface $route_provider, ModuleHandlerInterface $module_handler, CacheBackendInterface $cache_backend, AccessManagerInterface $access_manager, AccountInterface $account, DiscoveryInterface $discovery, FactoryInterface $factory) {
     $this->discovery = $discovery;
     $this->factory = $factory;
     $this->routeProvider = $route_provider;
@@ -352,9 +350,10 @@ class TestLocalActionManager extends LocalActionManager {
     $this->controllerResolver = $controller_resolver;
     $this->requestStack = new RequestStack();
     $this->requestStack->push($request);
+    $this->routeMatch = $route_match;
     $this->moduleHandler = $module_handler;
     $this->alterInfo('menu_local_actions');
-    $this->setCacheBackend($cache_backend, 'local_action_plugins', array('local_action' => TRUE));
+    $this->setCacheBackend($cache_backend, 'local_action_plugins', array('local_action'));
   }
 
 }

@@ -1,12 +1,13 @@
 <?php
 /**
  * @file
- * Contains \Drupal\user\LocaleSettingsForm.
+ * Contains \Drupal\locale\Form\LocaleSettingsForm.
  */
 
 namespace Drupal\locale\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Configure locale settings for this site.
@@ -21,39 +22,46 @@ class LocaleSettingsForm extends ConfigFormBase {
   }
 
   /**
-   * Implements \Drupal\Core\Form\FormInterface::buildForm().
+   * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
+  protected function getEditableConfigNames() {
+    return ['locale.settings'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('locale.settings');
 
     $form['update_interval_days'] = array(
       '#type' => 'radios',
-      '#title' => t('Check for updates'),
+      '#title' => $this->t('Check for updates'),
       '#default_value' => $config->get('translation.update_interval_days'),
       '#options' => array(
-        '0' => t('Never (manually)'),
-        '7' => t('Weekly'),
-        '30' => t('Monthly'),
+        '0' => $this->t('Never (manually)'),
+        '7' => $this->t('Weekly'),
+        '30' => $this->t('Monthly'),
       ),
-      '#description' => t('Select how frequently you want to check for new interface translations for your currently installed modules and themes. <a href="@url">Check updates now</a>.', array('@url' => url('admin/reports/translations/check'))),
+      '#description' => $this->t('Select how frequently you want to check for new interface translations for your currently installed modules and themes. <a href="@url">Check updates now</a>.', array('@url' => $this->url('locale.check_translation'))),
     );
 
     if ($directory = $config->get('translation.path')) {
-      $description = t('Translation files are stored locally in the  %path directory. You can change this directory on the <a href="@url">File system</a> configuration page.', array('%path' => $directory, '@url' => url('admin/config/media/file-system')));
+      $description = $this->t('Translation files are stored locally in the  %path directory. You can change this directory on the <a href="@url">File system</a> configuration page.', array('%path' => $directory, '@url' => $this->url('system.file_system_settings')));
     }
     else {
-      $description = t('Translation files will not be stored locally. Change the Interface translation directory on the <a href="@url">File system configuration</a> page.', array('@url' => url('admin/config/media/file-system')));
+      $description = $this->t('Translation files will not be stored locally. Change the Interface translation directory on the <a href="@url">File system configuration</a> page.', array('@url' => $this->url('system.file_system_settings')));
     }
     $form['#translation_directory'] = $directory;
     $form['use_source'] = array(
       '#type' => 'radios',
-      '#title' => t('Translation source'),
+      '#title' => $this->t('Translation source'),
       '#default_value' => $config->get('translation.use_source'),
       '#options' => array(
-        LOCALE_TRANSLATION_USE_SOURCE_REMOTE_AND_LOCAL => t('Drupal translation server and local files'),
-        LOCALE_TRANSLATION_USE_SOURCE_LOCAL => t('Local files only'),
+        LOCALE_TRANSLATION_USE_SOURCE_REMOTE_AND_LOCAL => $this->t('Drupal translation server and local files'),
+        LOCALE_TRANSLATION_USE_SOURCE_LOCAL => $this->t('Local files only'),
       ),
-      '#description' => t('The source of translation files for automatic interface translation.') . ' ' . $description,
+      '#description' => $this->t('The source of translation files for automatic interface translation.') . ' ' . $description,
     );
 
     if ($config->get('translation.overwrite_not_customized') == FALSE) {
@@ -67,14 +75,14 @@ class LocaleSettingsForm extends ConfigFormBase {
     }
     $form['overwrite'] = array(
       '#type' => 'radios',
-      '#title' => t('Import behavior'),
+      '#title' => $this->t('Import behavior'),
       '#default_value' => $default,
       '#options' => array(
-        LOCALE_TRANSLATION_OVERWRITE_NONE => t("Don't overwrite existing translations."),
-        LOCALE_TRANSLATION_OVERWRITE_NON_CUSTOMIZED => t('Only overwrite imported translations, customized translations are kept.'),
-        LOCALE_TRANSLATION_OVERWRITE_ALL => t('Overwrite existing translations.'),
+        LOCALE_TRANSLATION_OVERWRITE_NONE => $this->t("Don't overwrite existing translations."),
+        LOCALE_TRANSLATION_OVERWRITE_NON_CUSTOMIZED => $this->t('Only overwrite imported translations, customized translations are kept.'),
+        LOCALE_TRANSLATION_OVERWRITE_ALL => $this->t('Overwrite existing translations.'),
       ),
-      '#description' => t('How to treat existing translations when automatically updating the interface translations.'),
+      '#description' => $this->t('How to treat existing translations when automatically updating the interface translations.'),
     );
 
     return parent::buildForm($form, $form_state);
@@ -83,19 +91,19 @@ class LocaleSettingsForm extends ConfigFormBase {
   /**
    * Implements \Drupal\Core\Form\FormInterface::validateForm().
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     parent::validateForm($form, $form_state);
 
-    if (empty($form['#translation_directory']) && $form_state['values']['use_source'] == LOCALE_TRANSLATION_USE_SOURCE_LOCAL) {
-      $this->setFormError('use_source', $form_state, $this->t('You have selected local translation source, but no <a href="@url">Interface translation directory</a> was configured.', array('@url' => url('admin/config/media/file-system'))));
+    if (empty($form['#translation_directory']) && $form_state->getValue('use_source') == LOCALE_TRANSLATION_USE_SOURCE_LOCAL) {
+      $form_state->setErrorByName('use_source', $this->t('You have selected local translation source, but no <a href="@url">Interface translation directory</a> was configured.', array('@url' => $this->url('system.file_system_settings'))));
     }
   }
 
   /**
-   * Implements \Drupal\Core\Form\FormInterface::submitForm().
+   * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $values = $form_state['values'];
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $values = $form_state->getValues();
 
     $config = $this->config('locale.settings');
     $config->set('translation.update_interval_days', $values['update_interval_days'])->save();
@@ -126,7 +134,7 @@ class LocaleSettingsForm extends ConfigFormBase {
 
     // Invalidate the cached translation status when the configuration setting
     // of 'use_source' changes.
-    if ($form['use_source']['#default_value'] != $form_state['values']['use_source']) {
+    if ($form['use_source']['#default_value'] != $form_state->getValue('use_source')) {
       locale_translation_clear_status();
     }
 

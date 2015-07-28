@@ -1,18 +1,18 @@
 <?php
 /**
  * @file
- * Contains Drupal\migrate_drupal\Plugin\migrate\d6\FieldInstanceSettings
+ * Contains \Drupal\migrate_drupal\Plugin\migrate\process\d6\FieldInstanceSettings.
  */
 
-namespace Drupal\migrate_drupal\Plugin\migrate\Process\d6;
+namespace Drupal\migrate_drupal\Plugin\migrate\process\d6;
 
-use Drupal\migrate\MigrateExecutable;
+use Drupal\migrate\MigrateExecutableInterface;
 use Drupal\migrate\ProcessPluginBase;
 use Drupal\migrate\Row;
 
 /**
  * @MigrateProcessPlugin(
- *   id = "d6_field_instance_settings"
+ *   id = "d6_field_field_settings"
  * )
  */
 class FieldInstanceSettings extends ProcessPluginBase {
@@ -22,14 +22,10 @@ class FieldInstanceSettings extends ProcessPluginBase {
    *
    * Set the field instance defaults.
    */
-  public function transform($value, MigrateExecutable $migrate_executable, Row $row, $destination_property) {
+  public function transform($value, MigrateExecutableInterface $migrate_executable, Row $row, $destination_property) {
     list($widget_type, $widget_settings, $field_settings) = $value;
     $settings = array();
     switch ($widget_type) {
-      case 'text_textfield':
-        $settings['text_processing'] = $field_settings['text_processing'];
-        break;
-
       case 'number':
         $settings['min'] = $field_settings['min'];
         $settings['max'] = $field_settings['max'];

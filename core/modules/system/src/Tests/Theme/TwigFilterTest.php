@@ -41,8 +41,8 @@ class TwigFilterTest extends WebTestBase {
         'class' => array('red', 'green', 'blue'),
       ),
     );
-    $rendered = drupal_render($filter_test);
-    $this->drupalSetContent($rendered);
+    $rendered = \Drupal::service('renderer')->renderRoot($filter_test);
+    $this->setRawContent($rendered);
 
     $elements = array(
       array(
@@ -104,12 +104,20 @@ class TwigFilterTest extends WebTestBase {
         'message' => 'Without string attribute in the front.',
       ),
       array(
-        'expected' => '<div><span checked>Without either nor class attributes.</span></div>',
-        'message' => 'Attributes printed without id nor class attributes.',
+        'expected' => '<div><span checked>Without id and class attributes.</span></div>',
+        'message' => 'Attributes printed without id and class attributes.',
       ),
       array(
         'expected' => '<div><span id="quotes" checked class="red green blue">All attributes again.</span></div>',
         'message' => 'All attributes printed again.',
+      ),
+      array(
+        'expected' => '<div id="quotes-here"><span class="gray-like-a-bunny bem__ized--top-feature" id="quotes-here">ID and class. Having the same ID twice is not valid markup but we want to make sure the filter doesn\'t use \Drupal\Component\Utility\Html::getUniqueId().</span></div>',
+        'message' => 'Class and ID filtered.',
+      ),
+      array(
+        'expected' => '<div><strong>Rendered author string length:</strong> 24.</div>',
+        'message' => 'Render filter string\'s length.',
       ),
     );
 

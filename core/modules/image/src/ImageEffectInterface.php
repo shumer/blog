@@ -13,6 +13,13 @@ use Drupal\Core\Image\ImageInterface;
 
 /**
  * Defines the interface for image effects.
+ *
+ * @see \Drupal\image\Annotation\ImageEffect
+ * @see \Drupal\image\ImageEffectBase
+ * @see \Drupal\image\ConfigurableImageEffectInterface
+ * @see \Drupal\image\ConfigurableImageEffectBase
+ * @see \Drupal\image\ImageEffectManager
+ * @see plugin_api
  */
 interface ImageEffectInterface extends PluginInspectionInterface, ConfigurablePluginInterface {
 
@@ -30,11 +37,26 @@ interface ImageEffectInterface extends PluginInspectionInterface, ConfigurablePl
   /**
    * Determines the dimensions of the styled image.
    *
-   * @param array $dimensions
-   *   Dimensions to be modified - an array with components width and height, in
-   *   pixels.
+   * @param array &$dimensions
+   *   Dimensions to be modified - an array with the following keys:
+   *   - width: the width in pixels, or NULL if unknown
+   *   - height: the height in pixels, or NULL if unknown
+   *   When either of the dimensions are NULL, the corresponding HTML attribute
+   *   will be omitted when an image style using this image effect is used.
    */
   public function transformDimensions(array &$dimensions);
+
+  /**
+   * Returns the extension the derivative would have have after applying this
+   * image effect.
+   *
+   * @param string $extension
+   *   The file extension the derivative has before applying.
+   *
+   * @return string
+   *   The file extension after applying.
+   */
+  public function getDerivativeExtension($extension);
 
   /**
    * Returns a render array summarizing the configuration of the image effect.

@@ -26,7 +26,7 @@
  * batch operation is responsible for downloading a single file, extracting the
  * archive, and verifying the contents. If there are any errors, the user is
  * redirected back to the first page with the error messages. If all downloads
- * were extacted and verified, the user is instead redirected to
+ * were extracted and verified, the user is instead redirected to
  * admin/update/ready, a landing page which reminds them to backup their
  * database and asks if they want to put the site offline during the update.
  * Once the user presses the "Install updates" button, they are redirected to
@@ -58,7 +58,7 @@ function update_manager_download_batch_finished($success, $results) {
   elseif ($success) {
     drupal_set_message(t('Updates downloaded successfully.'));
     $_SESSION['update_manager_update_projects'] = $results['projects'];
-    return new RedirectResponse(url('admin/update/ready', array('absolute' => TRUE)));
+    return new RedirectResponse(\Drupal::url('update.confirmation_page', [], ['absolute' => TRUE]));
   }
   else {
     // Ideally we're catching all Exceptions, so they should never see this,
@@ -99,10 +99,10 @@ function _update_manager_check_backends(&$form, $operation) {
   $available_backends = drupal_get_filetransfer_info();
   if (empty($available_backends)) {
     if ($operation == 'update') {
-      $form['available_backends']['#markup'] = t('Your server does not support updating modules and themes from this interface. Instead, update modules and themes by uploading the new versions directly to the server, as described in the <a href="@handbook_url">handbook</a>.', array('@handbook_url' => 'http://drupal.org/getting-started/install-contrib'));
+      $form['available_backends']['#markup'] = t('Your server does not support updating modules and themes from this interface. Instead, update modules and themes by uploading the new versions directly to the server, as described in the <a href="@handbook_url">handbook</a>.', array('@handbook_url' => 'https://www.drupal.org/getting-started/install-contrib'));
     }
     else {
-      $form['available_backends']['#markup'] = t('Your server does not support installing modules and themes from this interface. Instead, install modules and themes by uploading them directly to the server, as described in the <a href="@handbook_url">handbook</a>.', array('@handbook_url' => 'http://drupal.org/getting-started/install-contrib'));
+      $form['available_backends']['#markup'] = t('Your server does not support installing modules and themes from this interface. Instead, install modules and themes by uploading them directly to the server, as described in the <a href="@handbook_url">handbook</a>.', array('@handbook_url' => 'https://www.drupal.org/getting-started/install-contrib'));
     }
     return FALSE;
   }
@@ -112,23 +112,23 @@ function _update_manager_check_backends(&$form, $operation) {
     $backend_names[] = $backend['title'];
   }
   if ($operation == 'update') {
-    $form['available_backends']['#markup'] = format_plural(
+    $form['available_backends']['#markup'] = \Drupal::translation()->formatPlural(
       count($available_backends),
       'Updating modules and themes requires <strong>@backends access</strong> to your server. See the <a href="@handbook_url">handbook</a> for other update methods.',
       'Updating modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See the <a href="@handbook_url">handbook</a> for other update methods.',
       array(
         '@backends' => implode(', ', $backend_names),
-        '@handbook_url' => 'http://drupal.org/getting-started/install-contrib',
+        '@handbook_url' => 'https://www.drupal.org/getting-started/install-contrib',
       ));
   }
   else {
-    $form['available_backends']['#markup'] = format_plural(
+    $form['available_backends']['#markup'] = \Drupal::translation()->formatPlural(
       count($available_backends),
       'Installing modules and themes requires <strong>@backends access</strong> to your server. See the <a href="@handbook_url">handbook</a> for other installation methods.',
       'Installing modules and themes requires access to your server via one of the following methods: <strong>@backends</strong>. See the <a href="@handbook_url">handbook</a> for other installation methods.',
       array(
         '@backends' => implode(', ', $backend_names),
-        '@handbook_url' => 'http://drupal.org/getting-started/install-contrib',
+        '@handbook_url' => 'https://www.drupal.org/getting-started/install-contrib',
       ));
   }
   return TRUE;
@@ -224,7 +224,9 @@ function update_manager_file_get($url) {
 }
 
 /**
- * Batch callback: Downloads, unpacks, and verifies a project.
+ * Implements callback_batch_operation().
+ *
+ * Downloads, unpacks, and verifies a project.
  *
  * This function assumes that the provided URL points to a file archive of some
  * sort. The URL can have any scheme that we have a file stream wrapper to
@@ -304,7 +306,8 @@ function update_manager_local_transfers_allowed() {
   // the configuration directory to determine if local transfers will be
   // allowed.
   $temporary_file = drupal_tempnam('temporary://', 'update_');
-  $local_transfers_allowed = fileowner($temporary_file) === fileowner(conf_path());
+  $site_path = \Drupal::service('site.path');
+  $local_transfers_allowed = fileowner($temporary_file) === fileowner($site_path);
 
   // Clean up. If this fails, we can ignore it (since this is just a temporary
   // file anyway).

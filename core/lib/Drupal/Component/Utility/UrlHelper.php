@@ -133,8 +133,7 @@ class UrlHelper {
    *   - query: An array of query parameters from $url, if they exist.
    *   - fragment: The fragment component from $url, if it exists.
    *
-   * @see l()
-   * @see url()
+   * @see \Drupal\Core\Utility\LinkGenerator
    * @see http://tools.ietf.org/html/rfc3986
    *
    * @ingroup php_wrappers
@@ -151,7 +150,12 @@ class UrlHelper {
     if (strpos($url, '://') !== FALSE) {
       // Split off everything before the query string into 'path'.
       $parts = explode('?', $url);
-      $options['path'] = $parts[0];
+
+      // Don't support URLs without a path, like 'http://'.
+      list(, $path) = explode('://', $parts[0], 2);
+      if ($path != '') {
+        $options['path'] = $parts[0];
+      }
       // If there is a query string, transform it into keyed query parameters.
       if (isset($parts[1])) {
         $query_parts = explode('#', $parts[1]);
@@ -196,7 +200,7 @@ class UrlHelper {
   }
 
   /**
-   * Returns whether a path is external to Drupal (e.g. http://example.com).
+   * Determines whether a path is external to Drupal (e.g. http://example.com).
    *
    * If a path cannot be assessed by Drupal's menu handler, then we must
    * treat it as potentially insecure.
@@ -210,10 +214,15 @@ class UrlHelper {
    */
   public static function isExternal($path) {
     $colonpos = strpos($path, ':');
-    // Avoid calling stripDangerousProtocols() if there is any
-    // slash (/), hash (#) or question_mark (?) before the colon (:)
-    // occurrence - if any - as this would clearly mean it is not a URL.
-    return $colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && static::stripDangerousProtocols($path) == $path;
+    // Avoid calling drupal_strip_dangerous_protocols() if there is any slash
+    // (/), hash (#) or question_mark (?) before the colon (:) occurrence - if
+    // any - as this would clearly mean it is not a URL. If the path starts with
+    // 2 slashes then it is always considered an external URL without an
+    // explicit protocol part.
+    return (strpos($path, '//') === 0)
+      || ($colonpos !== FALSE
+        && !preg_match('![/?#]!', substr($path, 0, $colonpos))
+        && static::stripDangerousProtocols($path) == $path);
   }
 
   /**
@@ -235,7 +244,7 @@ class UrlHelper {
     $base_parts = parse_url($base_url);
 
     if (empty($base_parts['host']) || empty($url_parts['host'])) {
-      throw new \InvalidArgumentException(String::format('A path was passed when a fully qualified domain was expected.'));
+      throw new \InvalidArgumentException(SafeMarkup::format('A path was passed when a fully qualified domain was expected.'));
     }
 
     if (!isset($url_parts['path']) || !isset($base_parts['path'])) {
@@ -262,8 +271,18 @@ class UrlHelper {
   public static function filterBadProtocol($string) {
     // Get the plain text representation of the attribute value (i.e. its
     // meaning).
-    $string = String::decodeEntities($string);
-    return String::checkPlain(static::stripDangerousProtocols($string));
+    $string = Html::decodeEntities($string);
+    return SafeMarkup::checkPlain(static::stripDangerousProtocols($string));
+  }
+
+  /**
+   * Gets the allowed protocols.
+   *
+   * @return array
+   *   An array of protocols, for example http, https and irc.
+   */
+  public static function getAllowedProtocols() {
+    return static::$allowedProtocols;
   }
 
   /**
@@ -283,9 +302,8 @@ class UrlHelper {
    * to being output to an HTML attribute value. It is often called as part of
    * check_url() or Drupal\Component\Utility\Xss::filter(), but those functions
    * return an HTML-encoded string, so this function can be called independently
-   * when the output needs to be a plain-text string for passing to t(), l(),
-   * Drupal\Core\Template\Attribute, or another function that will call
-   * \Drupal\Component\Utility\String::checkPlain() separately.
+   * when the output needs to be a plain-text string for passing to functions
+   * that will call \Drupal\Component\Utility\SafeMarkup::checkPlain() separately.
    *
    * @param string $uri
    *   A plain-text URI that might contain dangerous protocols.

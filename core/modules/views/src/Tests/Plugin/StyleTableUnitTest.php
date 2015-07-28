@@ -50,7 +50,7 @@ class StyleTableUnitTest extends PluginUnitTestBase {
     $style_plugin->options['default'] = 'id';
     $this->assertTrue($style_plugin->buildSort(), 'If no order but a default order is specified, the normal sort should be used.');
 
-    $request->attributes->set('order', $this->randomName());
+    $request->attributes->set('order', $this->randomMachineName());
     $this->assertTrue($style_plugin->buildSort(), 'If no valid field is chosen for order, the normal sort should be used.');
 
     $request->attributes->set('order', 'id');
@@ -98,7 +98,7 @@ class StyleTableUnitTest extends PluginUnitTestBase {
     $this->prepareView($view);
     $style_plugin = $view->style_plugin;
     $request->query->set('sort', 'asc');
-    $random_name = $this->randomName();
+    $random_name = $this->randomMachineName();
     $request->query->set('order', $random_name);
     $style_plugin->buildSortPost();
     $this->assertIdentical($style_plugin->order, 'asc', 'No sort order was set, when invalid sort order was specified.');
@@ -123,7 +123,7 @@ class StyleTableUnitTest extends PluginUnitTestBase {
     $this->prepareView($view);
     $view->field['name']->options['exclude'] = TRUE;
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = \Drupal::service('renderer')->renderRoot($output);
     $this->assertFalse(strpos($output, 'views-field-name') !== FALSE, "Excluded field's wrapper was not rendered.");
     $view->destroy();
 
@@ -131,7 +131,7 @@ class StyleTableUnitTest extends PluginUnitTestBase {
     // rendered.
     $this->executeView($view);
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = \Drupal::service('renderer')->renderRoot($output);
 
     $this->assertFalse(strpos($output, 'custom text') !== FALSE, 'Empty handler was not rendered on a non empty table.');
 
@@ -140,7 +140,7 @@ class StyleTableUnitTest extends PluginUnitTestBase {
     $view->executed = TRUE;
     $view->result = array();
     $output = $view->preview();
-    $output = drupal_render($output);
+    $output = \Drupal::service('renderer')->renderRoot($output);
 
     $this->assertTrue(strpos($output, 'custom text') !== FALSE, 'Empty handler got rendered on an empty table.');
   }

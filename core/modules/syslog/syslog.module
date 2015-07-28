@@ -5,6 +5,8 @@
  * Redirects logging messages to syslog.
  */
 
+use Drupal\Core\Url;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
@@ -15,7 +17,7 @@ function syslog_help($route_name, RouteMatchInterface $route_match) {
     case 'help.page.syslog':
       $output = '';
       $output .= '<h3>' . t('About') . '</h3>';
-      $output .= '<p>' . t("The Syslog module logs events by sending messages to the logging facility of your web server's operating system. Syslog is an operating system administrative logging tool that provides valuable information for use in system management and security auditing. Most suited to medium and large sites, Syslog provides filtering tools that allow messages to be routed by type and severity. For more information, see the <a href='!syslog'>online documentation for the Syslog module</a>, as well as PHP's documentation pages for the <a href='!php_openlog'>openlog</a> and <a href='!php_syslog'>syslog</a> functions.", array('!syslog' => 'https://drupal.org/documentation/modules/syslog', '!php_openlog' => 'http://www.php.net/manual/function.openlog.php', '!php_syslog' => 'http://www.php.net/manual/function.syslog.php')) . '</p>';
+      $output .= '<p>' . t("The Syslog module logs events by sending messages to the logging facility of your web server's operating system. Syslog is an operating system administrative logging tool that provides valuable information for use in system management and security auditing. Most suited to medium and large sites, Syslog provides filtering tools that allow messages to be routed by type and severity. For more information, see the <a href='!syslog'>online documentation for the Syslog module</a>, as well as PHP's documentation pages for the <a href='!php_openlog'>openlog</a> and <a href='!php_syslog'>syslog</a> functions.", array('!syslog' => 'https://www.drupal.org/documentation/modules/syslog', '!php_openlog' => 'http://www.php.net/manual/function.openlog.php', '!php_syslog' => 'http://www.php.net/manual/function.syslog.php')) . '</p>';
       $output .= '<h3>' . t('Uses') . '</h3>';
       $output .= '<dl>';
       $output .= '<dt>' . t('Logging for UNIX, Linux, and Mac OS X') . '</dt>';
@@ -30,9 +32,9 @@ function syslog_help($route_name, RouteMatchInterface $route_match) {
 /**
  * Implements hook_form_FORM_ID_alter().
  */
-function syslog_form_system_logging_settings_alter(&$form, &$form_state) {
-  $config = \Drupal::config('syslog.settings');
-  $help = \Drupal::moduleHandler()->moduleExists('help') ? ' ' . l(t('More information'), 'admin/help/syslog') . '.' : NULL;
+function syslog_form_system_logging_settings_alter(&$form, FormStateInterface $form_state) {
+  $config = \Drupal::configFactory()->getEditable('syslog.settings');
+  $help = \Drupal::moduleHandler()->moduleExists('help') ? ' ' . \Drupal::l(t('More information'), new Url('help.page', ['name' => 'syslog'])) . '.' : NULL;
   $form['syslog_identity'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Syslog identity'),
@@ -63,11 +65,11 @@ function syslog_form_system_logging_settings_alter(&$form, &$form_state) {
  *
  * @see syslog_form_system_logging_settings_alter()
  */
-function syslog_logging_settings_submit($form, &$form_state) {
-  \Drupal::config('syslog.settings')
-    ->set('identity', $form_state['values']['syslog_identity'])
-    ->set('facility', $form_state['values']['syslog_facility'])
-    ->set('format', $form_state['values']['syslog_format'])
+function syslog_logging_settings_submit($form, FormStateInterface $form_state) {
+  \Drupal::configFactory()->getEditable('syslog.settings')
+    ->set('identity', $form_state->getValue('syslog_identity'))
+    ->set('facility', $form_state->getValue('syslog_facility'))
+    ->set('format', $form_state->getValue('syslog_format'))
     ->save();
 }
 

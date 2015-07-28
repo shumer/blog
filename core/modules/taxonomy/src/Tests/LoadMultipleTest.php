@@ -2,10 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\taxonomy\Tests\LoadMultipleTest.
+ * Contains \Drupal\taxonomy\Tests\LoadMultipleTest.
  */
 
 namespace Drupal\taxonomy\Tests;
+
+use Drupal\taxonomy\Entity\Term;
 
 /**
  * Tests the loading of multiple taxonomy terms at once.
@@ -14,10 +16,9 @@ namespace Drupal\taxonomy\Tests;
  */
 class LoadMultipleTest extends TaxonomyTestBase {
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
-    $this->taxonomy_admin = $this->drupalCreateUser(array('administer taxonomy'));
-    $this->drupalLogin($this->taxonomy_admin);
+    $this->drupalLogin($this->drupalCreateUser(['administer taxonomy']));
   }
 
   /**
@@ -40,14 +41,14 @@ class LoadMultipleTest extends TaxonomyTestBase {
     $this->assertEqual($count, 5, format_string('Correct number of terms were loaded. !count terms.', array('!count' => $count)));
 
     // Load the same terms again by tid.
-    $terms2 = entity_load_multiple('taxonomy_term', array_keys($terms));
+    $terms2 = Term::loadMultiple(array_keys($terms));
     $this->assertEqual($count, count($terms2), 'Five terms were loaded by tid.');
     $this->assertEqual($terms, $terms2, 'Both arrays contain the same terms.');
 
     // Remove one term from the array, then delete it.
     $deleted = array_shift($terms2);
     $deleted->delete();
-    $deleted_term = entity_load('taxonomy_term', $deleted->id());
+    $deleted_term = Term::load($deleted->id());
     $this->assertFalse($deleted_term);
 
     // Load terms from the vocabulary by vid.

@@ -2,13 +2,12 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Entity\FieldTranslationSqlStorageTest.
+ * Contains \Drupal\system\Tests\Entity\FieldTranslationSqlStorageTest.
  */
 
 namespace Drupal\system\Tests\Entity;
 
-use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Entity\ContentEntityDatabaseStorage;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\field\Entity\FieldStorageConfig;
 
@@ -27,8 +26,8 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
 
     $controller = $this->entityManager->getStorage($entity_type);
     $values = array(
-      $this->field_name => $this->randomName(),
-      $this->untranslatable_field_name => $this->randomName(),
+      $this->fieldName => $this->randomMachineName(),
+      $this->untranslatableFieldName => $this->randomMachineName(),
     );
     $entity = $controller->create($values);
     $entity->save();
@@ -51,7 +50,7 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
     // before.
     $this->toggleFieldTranslatability($entity_type, $entity_type);
     $entity = $this->reloadEntity($entity);
-    foreach (array($this->field_name, $this->untranslatable_field_name) as $field_name) {
+    foreach (array($this->fieldName, $this->untranslatableFieldName) as $field_name) {
       $this->assertEqual($entity->get($field_name)->value, $values[$field_name], 'Field language works as expected after switching translatability.');
     }
 
@@ -61,49 +60,46 @@ class FieldTranslationSqlStorageTest extends EntityLanguageTestBase {
     $entity = $this->reloadEntity($entity);
     $entity->langcode->value = $this->langcodes[0];
     $translation = $entity->addTranslation($this->langcodes[1]);
-    $translated_value = $this->randomName();
-    $translation->get($this->field_name)->value = $translated_value;
+    $translated_value = $this->randomMachineName();
+    $translation->get($this->fieldName)->value = $translated_value;
     $translation->save();
     $this->toggleFieldTranslatability($entity_type, $entity_type);
     $entity = $this->reloadEntity($entity);
-    $this->assertEqual($entity->getTranslation($this->langcodes[1])->get($this->field_name)->value, $values[$this->field_name], 'Existing field translations are not loaded for untranslatable fields.');
+    $this->assertEqual($entity->getTranslation($this->langcodes[1])->get($this->fieldName)->value, $values[$this->fieldName], 'Existing field translations are not loaded for untranslatable fields.');
   }
 
   /**
    * Checks whether field languages are correctly stored for the given entity.
    *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   * @param \Drupal\Core\Entity\FieldableEntityInterface $entity
    *   The entity fields are attached to.
    * @param string $message
    *   (optional) A message to display with the assertion.
    */
-  protected function assertFieldStorageLangcode(ContentEntityInterface $entity, $message = '') {
+  protected function assertFieldStorageLangcode(FieldableEntityInterface $entity, $message = '') {
     $status = TRUE;
     $entity_type = $entity->getEntityTypeId();
     $id = $entity->id();
-    $langcode = $entity->getUntranslated()->language()->id;
-    $fields = array($this->field_name, $this->untranslatable_field_name);
+    $langcode = $entity->getUntranslated()->language()->getId();
+    $fields = array($this->fieldName, $this->untranslatableFieldName);
+    /** @var \Drupal\Core\Entity\Sql\DefaultTableMapping $table_mapping */
+    $table_mapping = \Drupal::entityManager()->getStorage($entity_type)->getTableMapping();
 
     foreach ($fields as $field_name) {
       $field_storage = FieldStorageConfig::loadByName($entity_type, $field_name);
-      $tables = array(
-        ContentEntityDatabaseStorage::_fieldTableName($field_storage),
-        ContentEntityDatabaseStorage::_fieldRevisionTableName($field_storage),
-      );
+      $table = $table_mapping->getDedicatedDataTableName($field_storage);
 
-      foreach ($tables as $table) {
-        $record = \Drupal::database()
-          ->select($table, 'f')
-          ->fields('f')
-          ->condition('f.entity_id', $id)
-          ->condition('f.revision_id', $id)
-          ->execute()
-          ->fetchObject();
+      $record = \Drupal::database()
+        ->select($table, 'f')
+        ->fields('f')
+        ->condition('f.entity_id', $id)
+        ->condition('f.revision_id', $id)
+        ->execute()
+        ->fetchObject();
 
-        if ($record->langcode != $langcode) {
-          $status = FALSE;
-          break;
-        }
+      if ($record->langcode != $langcode) {
+        $status = FALSE;
+        break;
       }
     }
 

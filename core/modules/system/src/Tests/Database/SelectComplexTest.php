@@ -7,7 +7,8 @@
 
 namespace Drupal\system\Tests\Database;
 
-use \Drupal\Core\Database\RowCountException;
+use Drupal\Core\Database\Database;
+use Drupal\Core\Database\RowCountException;
 
 /**
  * Tests the Select query builder with more complex queries.
@@ -21,7 +22,7 @@ class SelectComplexTest extends DatabaseTestBase {
    *
    * @var array
    */
-  public static $modules = array('node_access_test', 'field');
+  public static $modules = array('system', 'user', 'node_access_test', 'field');
 
   /**
    * Tests simple JOIN statements.
@@ -220,9 +221,12 @@ class SelectComplexTest extends DatabaseTestBase {
 
     // Check that the ordering clause is handled properly.
     $orderby = $query->getOrderBy();
-    $this->assertEqual($orderby['name'], 'ASC', 'Query correctly sets ordering clause.');
+    // The orderby string is different for PostgreSQL.
+    // @see Drupal\Core\Database\Driver\pgsql\Select::orderBy()
+    $db_type = Database::getConnection()->databaseType();
+    $this->assertEqual($orderby['name'], ($db_type == 'pgsql' ? 'ASC NULLS FIRST' : 'ASC'), 'Query correctly sets ordering clause.');
     $orderby = $count->getOrderBy();
-    $this->assertFalse(isset($orderby['name']), 'Count query correctly unsets ordering caluse.');
+    $this->assertFalse(isset($orderby['name']), 'Count query correctly unsets ordering clause.');
 
     // Make sure that the count query works.
     $count = $count->execute()->fetchField();
@@ -322,13 +326,11 @@ class SelectComplexTest extends DatabaseTestBase {
    * Tests that we can join on a query.
    */
   function testJoinSubquery() {
-    $this->enableModules(array('system'), FALSE);
     $this->installSchema('system', 'sequences');
-    $this->enableModules(array('field', 'user'));
 
     $account = entity_create('user', array(
-      'name' => $this->randomName(),
-      'mail' => $this->randomName() . '@example.com',
+      'name' => $this->randomMachineName(),
+      'mail' => $this->randomMachineName() . '@example.com',
     ));
 
     $query = db_select('test_task', 'tt', array('target' => 'replica'));

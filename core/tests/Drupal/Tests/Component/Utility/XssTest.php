@@ -7,14 +7,17 @@
 
 namespace Drupal\Tests\Component\Utility;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Component\Utility\Xss;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * @coversDefaultClass \Drupal\Component\Utility\Xss
+ * XSS Filtering tests.
+ *
  * @group Utility
+ *
+ * @coversDefaultClass \Drupal\Component\Utility\Xss
  *
  * Script injection vectors mostly adopted from http://ha.ckers.org/xss.html.
  *
@@ -59,11 +62,19 @@ class XssTest extends UnitTestCase {
    *   The expected result.
    * @param string $message
    *   The assertion message to display upon failure.
+   * @param array $allowed_tags
+   *   (optional) The allowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
    *
    * @dataProvider providerTestFilterXssNormalized
    */
-  public function testFilterXssNormalized($value, $expected, $message) {
-    $this->assertNormalized(Xss::filter($value), $expected, $message);
+  public function testFilterXssNormalized($value, $expected, $message, array $allowed_tags = NULL) {
+    if ($allowed_tags === NULL) {
+      $value = Xss::filter($value);
+    }
+    else {
+      $value = Xss::filter($value, $allowed_tags);
+    }
+    $this->assertNormalized($value, $expected, $message);
   }
 
   /**
@@ -76,6 +87,8 @@ class XssTest extends UnitTestCase {
    *     - The value to filter.
    *     - The value to expect after filtering.
    *     - The assertion message.
+   *     - (optional) The allowed HTML HTML tags array that should be passed to
+   *       \Drupal\Component\Utility\Xss::filter().
    */
   public function providerTestFilterXssNormalized() {
     return array(
@@ -93,6 +106,13 @@ class XssTest extends UnitTestCase {
         "Who&amp;amp;#039; Online",
         "who&amp;#039; online",
         'HTML filter -- double encoded html entity number',
+      ),
+      // Custom elements with dashes in the tag name.
+      array(
+        "<test-element></test-element>",
+        "<test-element></test-element>",
+        'Custom element with dashes in tag name.',
+        array('test-element'),
       ),
     );
   }
@@ -413,7 +433,7 @@ class XssTest extends UnitTestCase {
       ),
     );
     // @fixme This dataset currently fails under 5.4 because of
-    //   https://drupal.org/node/1210798 . Restore after its fixed.
+    //   https://www.drupal.org/node/1210798. Restore after its fixed.
     if (version_compare(PHP_VERSION, '5.4.0', '<')) {
       $cases[] = array(
         '<img src=" &#14;  javascript:alert(0)">',
@@ -423,66 +443,6 @@ class XssTest extends UnitTestCase {
       );
     }
     return $cases;
-  }
-
-  /**
-   * Tests removing disallowed tags and XSS prevention.
-   *
-   * \Drupal\Component\Utility\Xss::filter() has the ability to run in blacklist
-   * mode, in which it still applies the exact same filtering, with one
-   * exception: it no longer works with a list of allowed tags, but with a list
-   * of disallowed tags.
-   *
-   * @param string $value
-   *   The value to filter.
-   * @param string $expected
-   *   The string that is expected to be missing.
-   * @param string $message
-   *   The assertion message to display upon failure.
-   * @param array $disallowed_tags
-   *   (optional) The disallowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
-   *
-   * @dataProvider providerTestBlackListMode
-   */
-  public function testBlacklistMode($value, $expected, $message, array $disallowed_tags) {
-    $value = Xss::filter($value, $disallowed_tags, Xss::FILTER_MODE_BLACKLIST);
-    $this->assertSame($expected, $value, $message);
-  }
-
-  /**
-   * Data provider for testBlacklistMode().
-   *
-   * @see testBlacklistMode()
-   *
-   * @return array
-   *   An array of arrays containing the following elements:
-   *     - The value to filter.
-   *     - The value to expect after filtering.
-   *     - The assertion message.
-   *     - (optional) The disallowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
-   */
-  public function providerTestBlackListMode() {
-    return array(
-      array(
-        '<unknown style="visibility:hidden">Pink Fairy Armadillo</unknown><video src="gerenuk.mp4"><script>alert(0)</script>',
-        '<unknown>Pink Fairy Armadillo</unknown><video src="gerenuk.mp4">alert(0)',
-        'Disallow only the script tag',
-        array('script')
-      ),
-      array(
-        '<unknown style="visibility:hidden">Pink Fairy Armadillo</unknown><video src="gerenuk.mp4"><script>alert(0)</script>',
-        '<unknown>Pink Fairy Armadillo</unknown>alert(0)',
-        'Disallow both the script and video tags',
-        array('script', 'video')
-      ),
-      // No real use case for this, but it is an edge case we must ensure works.
-      array(
-        '<unknown style="visibility:hidden">Pink Fairy Armadillo</unknown><video src="gerenuk.mp4"><script>alert(0)</script>',
-        '<unknown>Pink Fairy Armadillo</unknown><video src="gerenuk.mp4"><script>alert(0)</script>',
-        'Disallow no tags',
-        array()
-      ),
-    );
   }
 
   /**
@@ -526,6 +486,37 @@ class XssTest extends UnitTestCase {
   public function testQuestionSign() {
     $value = Xss::filter('<?xml:namespace ns="urn:schemas-microsoft-com:time">');
     $this->assertTrue(stripos($value, '<?xml') === FALSE, 'HTML tag stripping evasion -- starting with a question sign (processing instructions).');
+  }
+
+  /**
+   * Check that strings in HTML attributes are are correctly processed.
+   *
+   * @covers ::attributes
+   * @dataProvider providerTestAttributes
+   */
+  public function testAttribute($value, $expected, $message, $allowed_tags = NULL) {
+    $value = Xss::filter($value, $allowed_tags);
+    $this->assertEquals($expected, $value, $message);
+  }
+
+  /**
+   * Data provider for testFilterXssAdminNotNormalized().
+   */
+  public function providerTestAttributes() {
+    return array(
+      array(
+        '<img src="http://example.com/foo.jpg" title="Example: title" alt="Example: alt">',
+        '<img src="http://example.com/foo.jpg" title="Example: title" alt="Example: alt">',
+        'Image tag with alt and title attribute',
+        array('img')
+      ),
+      array(
+        '<img src="http://example.com/foo.jpg" data-caption="Drupal 8: The best release ever.">',
+        '<img src="http://example.com/foo.jpg" data-caption="Drupal 8: The best release ever.">',
+        'Image tag with data attribute',
+        array('img')
+      ),
+    );
   }
 
   /**
@@ -590,7 +581,7 @@ class XssTest extends UnitTestCase {
    *   (optional) The group this message belongs to. Defaults to 'Other'.
    */
   protected function assertNormalized($haystack, $needle, $message = '', $group = 'Other') {
-    $this->assertTrue(strpos(strtolower(String::decodeEntities($haystack)), $needle) !== FALSE, $message, $group);
+    $this->assertTrue(strpos(strtolower(Html::decodeEntities($haystack)), $needle) !== FALSE, $message, $group);
   }
 
   /**
@@ -612,7 +603,7 @@ class XssTest extends UnitTestCase {
    *   (optional) The group this message belongs to. Defaults to 'Other'.
    */
   protected function assertNotNormalized($haystack, $needle, $message = '', $group = 'Other') {
-    $this->assertTrue(strpos(strtolower(String::decodeEntities($haystack)), $needle) === FALSE, $message, $group);
+    $this->assertTrue(strpos(strtolower(Html::decodeEntities($haystack)), $needle) === FALSE, $message, $group);
   }
 
 }

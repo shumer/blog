@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\config\Tests\Storage\FileStorageTest.
+ * Contains \Drupal\config\Tests\Storage\FileStorageTest.
  */
 
 namespace Drupal\config\Tests\Storage;
@@ -16,13 +16,17 @@ use Drupal\Core\Config\FileStorage;
  * @group config
  */
 class FileStorageTest extends ConfigStorageTestBase {
-  function setUp() {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
     parent::setUp();
     $this->storage = new FileStorage($this->configDirectories[CONFIG_ACTIVE_DIRECTORY]);
     $this->invalidStorage = new FileStorage($this->configDirectories[CONFIG_ACTIVE_DIRECTORY] . '/nonexisting');
 
     // FileStorage::listAll() requires other configuration data to exist.
-    $this->storage->write('system.performance', \Drupal::config('system.performance')->get());
+    $this->storage->write('system.performance', $this->config('system.performance')->get());
     $this->storage->write('core.extension', array('module' => array()));
   }
 
@@ -46,7 +50,7 @@ class FileStorageTest extends ConfigStorageTestBase {
   /**
    * Tests the FileStorage::listAll method with a relative and absolute path.
    */
-  protected function testlistAll() {
+  public function testlistAll() {
     $expected_files = array(
       'core.extension',
       'system.performance',

@@ -2,12 +2,15 @@
 
 /**
  * @file
- * Definition of Drupal\views\Plugin\views\PluginBase.
+ * Contains \Drupal\views\Plugin\views\PluginBase.
  */
 
 namespace Drupal\views\Plugin\views;
 
-use Drupal\Component\Utility\String;
+use Drupal\Component\Plugin\DependentPluginInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase as ComponentPluginBase;
 use Drupal\Core\Render\Element;
@@ -26,9 +29,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   template engine extension).
  *   If a template file should be used, the file has to be placed in the
  *   module's templates folder.
- *   Example: theme = "mymodule_row" of module "mymodule" will implement either
- *   theme_mymodule_row() or mymodule-row.html.twig in the
- *   [..]/modules/mymodule/templates folder.
+ *   Example: theme = "mymodule_row" of module "mymodule" will implement
+ *   mymodule-row.html.twig in the [..]/modules/mymodule/templates folder.
  * - register_theme: (optional) When set to TRUE (default) the theme is
  *   registered automatically. When set to FALSE the plugin reuses an existing
  *   theme implementation, defined by another module or views plugin.
@@ -40,7 +42,28 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *
  * @ingroup views_plugins
  */
-abstract class PluginBase extends ComponentPluginBase implements ContainerFactoryPluginInterface {
+abstract class PluginBase extends ComponentPluginBase implements ContainerFactoryPluginInterface, ViewsPluginInterface, DependentPluginInterface {
+
+  /**
+   * Include negotiated languages when listing languages.
+   *
+   * @see \Drupal\views\Plugin\views\PluginBase::listLanguages()
+   */
+  const INCLUDE_NEGOTIATED = 16;
+
+  /**
+   * Include entity row languages when listing languages.
+   *
+   * @see \Drupal\views\Plugin\views\PluginBase::listLanguages()
+   */
+  const INCLUDE_ENTITY = 32;
+
+  /**
+   * Query string to indicate the site default language.
+   *
+   * @see \Drupal\Core\Language\LanguageInterface::LANGCODE_DEFAULT
+   */
+  const VIEWS_QUERY_LANGUAGE_SITE_DEFAULT = '***LANGUAGE_site_default***';
 
   /**
    * Options for this plugin will be held here.
@@ -81,9 +104,22 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
    */
   protected $usesOptions = FALSE;
 
+  /**
+   * Stores the render API renderer.
+   *
+   * @var \Drupal\Core\Render\RendererInterface
+   */
+  protected $renderer;
 
   /**
-   * Constructs a Plugin object.
+   * Constructs a PluginBase object.
+   *
+   * @param array $configuration
+   *   A configuration array containing information about the plugin instance.
+   * @param string $plugin_id
+   *   The plugin_id for the plugin instance.
+   * @param mixed $plugin_definition
+   *   The plugin implementation definition.
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -99,14 +135,7 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Initialize the plugin.
-   *
-   * @param \Drupal\views\ViewExecutable $view
-   *   The view object.
-   * @param \Drupal\views\Plugin\views\display\DisplayPluginBase $display
-   *   The display handler.
-   * @param array $options
-   *   The options configured for this plugin.
+   * {@inheritdoc}
    */
   public function init(ViewExecutable $view, DisplayPluginBase $display, array &$options = NULL) {
     $this->view = $view;
@@ -121,13 +150,11 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
    * @code
    * 'option_name' => array(
    *  - 'default' => default value,
-   *  - 'translatable' => (optional) TRUE/FALSE (wrap in t() on export if true),
    *  - 'contains' => (optional) array of items this contains, with its own
    *      defaults, etc. If contains is set, the default will be ignored and
    *      assumed to be array().
-   *  - 'bool' => (optional) TRUE/FALSE Is the value a boolean value. This will
-   *      change the export format to TRUE/FALSE instead of 1/0.
    *  ),
+   * @endcode
    *
    * @return array
    *   Returns the options of this handler/plugin.
@@ -142,11 +169,11 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
    * @param array $options
    *   An array which describes the options of a plugin. Each element is an
    *   associative array containing:
-   *   - default: The default value of one option
+   *   - default: The default value of one option. Should be translated to the
+   *     interface text language selected for page if translatable.
    *   - (optional) contains: An array which describes the available options
    *     under the key. If contains is set, the default will be ignored and
    *     assumed to be an empty array.
-   *   - (optional) 'translatable': TRUE if it should be translated, else FALSE.
    *   - (optional) 'bool': TRUE if the value is boolean, else FALSE.
    */
   protected function setOptionDefaults(array &$storage, array $options) {
@@ -162,8 +189,35 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Unpack options over our existing defaults, drilling down into arrays
-   * so that defaults don't get totally blown away.
+   * {@inheritdoc}
+   */
+  public function filterByDefinedOptions(array &$storage) {
+    $this->doFilterByDefinedOptions($storage, $this->defineOptions());
+  }
+
+  /**
+   * Do the work to filter out stored options depending on the defined options.
+   *
+   * @param array $storage
+   *   The stored options.
+   *
+   * @param array $options
+   *   The defined options.
+   */
+  protected function doFilterByDefinedOptions(array &$storage, array $options) {
+    foreach ($storage as $key => $sub_storage) {
+      if (!isset($options[$key])) {
+        unset($storage[$key]);
+      }
+
+      if (isset($options[$key]['contains'])) {
+        $this->doFilterByDefinedOptions($storage[$key], $options[$key]['contains']);
+      }
+    }
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function unpackOptions(&$storage, $options, $definition = NULL, $all = TRUE, $check = TRUE) {
     if ($check && !is_array($options)) {
@@ -202,113 +256,136 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Clears a plugin.
+   * {@inheritdoc}
    */
   public function destroy() {
     unset($this->view, $this->display, $this->query);
   }
 
   /**
-   * Init will be called after construct, when the plugin is attached to a
-   * view and a display.
+   * {@inheritdoc}
    */
-
-  /**
-   * Provide a form to edit options for this plugin.
-   */
-  public function buildOptionsForm(&$form, &$form_state) {
+  public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     // Some form elements belong in a fieldset for presentation, but can't
-    // be moved into one because of the form_state['values'] hierarchy. Those
+    // be moved into one because of the $form_state->getValues() hierarchy. Those
     // elements can add a #fieldset => 'fieldset_name' property, and they'll
     // be moved to their fieldset during pre_render.
     $form['#pre_render'][] = array(get_class($this), 'preRenderAddFieldsetMarkup');
   }
 
   /**
-   * Validate the options form.
+   * {@inheritdoc}
    */
-  public function validateOptionsForm(&$form, &$form_state) { }
+  public function validateOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
-   * Handle any special handling on the validate form.
+   * {@inheritdoc}
    */
-  public function submitOptionsForm(&$form, &$form_state) { }
+  public function submitOptionsForm(&$form, FormStateInterface $form_state) { }
 
   /**
-   * Add anything to the query that we might need to.
+   * {@inheritdoc}
    */
   public function query() { }
 
   /**
-   * Provide a full list of possible theme templates used by this style.
+   * {@inheritdoc}
    */
   public function themeFunctions() {
     return $this->view->buildThemeFunctions($this->definition['theme']);
   }
 
   /**
-   * Validate that the plugin is correct and can be saved.
-   *
-   * @return
-   *   An array of error strings to tell the user what is wrong with this
-   *   plugin.
+   * {@inheritdoc}
    */
   public function validate() { return array(); }
 
   /**
-   * Returns the summary of the settings in the display.
+   * {@inheritdoc}
    */
   public function summaryTitle() {
-    return t('Settings');
+    return $this->t('Settings');
   }
 
   /**
-   * Return the human readable name of the display.
-   *
-   * This appears on the ui beside each plugin and beside the settings link.
+   * {@inheritdoc}
    */
   public function pluginTitle() {
     // Short_title is optional so its defaults to an empty string.
     if (!empty($this->definition['short_title'])) {
-      return String::checkPlain($this->definition['short_title']);
+      return SafeMarkup::checkPlain($this->definition['short_title']);
     }
-    return String::checkPlain($this->definition['title']);
+    return SafeMarkup::checkPlain($this->definition['title']);
   }
 
   /**
-   * Returns the usesOptions property.
+   * {@inheritdoc}
    */
   public function usesOptions() {
     return $this->usesOptions;
   }
 
   /**
-   * Returns a string with any core tokens replaced.
-   *
-   * @param string $string
-   *   The string to preform the token replacement on.
-   * @param array $options
-   *   An array of options, as passed to \Drupal\Core\Utility\Token::replace().
-   *
-   * @return string
-   *   The tokenized string.
+   * {@inheritdoc}
    */
   public function globalTokenReplace($string = '', array $options = array()) {
     return \Drupal::token()->replace($string, array('view' => $this->view), $options);
   }
 
   /**
-   * Returns an array of available token replacements.
+   * Replaces Views' tokens in a given string. It is the responsibility of the
+   * calling function to ensure $text and $token replacements are sanitized.
    *
-   * @param bool $prepared
-   *   Whether to return the raw token info for each token or an array of
-   *   prepared tokens for each type. E.g. "[view:name]".
-   * @param array $types
-   *   An array of additional token types to return, defaults to 'site' and
-   *   'view'.
+   * This used to be a simple strtr() scattered throughout the code. Some Views
+   * tokens, such as arguments (e.g.: %1 or !1), still use the old format so we
+   * handle those as well as the new Twig-based tokens (e.g.: {{ field_name }})
    *
-   * @return array
-   *   An array of available token replacement info or tokens, grouped by type.
+   * @param $text
+   *   String with possible tokens.
+   * @param $tokens
+   *   Array of token => replacement_value items.
+   *
+   * @return String
+   */
+  protected function viewsTokenReplace($text, $tokens) {
+    if (empty($tokens)) {
+      return $text;
+    }
+
+    // Separate Twig tokens from other tokens (e.g.: contextual filter tokens in
+    // the form of %1).
+    $twig_tokens = array();
+    $other_tokens = array();
+    foreach ($tokens as $token => $replacement) {
+      if (strpos($token, '{{') !== FALSE) {
+        // Twig wants a token replacement array stripped of curly-brackets.
+        $token = trim(str_replace(array('{', '}'), '', $token));
+        $twig_tokens[$token] = $replacement;
+      }
+      else {
+        $other_tokens[$token] = $replacement;
+      }
+    }
+
+    // Non-Twig tokens are a straight string replacement, Twig tokens get run
+    // through an inline template for rendering and replacement.
+    $text = strtr($text, $other_tokens);
+    if ($twig_tokens && !empty($text)) {
+      $build = array(
+        '#type' => 'inline_template',
+        '#template' => $text,
+        '#context' => $twig_tokens,
+      );
+
+      return $this->getRenderer()->render($build);
+    }
+    else {
+      return $text;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
    */
   public function getAvailableGlobalTokens($prepared = FALSE, array $types = array()) {
     $info = \Drupal::token()->getInfo();
@@ -332,14 +409,9 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Adds elements for available core tokens to a form.
-   *
-   * @param array $form
-   *   The form array to alter, passed by reference.
-   * @param array $form_state
-   *   The form state array to alter, passed by reference.
+   * {@inheritdoc}
    */
-  public function globalTokenForm(&$form, &$form_state) {
+  public function globalTokenForm(&$form, FormStateInterface $form_state) {
     $token_items = array();
 
     foreach ($this->getAvailableGlobalTokens() as $type => $tokens) {
@@ -356,7 +428,7 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
 
     $form['global_tokens'] = array(
       '#type' => 'details',
-      '#title' => t('Available global token replacements'),
+      '#title' => $this->t('Available global token replacements'),
     );
     $form['global_tokens']['list'] = array(
       '#theme' => 'item_list',
@@ -368,19 +440,7 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Moves form elements into fieldsets for presentation purposes.
-   *
-   * Many views forms use #tree = TRUE to keep their values in a hierarchy for
-   * easier storage. Moving the form elements into fieldsets during form
-   * building would break up that hierarchy. Therefore, we wait until the
-   * pre_render stage, where any changes we make affect presentation only and
-   * aren't reflected in $form_state['values'].
-   *
-   * @param array $form
-   *   The form build array to alter.
-   *
-   * @return array
-   *   The form build array.
+   * {@inheritdoc}
    */
   public static function preRenderAddFieldsetMarkup(array $form) {
     foreach (Element::children($form) as $key) {
@@ -399,17 +459,7 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Flattens the structure of form elements.
-   *
-   * If a form element has #flatten = TRUE, then all of it's children get moved
-   * to the same level as the element itself. So $form['to_be_flattened'][$key]
-   * becomes $form[$key], and $form['to_be_flattened'] gets unset.
-   *
-   * @param array $form
-   *   The form build array to alter.
-   *
-   * @return array
-   *   The form build array.
+   * {@inheritdoc}
    */
   public static function preRenderFlattenData($form) {
     foreach (Element::children($form) as $key) {
@@ -427,15 +477,144 @@ abstract class PluginBase extends ComponentPluginBase implements ContainerFactor
   }
 
   /**
-   * Returns an array of module dependencies for this plugin.
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getProvider() {
+    $definition = $this->getPluginDefinition();
+    return $definition['provider'];
+  }
+
+  /**
+   * Makes an array of languages, optionally including special languages.
    *
-   * Dependencies are a list of module names, which might depend on the
-   * configuration.
+   * @param int $flags
+   *   (optional) Flags for which languages to return (additive). Options:
+   *   - \Drupal\Core\Language::STATE_ALL (default): All languages
+   *     (configurable and default).
+   *   - \Drupal\Core\Language::STATE_CONFIGURABLE: Configurable languages.
+   *   - \Drupal\Core\Language::STATE_LOCKED: Locked languages.
+   *   - \Drupal\Core\Language::STATE_SITE_DEFAULT: Add site default language;
+   *     note that this is not included in STATE_ALL.
+   *   - \Drupal\views\Plugin\views\PluginBase::INCLUDE_NEGOTIATED: Add
+   *     negotiated language types.
+   *   - \Drupal\views\Plugin\views\PluginBase::INCLUDE_ENTITY: Add
+   *     entity row language types. Note that these are only supported for
+   *     display options, not substituted in queries.
+   * @param array|null $current_values
+   *   The currently-selected options in the list, if available.
    *
    * @return array
+   *   An array of language names, keyed by the language code. Negotiated and
+   *   special languages have special codes that are substituted in queries by
+   *   PluginBase::queryLanguageSubstitutions().
+   *   Only configurable languages and languages that are in $current_values are
+   *   included in the list.
    */
-  public function getDependencies() {
-    return array();
+  protected function listLanguages($flags = LanguageInterface::STATE_ALL, array $current_values = NULL) {
+    $manager = \Drupal::languageManager();
+    $languages = $manager->getLanguages($flags);
+    $list = array();
+
+    // The entity languages should come first, if requested.
+    if ($flags & PluginBase::INCLUDE_ENTITY) {
+      $list['***LANGUAGE_entity_translation***'] = $this->t('Content language of view row');
+      $list['***LANGUAGE_entity_default***'] = $this->t('Original language of content in view row');
+    }
+
+    // STATE_SITE_DEFAULT comes in with ID set
+    // to LanguageInterface::LANGCODE_SITE_DEFAULT.
+    // Since this is not a real language, surround it by '***LANGUAGE_...***',
+    // like the negotiated languages below.
+    if ($flags & LanguageInterface::STATE_SITE_DEFAULT) {
+      $list[PluginBase::VIEWS_QUERY_LANGUAGE_SITE_DEFAULT] = $this->t($languages[LanguageInterface::LANGCODE_SITE_DEFAULT]->getName());
+      // Remove site default language from $languages so it's not added
+      // twice with the real languages below.
+      unset($languages[LanguageInterface::LANGCODE_SITE_DEFAULT]);
+    }
+
+    // Add in negotiated languages, if requested.
+    if ($flags & PluginBase::INCLUDE_NEGOTIATED) {
+      $types_info = $manager->getDefinedLanguageTypesInfo();
+      $types = $manager->getLanguageTypes();
+      // We only go through the configured types.
+      foreach ($types as $id) {
+        if (isset($types_info[$id]['name'])) {
+          $name = $types_info[$id]['name'];
+          // Surround IDs by '***LANGUAGE_...***', to avoid query collisions.
+          $id = '***LANGUAGE_' . $id . '***';
+          $list[$id] = $this->t('!type language selected for page', array('!type' => $name));
+        }
+      }
+      if (!empty($current_values)) {
+        foreach ($types_info as $id => $type) {
+          $id = '***LANGUAGE_' . $id . '***';
+          // If this (non-configurable) type is among the current values,
+          // add that option too, so it is not lost. If not among the current
+          // values, skip displaying it to avoid user confusion.
+          if (isset($type['name']) && !isset($list[$id]) && in_array($id, $current_values)) {
+            $list[$id] = $this->t('!type language selected for page', array('!type' => $type['name']));
+          }
+        }
+      }
+    }
+
+    // Add real languages.
+    foreach ($languages as $id => $language) {
+      $list[$id] = $this->t($language->getName());
+    }
+
+    return $list;
+  }
+
+  /**
+   * Returns substitutions for Views queries for languages.
+   *
+   * This is needed so that the language options returned by
+   * PluginBase::listLanguages() are able to be used in queries. It is called
+   * by the Views module implementation of hook_views_query_substitutions()
+   * to get the language-related substitutions.
+   *
+   * @return array
+   *   An array in the format of hook_views_query_substitutions() that gives
+   *   the query substitutions needed for the special language types.
+   */
+  public static function queryLanguageSubstitutions() {
+    $changes = array();
+    $manager = \Drupal::languageManager();
+
+    // Handle default language.
+    $default = $manager->getDefaultLanguage()->getId();
+    $changes[PluginBase::VIEWS_QUERY_LANGUAGE_SITE_DEFAULT] = $default;
+
+    // Handle negotiated languages.
+    $types = $manager->getDefinedLanguageTypesInfo();
+    foreach ($types as $id => $type) {
+      if (isset($type['name'])) {
+        $changes['***LANGUAGE_' . $id . '***'] = $manager->getCurrentLanguage($id)->getId();
+      }
+    }
+
+    return $changes;
+  }
+
+  /**
+   * Returns the render API renderer.
+   *
+   * @return \Drupal\Core\Render\RendererInterface
+   */
+  protected function getRenderer() {
+    if (!isset($this->renderer)) {
+      $this->renderer = \Drupal::service('renderer');
+    }
+
+    return $this->renderer;
   }
 
 }

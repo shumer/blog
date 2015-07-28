@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\migrate\Plugin\migrate\destination\EntityFieldEntity.
+ * Contains \Drupal\migrate\Plugin\migrate\destination\EntityFieldStorageConfig.
  */
 
 namespace Drupal\migrate\Plugin\migrate\destination;
@@ -19,7 +19,7 @@ class EntityFieldStorageConfig extends EntityConfigBase {
    */
   public function getIds() {
     $ids['entity_type']['type'] = 'string';
-    $ids['name']['type'] = 'string';
+    $ids['field_name']['type'] = 'string';
     return $ids;
   }
 

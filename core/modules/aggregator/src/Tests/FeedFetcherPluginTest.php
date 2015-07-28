@@ -11,11 +11,15 @@ namespace Drupal\aggregator\Tests;
  * Tests the fetcher plugins functionality and discoverability.
  *
  * @group aggregator
+ *
  * @see \Drupal\aggregator_test\Plugin\aggregator\fetcher\TestFetcher.
  */
 class FeedFetcherPluginTest extends AggregatorTestBase {
 
-  public function setUp() {
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp() {
     parent::setUp();
     // Enable test plugins.
     $this->enableTestPlugins();

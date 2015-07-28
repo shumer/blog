@@ -9,6 +9,7 @@ namespace Drupal\node\Plugin\Condition;
 
 use Drupal\Core\Condition\ConditionPluginBase;
 use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -68,11 +69,11 @@ class NodeType extends ConditionPluginBase implements ContainerFactoryPluginInte
   /**
    * {@inheritdoc}
    */
-  public function buildConfigurationForm(array $form, array &$form_state) {
+  public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $options = array();
     $node_types = $this->entityStorage->loadMultiple();
     foreach ($node_types as $type) {
-      $options[$type->type] = $type->name;
+      $options[$type->id()] = $type->label();
     }
     $form['bundles'] = array(
       '#title' => $this->t('Node types'),
@@ -86,8 +87,8 @@ class NodeType extends ConditionPluginBase implements ContainerFactoryPluginInte
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, array &$form_state) {
-    $this->configuration['bundles'] = array_filter($form_state['values']['bundles']);
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    $this->configuration['bundles'] = array_filter($form_state->getValue('bundles'));
     parent::submitConfigurationForm($form, $form_state);
   }
 

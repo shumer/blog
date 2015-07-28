@@ -8,9 +8,18 @@
 namespace Drupal\Core\ImageToolkit;
 
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
-use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Plugin\PluginBase;
+use Psr\Log\LoggerInterface;
 
+/**
+ * Provides a base class for image toolkit operation plugins.
+ *
+ * @see \Drupal\Core\ImageToolkit\Annotation\ImageToolkitOperation
+ * @see \Drupal\Core\ImageToolkit\ImageToolkitOperationInterface
+ * @see \Drupal\Core\ImageToolkit\ImageToolkitOperationManager
+ * @see plugin_api
+ */
 abstract class ImageToolkitOperationBase extends PluginBase implements ImageToolkitOperationInterface {
 
   /**
@@ -19,6 +28,13 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
    * @var \Drupal\Core\ImageToolkit\ImageToolkitInterface
    */
   protected $toolkit;
+
+  /**
+   * A logger instance.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
 
   /**
    * Constructs an image toolkit operation plugin.
@@ -31,19 +47,22 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
    *   The plugin implementation definition.
    * @param \Drupal\Core\ImageToolkit\ImageToolkitInterface $toolkit
    *   The image toolkit.
+   * @param \Psr\Log\LoggerInterface $logger
+   *   A logger instance.
    */
-  public function __construct(array $configuration, $plugin_id, array $plugin_definition, ImageToolkitInterface $toolkit) {
+  public function __construct(array $configuration, $plugin_id, array $plugin_definition, ImageToolkitInterface $toolkit, LoggerInterface $logger) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->toolkit = $toolkit;
+    $this->logger = $logger;
   }
 
   /**
    * Returns the image toolkit instance for this operation.
    *
-   * Image toolkit implementers should provide a trait that overrides this
-   * method to correctly document the return type of this getter. This provides
-   * better DX (code checking and code completion) for image toolkit operation
-   * developers.
+   * Image toolkit implementers should provide a toolkit operation base class
+   * that overrides this method to correctly document the return type of this
+   * getter. This provides better DX (code checking and code completion) for
+   * image toolkit operation developers.
    *
    * @return \Drupal\Core\ImageToolkit\ImageToolkitInterface
    */
@@ -95,7 +114,7 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
       if ($argument['required']) {
         if (!array_key_exists($id, $arguments)) {
           // If the argument is required throw an exception.
-          throw new \InvalidArgumentException(String::format("Argument '@argument' expected by plugin '@plugin' but not passed", array('@argument' => $id, '@plugin' => $this->getPluginId())));
+          throw new \InvalidArgumentException(SafeMarkup::format("Argument '@argument' expected by plugin '@plugin' but not passed", array('@argument' => $id, '@plugin' => $this->getPluginId())));
         }
       }
       else {
@@ -105,7 +124,7 @@ abstract class ImageToolkitOperationBase extends PluginBase implements ImageTool
         if (!array_key_exists('default', $argument)) {
           // The plugin did not define a default, so throw a plugin exception,
           // not an invalid argument exception.
-          throw new InvalidPluginDefinitionException(String::format("Default for argument '@argument' expected by plugin '@plugin' but not defined", array('@argument' => $id, '@plugin' => $this->getPluginId())));
+          throw new InvalidPluginDefinitionException(SafeMarkup::format("Default for argument '@argument' expected by plugin '@plugin' but not defined", array('@argument' => $id, '@plugin' => $this->getPluginId())));
         }
 
         // Use the default value if the argument is not passed in.

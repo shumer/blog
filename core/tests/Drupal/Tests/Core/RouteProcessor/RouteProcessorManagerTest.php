@@ -7,6 +7,8 @@
 
 namespace Drupal\Tests\Core\RouteProcessor;
 
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\RouteProcessor\RouteProcessorManager;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\Routing\Route;
@@ -24,7 +26,7 @@ class RouteProcessorManagerTest extends UnitTestCase {
    */
   protected $processorManager;
 
-  public function setUp() {
+  protected function setUp() {
     $this->processorManager = new RouteProcessorManager();
   }
 
@@ -34,11 +36,12 @@ class RouteProcessorManagerTest extends UnitTestCase {
   public function testRouteProcessorManager() {
     $route = new Route('');
     $parameters = array('test' => 'test');
+    $route_name = 'test_name';
 
     $processors = array(
-      10 => $this->getMockProcessor($route, $parameters),
-      5 => $this->getMockProcessor($route, $parameters),
-      0 => $this->getMockProcessor($route, $parameters),
+      10 => $this->getMockProcessor($route_name, $route, $parameters),
+      5 => $this->getMockProcessor($route_name, $route, $parameters),
+      0 => $this->getMockProcessor($route_name, $route, $parameters),
     );
 
     // Add the processors in reverse order.
@@ -46,12 +49,17 @@ class RouteProcessorManagerTest extends UnitTestCase {
       $this->processorManager->addOutbound($processor, $priority);
     }
 
-    $this->processorManager->processOutbound($route, $parameters);
+    $cacheable_metadata = new CacheableMetadata();
+    $this->processorManager->processOutbound($route_name, $route, $parameters, $cacheable_metadata);
+    // Default cacheability is: permanently cacheable, no cache tags/contexts.
+    $this->assertEquals((new CacheableMetadata())->setCacheMaxAge(Cache::PERMANENT), $cacheable_metadata);
   }
 
   /**
    * Returns a mock Route processor object.
    *
+   * @param string $route_name
+   *   The route name.
    * @param \Symfony\Component\Routing\Route $route
    *   The Route to use in mock with() expectation.
    * @param array $parameters
@@ -59,11 +67,11 @@ class RouteProcessorManagerTest extends UnitTestCase {
    *
    * @return \Drupal\Core\RouteProcessor\OutboundRouteProcessorInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected function getMockProcessor($route, $parameters) {
+  protected function getMockProcessor($route_name, $route, $parameters) {
     $processor = $this->getMock('Drupal\Core\RouteProcessor\OutboundRouteProcessorInterface');
     $processor->expects($this->once())
       ->method('processOutbound')
-      ->with($route, $parameters);
+      ->with($route_name, $route, $parameters);
 
     return $processor;
   }

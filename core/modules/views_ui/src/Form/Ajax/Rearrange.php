@@ -7,7 +7,10 @@
 
 namespace Drupal\views_ui\Form\Ajax;
 
-use Drupal\views\ViewStorageInterface;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\views\ViewEntityInterface;
 use Drupal\views\ViewExecutable;
 
 /**
@@ -16,7 +19,7 @@ use Drupal\views\ViewExecutable;
 class Rearrange extends ViewsFormBase {
 
   /**
-   * Constucts a new Rearrange object.
+   * Constructs a new Rearrange object.
    */
   public function __construct($type = NULL) {
     $this->setType($type);
@@ -32,7 +35,7 @@ class Rearrange extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function getForm(ViewStorageInterface $view, $display_id, $js, $type = NULL) {
+  public function getForm(ViewEntityInterface $view, $display_id, $js, $type = NULL) {
     $this->setType($type);
     return parent::getForm($view, $display_id, $js);
   }
@@ -47,21 +50,25 @@ class Rearrange extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, array &$form_state) {
-    $view = $form_state['view'];
-    $display_id = $form_state['display_id'];
-    $type = $form_state['type'];
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
+    $type = $form_state->get('type');
 
     $types = ViewExecutable::getHandlerTypes();
     $executable = $view->getExecutable();
-    $executable->setDisplay($display_id);
+    if (!$executable->setDisplay($display_id)) {
+      $form['markup'] = array('#markup' => $this->t('Invalid display id @display', array('@display' => $display_id)));
+      return $form;
+    }
     $display = &$executable->displayHandlers->get($display_id);
     $form['#title'] = $this->t('Rearrange @type', array('@type' => $types[$type]['ltitle']));
     $form['#section'] = $display_id . 'rearrange-item';
 
     if ($display->defaultableSections($types[$type]['plural'])) {
-      $form_state['section'] = $types[$type]['plural'];
-      views_ui_standard_display_dropdown($form, $form_state, $form_state['section']);
+      $section = $types[$type]['plural'];
+      $form_state->set('section', $section);
+      views_ui_standard_display_dropdown($form, $form_state, $section);
     }
 
     $count = 0;
@@ -122,7 +129,14 @@ class Rearrange extends ViewsFormBase {
         '#id' => 'views-removed-' . $id,
         '#attributes' => array('class' => array('views-remove-checkbox')),
         '#default_value' => 0,
-        '#suffix' => l('<span>' . $this->t('Remove') . '</span>', 'javascript:void()', array('attributes' => array('id' => 'views-remove-link-' . $id, 'class' => array('views-hidden', 'views-button-remove', 'views-remove-link'), 'alt' => $this->t('Remove this item'), 'title' => $this->t('Remove this item')), 'html' => TRUE)),
+        '#suffix' => \Drupal::l(SafeMarkup::format('<span>@text</span>', array('@text' => $this->t('Remove'))),
+          Url::fromRoute('<none>', array(), array('attributes' => array(
+            'id' => 'views-remove-link-' . $id,
+            'class' => array('views-hidden', 'views-button-remove', 'views-remove-link'),
+            'alt' => $this->t('Remove this item'),
+            'title' => $this->t('Remove this item')),
+          ))
+        ),
       );
     }
 
@@ -134,15 +148,19 @@ class Rearrange extends ViewsFormBase {
   /**
    * {@inheritdoc}
    */
-  public function submitForm(array &$form, array &$form_state) {
-    $types = ViewExecutable::getHandlerTypes();
-    $display = &$form_state['view']->getExecutable()->displayHandlers->get($form_state['display_id']);
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $view = $form_state->get('view');
+    $display_id = $form_state->get('display_id');
+    $type = $form_state->get('type');
 
-    $old_fields = $display->getOption($types[$form_state['type']]['plural']);
+    $types = ViewExecutable::getHandlerTypes();
+    $display = &$view->getExecutable()->displayHandlers->get($display_id);
+
+    $old_fields = $display->getOption($types[$type]['plural']);
     $new_fields = $order = array();
 
     // Make an array with the weights
-    foreach ($form_state['values']['fields'] as $field => $info) {
+    foreach ($form_state->getValue('fields') as $field => $info) {
       // add each value that is a field with a weight to our list, but only if
       // it has had its 'removed' checkbox checked.
       if (is_array($info) && isset($info['weight']) && empty($info['removed'])) {
@@ -157,10 +175,10 @@ class Rearrange extends ViewsFormBase {
     foreach (array_keys($order) as $field) {
       $new_fields[$field] = $old_fields[$field];
     }
-    $display->setOption($types[$form_state['type']]['plural'], $new_fields);
+    $display->setOption($types[$type]['plural'], $new_fields);
 
     // Store in cache
-    $form_state['view']->cacheSet();
+    $view->cacheSet();
   }
 
 }

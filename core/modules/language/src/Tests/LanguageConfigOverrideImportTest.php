@@ -7,7 +7,7 @@
 
 namespace Drupal\language\Tests;
 
-use Drupal\Core\Language\Language;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -28,18 +28,15 @@ class LanguageConfigOverrideImportTest extends WebTestBase {
    * Tests that language can be enabled and overrides are created during a sync.
    */
   public function testConfigOverrideImport() {
-    language_save(new Language(array(
-      'name' => 'French',
-      'id' => 'fr',
-    )));
+    ConfigurableLanguage::createFromLangcode('fr')->save();
     /* @var \Drupal\Core\Config\StorageInterface $staging */
     $staging = \Drupal::service('config.storage.staging');
     $this->copyConfig(\Drupal::service('config.storage'), $staging);
 
     // Uninstall the language module and its dependencies so we can test
     // enabling the language module and creating overrides at the same time
-    // during a configuration synchronisation.
-    \Drupal::moduleHandler()->uninstall(array('language'));
+    // during a configuration synchronization.
+    \Drupal::service('module_installer')->uninstall(array('language'));
     // Ensure that the current site has no overrides registered to the
     // ConfigFactory.
     $this->rebuildContainer();
@@ -59,7 +56,7 @@ class LanguageConfigOverrideImportTest extends WebTestBase {
     $this->drupalGet('fr');
     $this->assertText('FR default site name');
 
-    $this->drupalLogin($this->root_user);
+    $this->drupalLogin($this->rootUser);
     $this->drupalGet('admin/config/development/maintenance/translate/fr/edit');
     $this->assertText('FR message: @site is currently under maintenance. We should be back shortly. Thank you for your patience');
   }
@@ -69,13 +66,11 @@ class LanguageConfigOverrideImportTest extends WebTestBase {
    */
   public function testConfigOverrideImportEvents() {
     // Enable the config_events_test module so we can record events occurring.
-    \Drupal::moduleHandler()->install(array('config_events_test'));
+    \Drupal::service('module_installer')->install(array('config_events_test'));
     $this->rebuildContainer();
 
-    language_save(new Language(array(
-      'name' => 'French',
-      'id' => 'fr',
-    )));
+    ConfigurableLanguage::createFromLangcode('fr')->save();
+
     /* @var \Drupal\Core\Config\StorageInterface $staging */
     $staging = \Drupal::service('config.storage.staging');
     $this->copyConfig(\Drupal::service('config.storage'), $staging);

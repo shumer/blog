@@ -7,14 +7,14 @@
 
 namespace Drupal\config\Tests;
 
-use Drupal\simpletest\DrupalUnitTestBase;
+use Drupal\simpletest\KernelTestBase;
 
 /**
  * Tests configuration entity status functionality.
  *
  * @group config
  */
-class ConfigEntityStatusTest extends DrupalUnitTestBase {
+class ConfigEntityStatusTest extends KernelTestBase {
 
   /**
    * Modules to enable.
@@ -28,7 +28,7 @@ class ConfigEntityStatusTest extends DrupalUnitTestBase {
    */
   function testCRUD() {
     $entity = entity_create('config_test', array(
-      'id' => strtolower($this->randomName()),
+      'id' => strtolower($this->randomMachineName()),
     ));
     $this->assertTrue($entity->status(), 'Default status is enabled.');
     $entity->save();

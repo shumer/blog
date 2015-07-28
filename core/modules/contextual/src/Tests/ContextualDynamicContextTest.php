@@ -8,6 +8,7 @@
 namespace Drupal\contextual\Tests;
 
 use Drupal\Component\Serialization\Json;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 use Drupal\Core\Template\Attribute;
 
@@ -20,21 +21,45 @@ use Drupal\Core\Template\Attribute;
 class ContextualDynamicContextTest extends WebTestBase {
 
   /**
+   * A user with permission to access contextual links and edit content.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $editorUser;
+
+  /**
+   * An authenticated user with permission to access contextual links.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $authenticatedUser;
+
+  /**
+   * A simulated anonymous user with access only to node content.
+   *
+   * @var \Drupal\user\UserInterface
+   */
+  protected $anonymousUser;
+
+  /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = array('contextual', 'node', 'views', 'views_ui');
+  public static $modules = array('contextual', 'node', 'views', 'views_ui', 'language');
 
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Basic page'));
     $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
 
-    $this->editor_user = $this->drupalCreateUser(array('access content', 'access contextual links', 'edit any article content'));
-    $this->authenticated_user = $this->drupalCreateUser(array('access content', 'access contextual links'));
-    $this->anonymous_user = $this->drupalCreateUser(array('access content'));
+    ConfigurableLanguage::createFromLangcode('it')->save();
+    $this->rebuildContainer();
+
+    $this->editorUser = $this->drupalCreateUser(array('access content', 'access contextual links', 'edit any article content'));
+    $this->authenticatedUser = $this->drupalCreateUser(array('access content', 'access contextual links'));
+    $this->anonymousUser = $this->drupalCreateUser(array('access content'));
   }
 
   /**
@@ -44,7 +69,7 @@ class ContextualDynamicContextTest extends WebTestBase {
    * not allowed to use contextual links.
    */
   function testDifferentPermissions() {
-    $this->drupalLogin($this->editor_user);
+    $this->drupalLogin($this->editorUser);
 
     // Create three nodes in the following order:
     // - An article, which should be user-editable.
@@ -56,12 +81,12 @@ class ContextualDynamicContextTest extends WebTestBase {
 
     // Now, on the front page, all article nodes should have contextual links
     // placeholders, as should the view that contains them.
-    $ids = array(
-      'node:node=' . $node1->id() . ':changed=' . $node1->getChangedTime(),
-      'node:node=' . $node2->id() . ':changed=' . $node2->getChangedTime(),
-      'node:node=' . $node3->id() . ':changed=' . $node3->getChangedTime(),
-      'views_ui_edit:view=frontpage:location=page&name=frontpage&display_id=page_1',
-    );
+    $ids = [
+      'node:node=' . $node1->id() . ':changed=' . $node1->getChangedTime() . '&langcode=en',
+      'node:node=' . $node2->id() . ':changed=' . $node2->getChangedTime() . '&langcode=en',
+      'node:node=' . $node3->id() . ':changed=' . $node3->getChangedTime() . '&langcode=en',
+      'entity.view.edit_form:view=frontpage:location=page&name=frontpage&display_id=page_1&langcode=en',
+    ];
 
     // Editor user: can access contextual links and can edit articles.
     $this->drupalGet('node');
@@ -74,13 +99,13 @@ class ContextualDynamicContextTest extends WebTestBase {
     $response = $this->renderContextualLinks($ids, 'node');
     $this->assertResponse(200);
     $json = Json::decode($response);
-    $this->assertIdentical($json[$ids[0]], '<ul class="contextual-links"><li class="nodepage-edit"><a href="' . base_path() . 'node/1/edit">Edit</a></li></ul>');
+    $this->assertIdentical($json[$ids[0]], '<ul class="contextual-links"><li class="entitynodeedit-form"><a href="' . base_path() . 'node/1/edit">Edit</a></li></ul>');
     $this->assertIdentical($json[$ids[1]], '');
-    $this->assertIdentical($json[$ids[2]], '<ul class="contextual-links"><li class="nodepage-edit"><a href="' . base_path() . 'node/3/edit">Edit</a></li></ul>');
+    $this->assertIdentical($json[$ids[2]], '<ul class="contextual-links"><li class="entitynodeedit-form"><a href="' . base_path() . 'node/3/edit">Edit</a></li></ul>');
     $this->assertIdentical($json[$ids[3]], '');
 
     // Authenticated user: can access contextual links, cannot edit articles.
-    $this->drupalLogin($this->authenticated_user);
+    $this->drupalLogin($this->authenticatedUser);
     $this->drupalGet('node');
     for ($i = 0; $i < count($ids); $i++) {
       $this->assertContextualLinkPlaceHolder($ids[$i]);
@@ -97,7 +122,7 @@ class ContextualDynamicContextTest extends WebTestBase {
     $this->assertIdentical($json[$ids[3]], '');
 
     // Anonymous user: cannot access contextual links.
-    $this->drupalLogin($this->anonymous_user);
+    $this->drupalLogin($this->anonymousUser);
     $this->drupalGet('node');
     for ($i = 0; $i < count($ids); $i++) {
       $this->assertContextualLinkPlaceHolder($ids[$i]);
@@ -106,6 +131,12 @@ class ContextualDynamicContextTest extends WebTestBase {
     $this->assertResponse(403);
     $this->renderContextualLinks($ids, 'node');
     $this->assertResponse(403);
+
+    // Verify that link language is properly handled.
+    $node3->addTranslation('it')->save();
+    $id = 'node:node=' . $node3->id() . ':changed=' . $node3->getChangedTime() . '&langcode=it';
+    $this->drupalGet('node', ['language' => ConfigurableLanguage::createFromLangcode('it')]);
+    $this->assertContextualLinkPlaceHolder($id);
   }
 
   /**
@@ -115,9 +146,10 @@ class ContextualDynamicContextTest extends WebTestBase {
    *   A contextual link id.
    *
    * @return bool
+   *   The result of the assertion.
    */
   protected function assertContextualLinkPlaceHolder($id) {
-    $this->assertRaw('<div' . new Attribute(array('data-contextual-id' => $id)) . '></div>', format_string('Contextual link placeholder with id @id exists.', array('@id' => $id)));
+    return $this->assertRaw('<div' . new Attribute(array('data-contextual-id' => $id)) . '></div>', format_string('Contextual link placeholder with id @id exists.', array('@id' => $id)));
   }
 
   /**
@@ -127,9 +159,10 @@ class ContextualDynamicContextTest extends WebTestBase {
    *   A contextual link id.
    *
    * @return bool
+   *   The result of the assertion.
    */
   protected function assertNoContextualLinkPlaceHolder($id) {
-    $this->assertNoRaw('<div' . new Attribute(array('data-contextual-id' => $id)) . '></div>', format_string('Contextual link placeholder with id @id does not exist.', array('@id' => $id)));
+    return $this->assertNoRaw('<div' . new Attribute(array('data-contextual-id' => $id)) . '></div>', format_string('Contextual link placeholder with id @id does not exist.', array('@id' => $id)));
   }
 
   /**
@@ -148,6 +181,6 @@ class ContextualDynamicContextTest extends WebTestBase {
     for ($i = 0; $i < count($ids); $i++) {
       $post['ids[' . $i . ']'] = $ids[$i];
     }
-    return $this->drupalPost('contextual/render', 'application/json', $post, array('query' => array('destination' => $current_path)));
+    return $this->drupalPostWithFormat('contextual/render', 'json', $post, array('query' => array('destination' => $current_path)));
   }
 }

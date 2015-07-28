@@ -32,7 +32,11 @@ class BlockConfigSchemaTest extends KernelTestBase {
     'forum',
     'node',
     'statistics',
+    // BlockManager->getModuleName() calls system_get_info().
+    'system',
     'taxonomy',
+    'user',
+    'text',
   );
 
   /**
@@ -45,7 +49,7 @@ class BlockConfigSchemaTest extends KernelTestBase {
   /**
    * The block manager.
    *
-   * @var \Drupal\block\BlockManagerInterface
+   * @var \Drupal\Core\Block\BlockManagerInterface
    */
   protected $blockManager;
 
@@ -58,6 +62,9 @@ class BlockConfigSchemaTest extends KernelTestBase {
     $this->typedConfig = \Drupal::service('config.typed');
     $this->blockManager = \Drupal::service('plugin.manager.block');
     $this->installEntitySchema('block_content');
+    $this->installEntitySchema('taxonomy_term');
+    $this->installEntitySchema('node');
+    $this->installSchema('book', array('book'));
   }
 
   /**
@@ -65,16 +72,16 @@ class BlockConfigSchemaTest extends KernelTestBase {
    */
   public function testBlockConfigSchema() {
     foreach ($this->blockManager->getDefinitions() as $block_id => $definition) {
-      $id = strtolower($this->randomName());
+      $id = strtolower($this->randomMachineName());
       $block = Block::create(array(
         'id' => $id,
-        'theme' => 'stark',
+        'theme' => 'classy',
         'weight' => 00,
         'status' => TRUE,
         'region' => 'content',
         'plugin' => $block_id,
         'settings' => array(
-          'label' => $this->randomName(),
+          'label' => $this->randomMachineName(),
           'provider' => 'system',
           'label_display' => FALSE,
         ),
@@ -82,7 +89,7 @@ class BlockConfigSchemaTest extends KernelTestBase {
       ));
       $block->save();
 
-      $config = \Drupal::config("block.block.$id");
+      $config = $this->config("block.block.$id");
       $this->assertEqual($config->get('id'), $id);
       $this->assertConfigSchema($this->typedConfig, $config->getName(), $config->get());
     }

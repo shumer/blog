@@ -8,7 +8,7 @@
 namespace Drupal\tracker\Plugin\Menu;
 
 use Drupal\Core\Menu\LocalTaskDefault;
-use Symfony\Component\HttpFoundation\Request;
+use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
  * Provides route parameters needed to link to the current user tracker tab.
@@ -25,7 +25,7 @@ class UserTrackerTab extends LocalTaskDefault {
   /**
    * Gets the current active user.
    *
-   * @todo: https://drupal.org/node/2105123 put this method in
+   * @todo: https://www.drupal.org/node/2105123 put this method in
    *   \Drupal\Core\Plugin\PluginBase instead.
    *
    * @return \Drupal\Core\Session\AccountInterface
@@ -41,7 +41,7 @@ class UserTrackerTab extends LocalTaskDefault {
   /**
    * {@inheritdoc}
    */
-  public function getRouteParameters(Request $request) {
+  public function getRouteParameters(RouteMatchInterface $route_match) {
     return array('user' => $this->currentUser()->Id());
   }
 

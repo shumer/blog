@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\Session\SessionTest.
+ * Contains \Drupal\system\Tests\Session\SessionTest.
  */
 
 namespace Drupal\system\Tests\Session;
@@ -26,13 +26,16 @@ class SessionTest extends WebTestBase {
   protected $dumpHeaders = TRUE;
 
   /**
-   * Tests for \Drupal\Core\Session\SessionManager::isEnabled() and ::regenerate().
+   * Tests for \Drupal\Core\Session\WriteSafeSessionHandler::setSessionWritable()
+   * ::isSessionWritable and \Drupal\Core\Session\SessionManager::regenerate().
    */
   function testSessionSaveRegenerate() {
-    $session_manager = $this->container->get('session_manager');
-    $this->assertTrue($session_manager->isEnabled(), 'SessionManager->isEnabled() initially returns TRUE.');
-    $this->assertFalse($session_manager->disable()->isEnabled(), 'SessionManager->isEnabled() returns FALSE after disabling.');
-    $this->assertTrue($session_manager->enable()->isEnabled(), 'SessionManager->isEnabled() returns TRUE after enabling.');
+    $session_handler = $this->container->get('session_handler.write_safe');
+    $this->assertTrue($session_handler->isSessionWritable(), 'session_handler->isSessionWritable() initially returns TRUE.');
+    $session_handler->setSessionWritable(FALSE);
+    $this->assertFalse($session_handler->isSessionWritable(), '$session_handler->isSessionWritable() returns FALSE after disabling.');
+    $session_handler->setSessionWritable(TRUE);
+    $this->assertTrue($session_handler->isSessionWritable(), '$session_handler->isSessionWritable() returns TRUE after enabling.');
 
     // Test session hardening code from SA-2008-044.
     $user = $this->drupalCreateUser();
@@ -51,7 +54,7 @@ class SessionTest extends WebTestBase {
     $user->save();
     $this->drupalGet('session-test/id');
     $matches = array();
-    preg_match('/\s*session_id:(.*)\n/', $this->drupalGetContent(), $matches);
+    preg_match('/\s*session_id:(.*)\n/', $this->getRawContent(), $matches);
     $this->assertTrue(!empty($matches[1]) , 'Found session ID before logging in.');
     $original_session = $matches[1];
 
@@ -61,14 +64,14 @@ class SessionTest extends WebTestBase {
       'name' => $user->getUsername(),
       'pass' => $user->pass_raw
     );
-    $this->drupalPostForm('user', $edit, t('Log in'));
+    $this->drupalPostForm('user/login', $edit, t('Log in'));
     $this->drupalGet('user');
     $pass = $this->assertText($user->getUsername(), format_string('Found name: %name', array('%name' => $user->getUsername())), 'User login');
     $this->_logged_in = $pass;
 
     $this->drupalGet('session-test/id');
     $matches = array();
-    preg_match('/\s*session_id:(.*)\n/', $this->drupalGetContent(), $matches);
+    preg_match('/\s*session_id:(.*)\n/', $this->getRawContent(), $matches);
     $this->assertTrue(!empty($matches[1]) , 'Found session ID after logging in.');
     $this->assertTrue($matches[1] != $original_session, 'Session ID changed after login.');
   }
@@ -83,7 +86,7 @@ class SessionTest extends WebTestBase {
 
     $this->drupalLogin($user);
 
-    $value_1 = $this->randomName();
+    $value_1 = $this->randomMachineName();
     $this->drupalGet('session-test/set/' . $value_1);
     $this->assertText($value_1, 'The session value was stored.', 'Session');
     $this->drupalGet('session-test/get');
@@ -91,7 +94,7 @@ class SessionTest extends WebTestBase {
 
     // Attempt to write over val_1. If drupal_save_session(FALSE) is working.
     // properly, val_1 will still be set.
-    $value_2 = $this->randomName();
+    $value_2 = $this->randomMachineName();
     $this->drupalGet('session-test/no-set/' . $value_2);
     $this->assertText($value_2, 'The session value was correctly passed to session-test/no-set.', 'Session');
     $this->drupalGet('session-test/get');
@@ -109,14 +112,14 @@ class SessionTest extends WebTestBase {
     $this->assertNoText($value_1, "After logout, previous user's session data is not available.", 'Session');
 
     // Now try to store some data as an anonymous user.
-    $value_3 = $this->randomName();
+    $value_3 = $this->randomMachineName();
     $this->drupalGet('session-test/set/' . $value_3);
     $this->assertText($value_3, 'Session data stored for anonymous user.', 'Session');
     $this->drupalGet('session-test/get');
     $this->assertText($value_3, 'Session correctly returned the stored data for an anonymous user.', 'Session');
 
     // Try to store data when drupal_save_session(FALSE).
-    $value_4 = $this->randomName();
+    $value_4 = $this->randomMachineName();
     $this->drupalGet('session-test/no-set/' . $value_4);
     $this->assertText($value_4, 'The session value was correctly passed to session-test/no-set.', 'Session');
     $this->drupalGet('session-test/get');
@@ -135,17 +138,31 @@ class SessionTest extends WebTestBase {
   }
 
   /**
+   * Tests storing data in Session() object.
+   */
+  public function testSessionPersistenceOnLogin() {
+    // Store information via hook_user_login().
+    $user = $this->drupalCreateUser();
+    $this->drupalLogin($user);
+    // Test property added to session object form hook_user_login().
+    $this->drupalGet('session-test/get-from-session-object');
+    $this->assertText('foobar', 'Session data is saved in Session() object.', 'Session');
+  }
+
+  /**
    * Test that empty anonymous sessions are destroyed.
    */
   function testEmptyAnonymousSession() {
-    // Verify that no session is automatically created for anonymous user.
+    // Verify that no session is automatically created for anonymous user when
+    // page caching is disabled.
+    $this->container->get('module_installer')->uninstall(['page_cache']);
     $this->drupalGet('');
     $this->assertSessionCookie(FALSE);
     $this->assertSessionEmpty(TRUE);
 
     // The same behavior is expected when caching is enabled.
-    $config = \Drupal::config('system.performance');
-    $config->set('cache.page.use_internal', 1);
+    $this->container->get('module_installer')->install(['page_cache']);
+    $config = $this->config('system.performance');
     $config->set('cache.page.max_age', 300);
     $config->save();
     $this->drupalGet('');
@@ -197,7 +214,7 @@ class SessionTest extends WebTestBase {
     $user = $this->drupalCreateUser(array());
     $this->drupalLogin($user);
 
-    $sql = 'SELECT u.access, s.timestamp FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE u.uid = :uid';
+    $sql = 'SELECT u.access, s.timestamp FROM {users_field_data} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE u.uid = :uid';
     $times1 = db_query($sql, array(':uid' => $user->id()))->fetchObject();
 
     // Before every request we sleep one second to make sure that if the session
@@ -285,10 +302,10 @@ class SessionTest extends WebTestBase {
    */
   function assertSessionCookie($sent) {
     if ($sent) {
-      $this->assertNotNull($this->session_id, 'Session cookie was sent.');
+      $this->assertNotNull($this->sessionId, 'Session cookie was sent.');
     }
     else {
-      $this->assertNull($this->session_id, 'Session cookie was not sent.');
+      $this->assertNull($this->sessionId, 'Session cookie was not sent.');
     }
   }
 

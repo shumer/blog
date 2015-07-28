@@ -1,9 +1,16 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\DependencyInjection\ServiceProviderInterface.
+ */
+
 namespace Drupal\Core\DependencyInjection;
 
 /**
  * Interface that all service providers must implement.
+ *
+ * @ingroup container
  */
 interface ServiceProviderInterface {
 

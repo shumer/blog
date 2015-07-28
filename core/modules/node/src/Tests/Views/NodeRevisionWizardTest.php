@@ -43,9 +43,9 @@ class NodeRevisionWizardTest extends WizardTestBase {
     $node->save();
 
     $view = array();
-    $view['label'] = $this->randomName(16);
-    $view['id'] = strtolower($this->randomName(16));
-    $view['description'] = $this->randomName(16);
+    $view['label'] = $this->randomMachineName(16);
+    $view['id'] = strtolower($this->randomMachineName(16));
+    $view['description'] = $this->randomMachineName(16);
     $view['page[create]'] = FALSE;
     $view['show[wizard_key]'] = 'node_revision';
     $this->drupalPostForm('admin/structure/views/add', $view, t('Save and edit'));
@@ -54,13 +54,13 @@ class NodeRevisionWizardTest extends WizardTestBase {
     /** @var \Drupal\views\Entity\View $view */
     $view = $view_storage_controller->load($view['id']);
 
-    $this->assertEqual($view->get('base_table'), 'node_revision');
+    $this->assertEqual($view->get('base_table'), 'node_field_revision');
 
     $executable = Views::executableFactory()->get($view);
     $this->executeView($executable);
 
     $this->assertIdenticalResultset($executable, array(array('vid' => 1), array('vid' => 3), array('vid' => 2), array('vid' => 4)),
-      array('node_field_revision_vid' => 'vid'));
+      array('vid' => 'vid'));
   }
 
 }

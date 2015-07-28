@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\system\Tests\System\FloodTest.
+ * Contains \Drupal\system\Tests\System\FloodTest.
  */
 
 namespace Drupal\system\Tests\System;
@@ -20,7 +20,7 @@ class FloodTest extends WebTestBase {
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     parent::setUp();
 
     // Flood backends need a request object. Create a dummy one and insert it
