@@ -1,4 +1,0 @@
-services:
-  plugin.manager.config_pages_context:
-    class: Drupal\config_pages\ConfigPagesContextManager
-    arguments: ['@container.namespaces', '@cache.default', '@module_handler']
