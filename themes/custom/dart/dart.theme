@@ -147,7 +147,6 @@ function dart_preprocess_details(&$variables) {
 * Implements hook_theme_suggestions_details_alter().
 */
 function dart_theme_suggestions_details_alter(array &$suggestions, array $variables) {
-
 }
 
 /**
