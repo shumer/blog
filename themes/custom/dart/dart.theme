@@ -157,3 +157,11 @@ function dart_preprocess_menu_local_task(&$variables) {
     //$variables['element']['#link']['url']->setOption('attributes', array('class'=>'rounded'));
 }
 
+/**
+ * Implements hook_theme_suggestions_HOOK().
+ */
+function dart_theme_suggestions_menu_alter(array &$suggestions, array $variables) {
+
+  $suggestions[] = str_replace('_', '-', $variables['theme_hook_original']);
+  return $suggestions;
+}
