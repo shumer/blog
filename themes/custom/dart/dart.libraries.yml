@@ -1,0 +1,18 @@
+bootstrap:
+  version: VERSION
+  css:
+    base:
+      assets/lib/bootstrap/css/bootstrap.css: {}
+  js:
+    assets/lib/bootstrap/js/bootstrap.js: {}
+
+base:
+    version: VERSION
+    css:
+      base:
+        assets/css/dart-common.css: {}
+    js:
+      assets/js/dart-common.js: {}
+    dependencies:
+      - core/jquery
+      - dart/bootstrap

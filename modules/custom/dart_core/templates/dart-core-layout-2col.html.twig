@@ -1,0 +1,27 @@
+{#
+/**
+ * @file
+ * Template for a dart core 2 column layout.
+ */
+#}
+<div class="blog-masthead">
+  <div class="container">
+    {{ content.header }}
+  </div>
+</div>
+<div class="container">
+  <div class="blog-header">
+    {{ content.featured }}
+  </div>
+  <div class="row">
+    <div class="col-sm-8 blog-main">
+      {{ content.content }}
+    </div>
+    <div class="col-sm-3 col-sm-offset-1 blog-sidebar">
+      {{ content.sidebar }}
+    </div>
+  </div>
+</div>
+<footer class="blog-footer">
+  {{ content.footer }}
+</footer>

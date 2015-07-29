@@ -1,0 +1,6 @@
+name: Site common
+type: module
+description: Common functionality features
+core: 8.x
+package: DART
+
