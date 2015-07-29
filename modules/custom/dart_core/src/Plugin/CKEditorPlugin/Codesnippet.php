@@ -32,9 +32,7 @@ class Codesnippet extends CKEditorPluginBase {
    */
   public function getConfig(Editor $editor) {
     return array(
-      'codeSnippet_codeClass' =>  t('Code class'),
-      'codeSnippet_languages ' => t('Code Languages'),
-      'codeSnippet_theme' => t('Code theme'),
+      'codeSnippet_theme' => 'xcode',
     );
   }
 
