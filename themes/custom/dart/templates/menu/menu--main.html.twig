@@ -24,18 +24,18 @@
 {{ menus.menu_links(items, attributes, 0) }}
 
 {% macro menu_links(items, attributes, menu_level) %}
-  {% import _self as menus %}
-  {% if items %}
-    {% if menu_level == 0 %}
-      <nav{{ attributes.addClass('blog-nav') }}>
-    {% else %}
-      <nav class="blog-nav">
-    {% endif %}
+
+{% if items %}
+  {% if menu_level == 0 %}
+    <nav{{ attributes.addClass('blog-nav') }}>
+  {% else %}
+    <nav class="blog-nav">
+      {% endif %}
       {% for item in items %}
-          <a href="{{ item.url }}" {{ item.attributes.addClass('blog-nav-item') }}>{{ item.title }}</a>
-          {% if item.below %}
-            {{ menus.menu_links(item.below, attributes, menu_level + 1) }}
-          {% endif %}
+        <a href="{{ item.url }}" {{ item.attributes.addClass('blog-nav-item') }}>{{ item.title }}</a>
+        {% if item.below %}
+          {{ menus.menu_links(item.below, attributes, menu_level + 1) }}
+        {% endif %}
       {% endfor %}
     </nav>
   {% endif %}

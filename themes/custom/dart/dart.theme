@@ -164,3 +164,14 @@ function dart_theme_suggestions_menu_alter(array &$suggestions, array $variables
   $suggestions[] = str_replace('_', '-', $variables['theme_hook_original']);
   return $suggestions;
 }
+
+/**
+ * Implements hook_preprocess_menu().
+ */
+function dart_preprocess_menu(&$variables) {
+  foreach ($variables['items'] as &$item) {
+    $system_path = $item['url']->getInternalPath();
+    $path = $system_path == '' ? '<front>' : $system_path;
+    $item['attributes']->setAttribute('data-drupal-link-system-path', $path);
+  }
+}
