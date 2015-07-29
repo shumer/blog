@@ -18,7 +18,7 @@ set classes = [
     <div class="blog-post">
         {{ content.field_category }}
         <h2 class="blog-post-title"><a href="{{ url }}" rel="bookmark">{{ label }}</a></h2>
-        <p class="blog-post-meta">{{ date }}{{ " by "|t }}<a href="#">{{ author_name }}</a></p>
+        <p class="blog-post-meta">{{ "Posted "|t }}{{ date }}{{ " by "|t }}<a href="#">{{ author_name }}</a></p>
         {{ content.body }}
     </div>
 </article>
