@@ -34,11 +34,13 @@ pre {
  */
 
 .category-tags a {
-  color: #01fe32;
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
 }
 
 .category-tags a:hover, .category-tags a:focus {
-  color: #01fe32;
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
 }
 /*
  * Override Bootstrap's default container.
