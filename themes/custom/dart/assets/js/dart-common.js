@@ -14,7 +14,9 @@
   Drupal.behaviors.highligjter = {
     attach: function (context) {
       var $context = $(context);
-      hljs.initHighlightingOnLoad();
+      $('code').each(function(i, block) {
+        hljs.highlightBlock(block);
+      });
     }
   };
 })(jQuery, Drupal, drupalSettings);
