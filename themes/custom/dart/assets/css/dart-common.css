@@ -18,6 +18,10 @@ a {
   color: #ffd700;
 }
 
+a:hover, a:focus {
+  color: #ffb700;
+}
+
 pre {
   padding: 0px;
   border: 1px solid #01fe32;
