@@ -16,3 +16,11 @@ base:
     dependencies:
       - core/jquery
       - dart/bootstrap
+
+highlight:
+    version: VERSION
+    css:
+      base:
+        assets/lib/highlight/styles/xcode.css: {}
+    js:
+      assets/lib/highlight/highlight.pack.js: {}
