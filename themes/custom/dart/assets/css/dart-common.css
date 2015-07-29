@@ -18,6 +18,11 @@ a {
   color: #ffd700;
 }
 
+pre {
+  padding: 0px;
+  border: 1px solid #1e1e1e;
+}
+
 /*
  * Override Bootstrap's default container.
  */
