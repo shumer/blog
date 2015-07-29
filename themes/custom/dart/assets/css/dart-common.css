@@ -30,6 +30,17 @@ pre {
 }
 
 /*
+ * Catgory tags.
+ */
+
+.category-tags a {
+  color: #01fe32;
+}
+
+.category-tags a:hover, .category-tags a:focus {
+  color: #01fe32;
+}
+/*
  * Override Bootstrap's default container.
  */
 
