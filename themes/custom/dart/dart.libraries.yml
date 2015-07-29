@@ -21,6 +21,6 @@ highlight:
     version: VERSION
     css:
       base:
-        assets/lib/highlight/styles/xcode.css: {}
+        assets/lib/highlight/styles/dark.css: {}
     js:
       assets/lib/highlight/highlight.pack.js: {}
