@@ -38,4 +38,6 @@
  * @ingroup themeable
  */
 #}
-{{ item.content }}
+{% for item in items %}
+  <div{{ item.attributes.addClass('field-item') }}>{{ item.content }}</div>
+{% endfor %}
