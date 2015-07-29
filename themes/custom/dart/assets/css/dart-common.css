@@ -56,10 +56,10 @@ h6, .h6 {
 }
 
 /* Active state gets a caret at the bottom */
-.blog-nav .active {
+.blog-nav .is-active {
   color: #fff;
 }
-.blog-nav .active:after {
+.blog-nav .is-active:after {
   position: absolute;
   bottom: 0;
   left: 50%;
