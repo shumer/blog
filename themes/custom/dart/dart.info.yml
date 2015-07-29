@@ -6,6 +6,8 @@ core: 8.x
 
 libraries:
   - dart/base
+  - dart/highlight
 
 regions:
   content: Content
+
