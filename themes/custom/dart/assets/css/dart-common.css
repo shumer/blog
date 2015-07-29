@@ -46,7 +46,9 @@ pre {
 .category-tags span::after {
   content: " | ";
 }
-
+.category-tags span:last-child::after {
+  content: " ";
+}
 /*
  * Override Bootstrap's default container.
  */
