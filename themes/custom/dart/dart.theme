@@ -108,7 +108,7 @@ function dart_theme_suggestions_fieldset_alter(array &$suggestions, array $varia
 function dart_preprocess_node(&$variables) {
   $node = &$variables['node'];
 
-  $variables['created'] = date('d-m-Y', $node->getChangedTime());
+  $variables['created'] = date('m/d/Y', $node->getChangedTime());
 }
 
 /**
