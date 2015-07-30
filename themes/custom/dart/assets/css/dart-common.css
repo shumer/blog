@@ -43,12 +43,15 @@ pre {
   text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
 }
 
-.category-tags span::after {
+.category-tags span::after,
+.tags span::after {
   content: " | ";
 }
-.category-tags span:last-child::after {
+.category-tags span:last-child::after,
+.tags span:last-child::after {
   content: " ";
 }
+
 /*
  * Override Bootstrap's default container.
  */
