@@ -5,6 +5,8 @@
  * Token integration for the Pathauto module.
  */
 
+use Drupal\Core\Render\Element;
+
 /**
  * Implements hook_token_info().
  */
@@ -33,9 +35,9 @@ function pathauto_tokens($type, $tokens, array $data = array(), array $options =
         case 'join-path':
           module_load_include('inc', 'pathauto');
           $values = array();
-          foreach (element_children($array) as $key) {
+          foreach (token_element_children($array) as $key) {
             $value = is_array($array[$key]) ? render($array[$key]) : (string) $array[$key];
-            $value = pathauto_cleanstring($value, $options);
+            $value = \Drupal::service('pathauto.manager')->cleanString($value, $options);
             $values[] = $value;
           }
           $replacements[$original] = implode('/', $values);
