@@ -14,6 +14,43 @@ h6, .h6 {
   color: #f9f9f9;
 }
 
+a {
+  color: #ffd700;
+}
+
+a:hover, a:focus {
+  color: #ffb700;
+}
+
+pre {
+  padding: 0px;
+  border: 1px solid #01fe32;
+  background-color: #1e1e1e;
+  box-shadow: 0 0 10px #01fe32 inset, 0 0 10px #08ff35, 0 0 10px #08ff35, 0 0 10px #08ff35;
+}
+
+/*
+ * Catgory tags.
+ */
+
+.category-tags a {
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
+}
+
+.category-tags a:hover, .category-tags a:focus {
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
+}
+
+.category-tags span::after,
+.tags span::after {
+  content: " | ";
+}
+.category-tags span:last-child::after,
+.tags span:last-child::after {
+  content: " ";
+}
 
 /*
  * Override Bootstrap's default container.
