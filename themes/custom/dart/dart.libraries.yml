@@ -15,6 +15,7 @@ base:
       assets/js/dart-common.js: {}
     dependencies:
       - core/jquery
+      - core/drupal
       - dart/bootstrap
 
 highlight:
