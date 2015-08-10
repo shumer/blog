@@ -2,11 +2,6 @@
  * Globals
  */
 
-body {
-  font-family: Georgia, "Times New Roman", Times, serif;
-  color: #555;
-}
-
 h1, .h1,
 h2, .h2,
 h3, .h3,
@@ -16,9 +11,54 @@ h6, .h6 {
   margin-top: 0;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: normal;
-  color: #333;
+  color: #f9f9f9;
 }
 
+a {
+  color: #ffd700;
+}
+
+a:hover, a:focus {
+  color: #ffb700;
+}
+
+pre {
+  padding: 0px;
+  border: 1px solid #01fe32;
+  background-color: #1e1e1e;
+  box-shadow: 0 0 10px #01fe32 inset, 0 0 10px #08ff35, 0 0 10px #08ff35, 0 0 10px #08ff35;
+}
+
+body.cke_editable,
+input, textarea {
+  background-color: #444444;
+}
+.filter-wrapper {
+  display: none;
+}
+
+/*
+ * Catgory tags.
+ */
+
+.category-tags a {
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
+}
+
+.category-tags a:hover, .category-tags a:focus {
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
+}
+
+.category-tags span::after,
+.tags span::after {
+  content: " | ";
+}
+.category-tags span:last-child::after,
+.tags span:last-child::after {
+  content: " ";
+}
 
 /*
  * Override Bootstrap's default container.
@@ -36,7 +76,7 @@ h6, .h6 {
  */
 
 .blog-masthead {
-  background-color: #428bca;
+  background-color: #1e1e1e;
   -webkit-box-shadow: inset 0 -2px 5px rgba(0,0,0,.1);
   box-shadow: inset 0 -2px 5px rgba(0,0,0,.1);
 }
@@ -47,18 +87,19 @@ h6, .h6 {
   display: inline-block;
   padding: 10px;
   font-weight: 500;
-  color: #cdddeb;
+  color: #ffd700;
 }
 .blog-nav-item:hover,
 .blog-nav-item:focus {
-  color: #fff;
+  color: #CAE1FF;
   text-decoration: none;
 }
 
 /* Active state gets a caret at the bottom */
 .blog-nav .is-active {
-  color: #fff;
+  color: #ffd700;
 }
+
 .blog-nav .is-active:after {
   position: absolute;
   bottom: 0;
@@ -79,8 +120,10 @@ h6, .h6 {
  */
 
 .blog-header {
-  padding-top: 20px;
-  padding-bottom: 20px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  margin-top: 15px;
+  box-shadow: 0 0 15px #ff0004, 0 0 30px #ff0004;
 }
 .blog-title {
   margin-top: 30px;
@@ -90,7 +133,7 @@ h6, .h6 {
 }
 .blog-description {
   font-size: 20px;
-  color: #999;
+  color: #f9f9f9;
 }
 
 
@@ -132,6 +175,15 @@ h6, .h6 {
   border-radius: 30px;
 }
 
+.pager li > a,
+.pager li > span {
+  background-color: #444;
+}
+
+.pager li > a:hover,
+.pager li > a:focu {
+  background-color: #4A410D;;
+}
 
 /*
  * Blog posts
@@ -156,11 +208,19 @@ h6, .h6 {
 
 .blog-footer {
   padding: 40px 0;
-  color: #999;
+  color: #f9f9f9;
   text-align: center;
-  background-color: #f9f9f9;
-  border-top: 1px solid #e5e5e5;
+  background-color: #1e1e1e;
+  border-top: 1px solid #2e2e2e;
 }
 .blog-footer p:last-child {
   margin-bottom: 0;
+}
+
+/**
+ * Comments.
+ */
+.comment-section {
+  padding-top: 10px;
+  border-top: 1px solid #444;
 }
