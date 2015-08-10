@@ -29,6 +29,11 @@ pre {
   box-shadow: 0 0 10px #01fe32 inset, 0 0 10px #08ff35, 0 0 10px #08ff35, 0 0 10px #08ff35;
 }
 
+body.cke_editable,
+input {
+  background-color: #444444;
+}
+
 /*
  * Catgory tags.
  */
@@ -167,6 +172,15 @@ pre {
   border-radius: 30px;
 }
 
+.pager li > a,
+.pager li > span {
+  background-color: #444;
+}
+
+.pager li > a:hover,
+.pager li > a:focu {
+  background-color: #4A410D;;
+}
 
 /*
  * Blog posts
