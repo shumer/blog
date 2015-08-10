@@ -30,8 +30,11 @@ pre {
 }
 
 body.cke_editable,
-input {
+input, textarea {
   background-color: #444444;
+}
+.filter-wrapper {
+  display: none;
 }
 
 /*
