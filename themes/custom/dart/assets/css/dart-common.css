@@ -216,3 +216,11 @@ input, textarea {
 .blog-footer p:last-child {
   margin-bottom: 0;
 }
+
+/**
+ * Comments.
+ */
+.comment-section {
+  padding-top: 10px;
+  border-top: 1px solid #444;
+}
