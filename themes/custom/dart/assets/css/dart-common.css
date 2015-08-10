@@ -224,3 +224,8 @@ input, textarea {
   padding-top: 10px;
   border-top: 1px solid #444;
 }
+
+.comment-wrapper {
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #444;
+}
