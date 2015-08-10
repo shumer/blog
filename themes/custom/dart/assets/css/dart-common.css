@@ -230,3 +230,7 @@ input, textarea {
   margin-bottom: 10px;
   border-bottom: 1px dashed #444;
 }
+
+.node__submitted {
+  color: #999;
+}
