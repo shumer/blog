@@ -5,7 +5,9 @@ package: Other
 core: 8.x
 
 libraries:
+  - dart/highlight
   - dart/base
 
 regions:
   content: Content
+
