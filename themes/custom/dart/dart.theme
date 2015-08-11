@@ -82,10 +82,14 @@ function dart_preprocess_block(&$variables) {
 * Implements hook_theme_suggestions_field_alter().
 */
 function dart_theme_suggestions_field_alter(array &$suggestions, array $variables) {
-    /*$element = $variables['element'];
+  $element = $variables['element'];
+  $type    = $element['#entity_type'];
+  $bundle  = $element['#bundle'];
+  $view_mode = $element['#view_mode'] ;
+  $field_name = $element['#field_name'];
 
-    $suggestions[] = 'field__' . $element['#view_mode'];
-    $suggestions[] = 'field__' . $element['#view_mode'] . '__' . $element['#field_name'];*/
+  $suggestions[] = 'field__' . $type . '__' . $bundle . '__'  . $field_name;
+  $suggestions[] = 'field__' . $type . '__' . $bundle . '__'  . $field_name . '__' . $view_mode;
 }
 
 /**
@@ -102,8 +106,9 @@ function dart_theme_suggestions_fieldset_alter(array &$suggestions, array $varia
 * Implements hook_preprocess_node().
 */
 function dart_preprocess_node(&$variables) {
-    // Default to turning off byline/submitted.
-    //$variables['display_submitted'] = FALSE;
+  $node = &$variables['node'];
+
+  $variables['created'] = date('m/d/Y', $node->getChangedTime());
 }
 
 /**
@@ -133,6 +138,7 @@ function dart_preprocess_select(&$variables) {
 function dart_preprocess_field(&$variables, $hook) {
     /*switch ($variables['element']['#field_name']) {
     }*/
+
 }
 
 /**
@@ -141,12 +147,6 @@ function dart_preprocess_field(&$variables, $hook) {
 function dart_preprocess_details(&$variables) {
     /*$variables['attributes']['class'][] = 'details';
     $variables['summary_attributes']['class'] = 'summary';*/
-}
-
-/**
-* Implements hook_theme_suggestions_details_alter().
-*/
-function dart_theme_suggestions_details_alter(array &$suggestions, array $variables) {
 }
 
 /**
@@ -162,7 +162,6 @@ function dart_preprocess_menu_local_task(&$variables) {
 function dart_theme_suggestions_menu_alter(array &$suggestions, array $variables) {
 
   $suggestions[] = str_replace('_', '-', $variables['theme_hook_original']);
-  return $suggestions;
 }
 
 /**

@@ -14,6 +14,51 @@ h6, .h6 {
   color: #f9f9f9;
 }
 
+a {
+  color: #ffd700;
+}
+
+a:hover, a:focus {
+  color: #ffb700;
+}
+
+pre {
+  padding: 0px;
+  border: 1px solid #01fe32;
+  background-color: #1e1e1e;
+  box-shadow: 0 0 10px #01fe32 inset, 0 0 10px #08ff35, 0 0 10px #08ff35, 0 0 10px #08ff35;
+}
+
+body.cke_editable,
+input, textarea {
+  background-color: #444444;
+}
+.filter-wrapper {
+  display: none;
+}
+
+/*
+ * Catgory tags.
+ */
+
+.category-tags a {
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
+}
+
+.category-tags a:hover, .category-tags a:focus {
+  color: #1d5aff;
+  text-shadow:  1px 1px 2px black, 0 0 1em #1d5aff;
+}
+
+.category-tags span::after,
+.tags span::after {
+  content: " | ";
+}
+.category-tags span:last-child::after,
+.tags span:last-child::after {
+  content: " ";
+}
 
 /*
  * Override Bootstrap's default container.
@@ -130,6 +175,15 @@ h6, .h6 {
   border-radius: 30px;
 }
 
+.pager li > a,
+.pager li > span {
+  background-color: #444;
+}
+
+.pager li > a:hover,
+.pager li > a:focu {
+  background-color: #4A410D;;
+}
 
 /*
  * Blog posts
@@ -161,4 +215,17 @@ h6, .h6 {
 }
 .blog-footer p:last-child {
   margin-bottom: 0;
+}
+
+/**
+ * Comments.
+ */
+.comment-section {
+  padding-top: 10px;
+  border-top: 1px solid #444;
+}
+
+.comment-wrapper {
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #444;
 }
