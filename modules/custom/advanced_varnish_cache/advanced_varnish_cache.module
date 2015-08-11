@@ -1,0 +1,20 @@
+<?php
+/**
+ * @file
+ *   Module hooks.
+ */
+
+// Load advanced_varnish_cache.varnish.inc from the advanced_varnish_cache module.
+module_load_include('varnish.inc', 'advanced_varnish_cache');
+
+/**
+ * Return module settings.
+ */
+function _advanced_varnish_cache_settings($block, $setting, $default = NULL) {
+  $settings = \Drupal::config('advanced_varnish_cache.settings');
+  $setting = $block . '.' . $setting;
+
+  return !empty($settings->get($setting))
+    ? $settings->get($setting)
+    : $default;
+}
