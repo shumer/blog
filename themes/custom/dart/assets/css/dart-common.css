@@ -234,3 +234,7 @@ input, textarea {
 .node__submitted {
   color: #999;
 }
+
+article .node__content img {
+  width: 100%;
+}
