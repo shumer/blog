@@ -1,0 +1,4 @@
+bypass varnish:
+  title: 'Bypass Varnish'
+  description: 'varnish will not be used for users with this permission set.'
+  restrict access: TRUE
