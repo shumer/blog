@@ -1,0 +1,5 @@
+services:
+  advanced_varnish_cache_event_subscriber:
+    class: Drupal\advanced_varnish_cache\EventSubscriber\AdvancedVarnishCacheSubscriber
+    tags:
+      - {name: event_subscriber}
