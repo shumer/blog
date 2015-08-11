@@ -62,54 +62,54 @@ class GlobalRedirectTest extends WebTestBase {
 
     $this->config = $this->config('globalredirect.settings');
 
-    $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Page'));
-    $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
+    $this->drupalCreateContentType(['type' => 'page', 'name' => 'Page']);
+    $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
 
     // Create a users for testing the access.
-    $this->normalUser = $this->drupalCreateUser(array(
+    $this->normalUser = $this->drupalCreateUser([
       'access content',
       'create page content',
       'create url aliases',
       'access administration pages',
-    ));
-    $this->adminUser = $this->drupalCreateUser(array(
+    ]);
+    $this->adminUser = $this->drupalCreateUser([
       'administer site configuration',
       'access administration pages',
-    ));
+    ]);
 
-    // Save the node
-    $this->node = $this->drupalCreateNode(array(
+    // Save the node.
+    $this->node = $this->drupalCreateNode([
       'type' => 'page',
       'title' => 'Test Page Node',
-      'path' => array('alias' => 'test-node'),
+      'path' => ['alias' => '/test-node'],
       'language' => Language::LANGCODE_NOT_SPECIFIED,
-    ));
+    ]);
 
     // Create an alias for the create story path - this is used in the "redirect with permissions testing" test.
-    \Drupal::service('path.alias_storage')->save('admin/config/system/site-information', 'site-info');
+    \Drupal::service('path.alias_storage')->save('/admin/config/system/site-information', '/site-info');
 
     // Create a taxonomy term for the forum.
-    $term = entity_create('taxonomy_term', array(
+    $term = entity_create('taxonomy_term', [
       'name' => 'Test Forum Term',
       'vid' => 'forums',
       'langcode' => Language::LANGCODE_NOT_SPECIFIED,
-    ));
+    ]);
     $term->save();
     $this->forumTerm = $term;
 
     // Create another taxonomy vocabulary with a term.
-    $vocab = entity_create('taxonomy_vocabulary', array(
+    $vocab = entity_create('taxonomy_vocabulary', [
       'name' => 'test vocab',
       'vid' => 'test-vocab',
       'langcode' => Language::LANGCODE_NOT_SPECIFIED,
-    ));
+    ]);
     $vocab->save();
-    $term = entity_create('taxonomy_term', array(
+    $term = entity_create('taxonomy_term', [
       'name' => 'Test Term',
       'vid' => $vocab->id(),
       'langcode' => Language::LANGCODE_NOT_SPECIFIED,
-      'path' => array('alias' => 'test-term'),
-    ));
+      'path' => ['alias' => '/test-term'],
+    ]);
     $term->save();
 
     $this->term = $term;
@@ -141,11 +141,17 @@ class GlobalRedirectTest extends WebTestBase {
     // Test front page redirects.
 
     $this->config->set('frontpage_redirect', TRUE)->save();
-    $this->config('system.site')->set('page.front', 'node')->save();
+    $this->config('system.site')->set('page.front', '/node')->save();
     $this->assertRedirect('node', '<front>');
+
     // Test front page redirects with an alias.
-    \Drupal::service('path.alias_storage')->save('node', 'node-alias');
+    \Drupal::service('path.alias_storage')->save('/node', '/node-alias');
     $this->assertRedirect('node-alias', '<front>');
+
+    // Front page, with deslashing and alias.
+    $this->config->set('deslash', TRUE)->save();
+    $this->assertRedirect('node-alias/', '<front>');
+    $this->config->set('deslash', FALSE)->save();
 
     $this->config->set('frontpage_redirect', FALSE)->save();
     $this->assertRedirect('node', NULL, 'HTTP/1.1 200 OK');

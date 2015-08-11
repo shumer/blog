@@ -125,12 +125,13 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
       return;
     }
 
-    $path_info = $event->getRequest()->getPathInfo();
-    if (($path_info !== '/') && (substr($path_info, -1, 1) === '/')) {
-      $path_info = rtrim($path_info, '/');
+    $path_info = ltrim($event->getRequest()->getPathInfo(), '/');
+    if (substr($path_info, -1, 1) === '/') {
+      $path_info = trim($path_info, '/');
       try {
         $path_info = $this->aliasManager->getPathByAlias($path_info);
-        $this->setResponse($event, Url::fromUri('internal:' . $path_info));
+        // Need to add the slash back.
+        $this->setResponse($event, Url::fromUri('internal:/' . $path_info));
       } catch (MatchingRouteNotFoundException $e) {
         // Do nothing here as it is not our responsibility to handle this.
       }
@@ -148,7 +149,7 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
     }
 
     $request = $event->getRequest();
-    $path = $request->getPathInfo();
+    $path = trim($request->getPathInfo(), '/');
 
     // Redirect only if the current path is not the root and this is the front
     // page.
@@ -163,8 +164,9 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
    * @param \Symfony\Component\HttpKernel\Event\GetResponseEvent $event
    */
   public function globalredirectNormalizeAliases(GetResponseEvent $event) {
-    if ($event->getRequestType() != HttpKernelInterface::MASTER_REQUEST || !$this->config->get('normalize_aliases') || !$path = $event->getRequest()
-        ->getPathInfo()) {
+    if ($event->getRequestType() != HttpKernelInterface::MASTER_REQUEST || !$this->config->get('normalize_aliases') || !$path = trim($event->getRequest()
+        ->getPathInfo(), '/')
+    ) {
       return;
     }
     $system_path = $this->aliasManager->getPathByAlias($path);
@@ -257,12 +259,6 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
   protected function isFrontPage($path) {
     // @todo PathMatcher::isFrontPage() doesn't work here for some reason.
     $front = \Drupal::config('system.site')->get('page.front');
-
-    // Since deslash runs after the front page redirect, check and deslash here
-    // if enabled.
-    if ($this->config->get('deslash')) {
-      $path = rtrim($path, '/');
-    }
 
     // This might be an alias.
     $alias_path = \Drupal::service('path.alias_manager')->getPathByAlias($path);
