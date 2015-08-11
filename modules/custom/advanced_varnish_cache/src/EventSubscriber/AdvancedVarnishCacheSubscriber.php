@@ -7,6 +7,9 @@
 
 namespace Drupal\advanced_varnish_cache\EventSubscriber;
 
+use Drupal\Core\StreamWrapper\PrivateStream;
+use Drupal\Core\StreamWrapper\PublicStream;
+use Drupal\Core\Extension\ModuleHandler;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
@@ -48,6 +51,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     $response->headers->set(self::ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->unique_id());
 
     // Validate existing cookies and update them if needed.
+    $this->cookie_update();
 
     $response->send();
   }
@@ -88,9 +92,46 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
    * be default resource files should not be redirected.
    */
   public static function redirect_forbidden($path = '') {
-    $result = FALSE;
+    $forbidden = FALSE;
 
-    return $result;
+    $settings = \Drupal::config('advanced_varnish_cache.settings');
+
+    if (!empty($_SESSION['advanced_varnish_cache__redirect_forbidden'])) {
+      return TRUE;
+    }
+    elseif ($settings->get('redirect_forbidden')) {
+      return TRUE;
+    }
+    elseif (!$settings->get('redirect_forbidden_no_cookie') && empty($_COOKIE)) {
+      // This one is important as search engines don't have cookie support
+      // and we don't want them to enter infinite loop.
+      // Also images may have their cookies be stripped at Varnish level.
+      return TRUE;
+    }
+
+    // Get current path as default.
+    $current_path = \Drupal::service('path.current')->getPath();
+
+    // By default ecxlude resource path.
+    $path_to_exclude = [
+      PublicStream::basePath(),
+      PrivateStream::basePath(),
+      \Drupal::config('system.file')->get('path.temporary'),
+    ];
+    $path_to_exclude = array_filter($path_to_exclude, 'trim');
+
+    // Allow other modules to interfere.
+    \Drupal::moduleHandler()->alter('advanced_varnish_cache_redirect_forbidden', $path_to_exclude, $path);
+
+    // Check against excluded path.
+    $forbidden = FALSE;
+    foreach ($path_to_exclude as $exclude) {
+      if (strpos($current_path, $exclude) === 0) {
+        $forbidden = TRUE;
+      }
+    }
+
+    return $forbidden;
   }
 
 }
