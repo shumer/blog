@@ -1,0 +1,154 @@
+diff --git a/src/EventSubscriber/GlobalredirectSubscriber.php b/src/EventSubscriber/GlobalredirectSubscriber.php
+index 26517e0..516287c 100644
+--- a/src/EventSubscriber/GlobalredirectSubscriber.php
++++ b/src/EventSubscriber/GlobalredirectSubscriber.php
+@@ -125,13 +125,12 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
+       return;
+     }
+ 
+-    $path_info = ltrim($event->getRequest()->getPathInfo(), '/');
+-    if (substr($path_info, -1, 1) === '/') {
+-      $path_info = trim($path_info, '/');
++    $path_info = $event->getRequest()->getPathInfo();
++    if (($path_info !== '/') && (substr($path_info, -1, 1) === '/')) {
++      $path_info = rtrim($path_info, '/');
+       try {
+         $path_info = $this->aliasManager->getPathByAlias($path_info);
+-        // Need to add the slash back.
+-        $this->setResponse($event, Url::fromUri('internal:/' . $path_info));
++        $this->setResponse($event, Url::fromUri('internal:' . $path_info));
+       } catch (MatchingRouteNotFoundException $e) {
+         // Do nothing here as it is not our responsibility to handle this.
+       }
+@@ -149,7 +148,7 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
+     }
+ 
+     $request = $event->getRequest();
+-    $path = trim($request->getPathInfo(), '/');
++    $path = $request->getPathInfo();
+ 
+     // Redirect only if the current path is not the root and this is the front
+     // page.
+@@ -164,9 +163,8 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
+    * @param \Symfony\Component\HttpKernel\Event\GetResponseEvent $event
+    */
+   public function globalredirectNormalizeAliases(GetResponseEvent $event) {
+-    if ($event->getRequestType() != HttpKernelInterface::MASTER_REQUEST || !$this->config->get('normalize_aliases') || !$path = trim($event->getRequest()
+-        ->getPathInfo(), '/')
+-    ) {
++    if ($event->getRequestType() != HttpKernelInterface::MASTER_REQUEST || !$this->config->get('normalize_aliases') || !$path = $event->getRequest()
++        ->getPathInfo()) {
+       return;
+     }
+ 
+@@ -260,6 +258,12 @@ class GlobalredirectSubscriber implements EventSubscriberInterface {
+     // @todo PathMatcher::isFrontPage() doesn't work here for some reason.
+     $front = \Drupal::config('system.site')->get('page.front');
+ 
++    // Since deslash runs after the front page redirect, check and deslash here
++    // if enabled.
++    if ($this->config->get('deslash')) {
++      $path = rtrim($path, '/');
++    }
++
+     // This might be an alias.
+     $alias_path = \Drupal::service('path.alias_manager')->getPathByAlias($path);
+ 
+diff --git a/src/Tests/GlobalRedirectTest.php b/src/Tests/GlobalRedirectTest.php
+index 95788e5..fc23e2d 100644
+--- a/src/Tests/GlobalRedirectTest.php
++++ b/src/Tests/GlobalRedirectTest.php
+@@ -62,54 +62,54 @@ class GlobalRedirectTest extends WebTestBase {
+ 
+     $this->config = $this->config('globalredirect.settings');
+ 
+-    $this->drupalCreateContentType(array('type' => 'page', 'name' => 'Page'));
+-    $this->drupalCreateContentType(array('type' => 'article', 'name' => 'Article'));
++    $this->drupalCreateContentType(['type' => 'page', 'name' => 'Page']);
++    $this->drupalCreateContentType(['type' => 'article', 'name' => 'Article']);
+ 
+     // Create a users for testing the access.
+-    $this->normalUser = $this->drupalCreateUser(array(
++    $this->normalUser = $this->drupalCreateUser([
+       'access content',
+       'create page content',
+       'create url aliases',
+       'access administration pages',
+-    ));
+-    $this->adminUser = $this->drupalCreateUser(array(
++    ]);
++    $this->adminUser = $this->drupalCreateUser([
+       'administer site configuration',
+       'access administration pages',
+-    ));
++    ]);
+ 
+-    // Save the node
+-    $this->node = $this->drupalCreateNode(array(
++    // Save the node.
++    $this->node = $this->drupalCreateNode([
+       'type' => 'page',
+       'title' => 'Test Page Node',
+-      'path' => array('alias' => 'test-node'),
++      'path' => ['alias' => '/test-node'],
+       'language' => Language::LANGCODE_NOT_SPECIFIED,
+-    ));
++    ]);
+ 
+     // Create an alias for the create story path - this is used in the "redirect with permissions testing" test.
+-    \Drupal::service('path.alias_storage')->save('admin/config/system/site-information', 'site-info');
++    \Drupal::service('path.alias_storage')->save('/admin/config/system/site-information', '/site-info');
+ 
+     // Create a taxonomy term for the forum.
+-    $term = entity_create('taxonomy_term', array(
++    $term = entity_create('taxonomy_term', [
+       'name' => 'Test Forum Term',
+       'vid' => 'forums',
+       'langcode' => Language::LANGCODE_NOT_SPECIFIED,
+-    ));
++    ]);
+     $term->save();
+     $this->forumTerm = $term;
+ 
+     // Create another taxonomy vocabulary with a term.
+-    $vocab = entity_create('taxonomy_vocabulary', array(
++    $vocab = entity_create('taxonomy_vocabulary', [
+       'name' => 'test vocab',
+       'vid' => 'test-vocab',
+       'langcode' => Language::LANGCODE_NOT_SPECIFIED,
+-    ));
++    ]);
+     $vocab->save();
+-    $term = entity_create('taxonomy_term', array(
++    $term = entity_create('taxonomy_term', [
+       'name' => 'Test Term',
+       'vid' => $vocab->id(),
+       'langcode' => Language::LANGCODE_NOT_SPECIFIED,
+-      'path' => array('alias' => 'test-term'),
+-    ));
++      'path' => ['alias' => '/test-term'],
++    ]);
+     $term->save();
+ 
+     $this->term = $term;
+@@ -141,12 +141,18 @@ class GlobalRedirectTest extends WebTestBase {
+     // Test front page redirects.
+ 
+     $this->config->set('frontpage_redirect', TRUE)->save();
+-    $this->config('system.site')->set('page.front', 'node')->save();
++    $this->config('system.site')->set('page.front', '/node')->save();
+     $this->assertRedirect('node', '<front>');
++
+     // Test front page redirects with an alias.
+-    \Drupal::service('path.alias_storage')->save('node', 'node-alias');
++    \Drupal::service('path.alias_storage')->save('/node', '/node-alias');
+     $this->assertRedirect('node-alias', '<front>');
+ 
++    // Front page, with deslashing and alias.
++    $this->config->set('deslash', TRUE)->save();
++    $this->assertRedirect('node-alias/', '<front>');
++    $this->config->set('deslash', FALSE)->save();
++
+     $this->config->set('frontpage_redirect', FALSE)->save();
+     $this->assertRedirect('node', NULL, 'HTTP/1.1 200 OK');
+     $this->assertRedirect('node-alias', NULL, 'HTTP/1.1 200 OK');

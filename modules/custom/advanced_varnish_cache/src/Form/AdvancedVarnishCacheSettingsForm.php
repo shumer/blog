@@ -93,6 +93,35 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       }
     }
 
+    $form['advanced_varnish_cache']['general'] = array(
+      '#title' => t('General settings'),
+      '#type' => 'details',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+
+    $form['advanced_varnish_cache']['general']['logging'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Logging'),
+      '#default_value' => $config->get('general.logging'),
+      '#description' => t('Check, if you want to log vital actions to watchdog.'),
+    );
+
+    $form['advanced_varnish_cache']['general']['debug'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Debug ESI'),
+      '#default_value' => $config->get('general.debug'),
+      '#description' => t('Check if you want to add debug info to ESI tags.'),
+    );
+
+
+    $form['advanced_varnish_cache']['general']['noise'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Hashing Noise'),
+        '#default_value' => $config->get('general.noise'),
+        '#description' => t('This works as private key, you can change it at any time.'),
+    );
+
     $form['advanced_varnish_cache']['connection'] = array(
       '#title' => t('Varnish Connection settings'),
       '#type' => 'details',
@@ -139,6 +168,9 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       ->set('connection.control_terminal', $values['connection']['control_terminal'])
       ->set('connection.control_key', $values['connection']['control_key'])
       ->set('connection.socket_timeout', $values['connection']['socket_timeout'])
+      ->set('general.logging', $values['general']['logging'])
+      ->set('general.debug', $values['general']['debug'])
+      ->set('general.noise', $values['general']['noise'])
       ->save();
 
     parent::submitForm($form, $form_state);

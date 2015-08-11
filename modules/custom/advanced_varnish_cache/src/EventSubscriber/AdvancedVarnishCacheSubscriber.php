@@ -17,6 +17,8 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
   // Set header name.
   const ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE = 'X-RNDPAGE';
+  const QTOOLS_VARNISH_HEADER_CACHE_DEBUG = 'X-CACHE-DEBUG';
+
 
   /**
    * {@inheritdoc}
@@ -33,6 +35,13 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     // Skip all if environment is not ready.
     if (!$this->ready()) {
       return;
+    }
+
+    $config = \Drupal::config('advanced_varnish_cache.settings');
+    $debug_mode = $config->get('general.debug');
+
+    if ($debug_mode) {
+      $response->headers->set(self::QTOOLS_VARNISH_HEADER_CACHE_DEBUG, '1');
     }
 
     // Set headers.
