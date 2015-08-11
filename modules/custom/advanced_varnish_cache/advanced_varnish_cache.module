@@ -1,0 +1,118 @@
+<?php
+/**
+ * @file
+ *   Module hooks.
+ */
+
+use Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheController;
+
+
+
+
+// Load advanced_varnish_cache.varnish.inc from the advanced_varnish_cache module.
+module_load_include('varnish.inc', 'advanced_varnish_cache');
+
+/**
+ * Return module settings.
+ */
+function _advanced_varnish_cache_settings($block, $setting, $default = NULL) {
+  $settings = \Drupal::config('advanced_varnish_cache.settings');
+  $setting = $block . '.' . $setting;
+
+  return !empty($settings->get($setting))
+    ? $settings->get($setting)
+    : $default;
+}
+
+/**
+ * Implements hook_init().
+ */
+function advanced_varnish_cache_init() {
+  global $user, $theme;
+
+
+
+/*
+  // Save user that start this request.
+  $qtools_varnish_start_user = &drupal_static('qtools_varnish_start_user');
+  $qtools_varnish_start_user = $user->uid;
+
+
+
+
+  // Reload current page if required.
+  $qtools_varnish_need_reload = &drupal_static('qtools_varnish_need_reload');
+  if (!empty($qtools_varnish_need_reload)) {
+
+    // Setting cookie will prevent varnish from caching this.
+    setcookie('time', time(), NULL, '/');
+
+    $qtools_varnish_need_reload = FALSE;
+    $query = $_GET;
+    unset($query['q']);
+    if (isset($query['reload'])) {
+      unset($query['reload']);
+    }
+
+    $redirect_path = drupal_is_front_page()
+      ? ''
+      : $_GET['q'];
+
+    drupal_goto(url($redirect_path, array('absolute' => TRUE)), array($query));
+  }
+*/
+}
+
+/**
+ * Validate user cookies and update if needed.
+ */
+function advanced_varnish_cache_cookie_update($account = NULL) {
+  global $is_https, $user;
+
+  $qtools_varnish_need_reload = &drupal_static('qtools_varnish_need_reload');
+
+  // Cookies may be disabled for resource files, so no need to redirect in such a case.
+  if (qtools_api__redirect_forbidden()) {
+    return;
+  }
+
+  $account = !empty($account) ? $account : user_load($user->uid);
+
+  // If user should bypass varnish we must set per user bin.
+  if (user_access(QTOOLS_VARNISH_PERM_BYPASS_VARNISH, $account)) {
+    $bin = 'u' . $account->uid;
+  }
+  elseif ($account->uid > 0) {
+    $roles = array_filter(array_keys($account->roles));
+    sort($roles);
+    $bin = implode('_', $roles);
+  }
+  else {
+    // Bin for anonym user.
+    $bin = '0';
+  }
+  $cookie_inf = $bin;
+
+  // Allow Other modules to alter bin.
+  drupal_alter('qtools_varnish_user_cache_bin', $cookie_inf, $account);
+
+  // Hash bin (PER_ROLE-PER_PAGE).
+  $cookie_bin = hash('sha256', $cookie_inf . QTOOLS_VARNISH_QBIN_NOISE) . '-' . hash('sha256', QTOOLS_VARNISH_QBIN_NOISE);
+
+  // Update cookies if did not match.
+  if (empty($_COOKIE[QTOOLS_VARNISH_COOKIE_BIN]) || ($_COOKIE[QTOOLS_VARNISH_COOKIE_BIN] != $cookie_bin)) {
+
+    // Update cookies.
+    $params = session_get_cookie_params();
+    $expire = $params['lifetime'] ? (REQUEST_TIME + $params['lifetime']) : 0;
+    setcookie(QTOOLS_VARNISH_COOKIE_BIN, $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+    setcookie(QTOOLS_VARNISH_COOKIE_INF, $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+
+    // Mark this page as required reload as ESI request from this page will be sent with old cookie info.
+    $qtools_varnish_need_reload = TRUE;
+  }
+  elseif (!empty($_GET['reload'])) {
+    // Front asks us to do reload.
+    $qtools_varnish_need_reload = TRUE;
+  }
+}
