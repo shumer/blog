@@ -62,7 +62,26 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     return substr(md5($id), 5, 10);
   }
 
-  protected static function cookie_update() {
-    
+  /**
+   * Updates cookie if required.
+   */
+  protected function cookie_update() {
+
+    // Cookies may be disabled for resource files,
+    // so no need to redirect in such a case.
+    if ($this->redirect_forbidden()) {
+      return;
+    }
   }
+
+  /**
+   * Check if this page is allowed to redirect,
+   * be default resource files should not be redirected.
+   */
+  public static function redirect_forbidden($path = '') {
+    $result = FALSE;
+
+    return $result;
+  }
+
 }
