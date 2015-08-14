@@ -54,11 +54,12 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     // Set headers.
     $response->headers->set(self::ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->unique_id());
 
-    //kpr($response->getCacheableMetadata()->getCacheTags());//die;
-
     // Validate existing cookies and update them if needed.
     $this->cookie_update();
-    
+
+    // If there is no redirect set header with tags.
+    $tags = $response->getCacheableMetadata()->getCacheTags();
+    $response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $tags) . ';');
   }
 
   /**

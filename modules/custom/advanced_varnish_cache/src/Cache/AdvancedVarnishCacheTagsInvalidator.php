@@ -8,6 +8,7 @@
 namespace Drupal\advanced_varnish_cache\Cache;
 
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
+use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 
 
@@ -19,9 +20,7 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
    *   The list of tags for which to invalidate cache items.
    */
   public function invalidateTags(array $tags) {
-    foreach ($tags as $tag) {
-      $this->purgeTags($tag);
-    }
+    $this->purgeTags($tags);
   }
 
   /**
@@ -35,9 +34,17 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
     $account = \Drupal::currentUser();
     $header = ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG;
 
+    // Build pattern.
+    $pattern = (count($tag) > 1)
+      ? implode(';|', $tag) . ';'
+      : reset($tag) . ';';
+
+    // Remove quotes from pattern.
+    $pattern = strtr($pattern, array('"' => '', "'" => ''));
+
     // Clean all or only current host.
     if (_advanced_varnish_cache_settings('purge', 'all_hosts', TRUE)) {
-      $command_line = "ban obj.http.$header ~ \"$tag\"";
+      $command_line = "ban obj.http.$header ~ \"$pattern\"";
     }
     else {
       $host = advanced_varnish_cache__varnish_get_host();
