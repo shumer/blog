@@ -9,12 +9,10 @@ namespace Drupal\advanced_varnish_cache\EventSubscriber;
 
 use Drupal\Core\StreamWrapper\PrivateStream;
 use Drupal\Core\StreamWrapper\PublicStream;
-use Drupal\Core\Extension\ModuleHandler;
-use Symfony\Component\HttpFoundation\RedirectResponse;
+use Drupal\Core\Cache\CacheableResponseInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use \Symfony\Component\HttpFoundation\Response;
 
 class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
@@ -29,13 +27,16 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
    * {@inheritdoc}
    */
   static function getSubscribedEvents() {
-    $events[KernelEvents::REQUEST][] = array('handlePageRequest');
+    $events[KernelEvents::RESPONSE][] = array('handlePageRequest');
     return $events;
   }
 
-  public function handlePageRequest(GetResponseEvent $event) {
+  public function handlePageRequest(FilterResponseEvent $event) {
+    if (!$event->isMasterRequest()) {
+      return;
+    }
 
-    $response = new Response();
+    $response = $event->getResponse();
 
     // Skip all if environment is not ready.
     if (!$this->ready()) {
@@ -56,7 +57,12 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     // Validate existing cookies and update them if needed.
     $this->cookie_update();
 
-    $response->send();
+    // If there is no redirect set header with tags.
+    if ($response instanceof CacheableResponseInterface) {
+      $cacheable = $response->getCacheableMetadata();
+      $tags = $cacheable->getCacheTags();
+      $response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $tags) . ';');
+    }
   }
 
   /**
