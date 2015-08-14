@@ -33,6 +33,7 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
    */
   protected function purgeTags($tag) {
     $account = \Drupal::currentUser();
+    $header = ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG;
 
     // Clean all or only current host.
     if (_advanced_varnish_cache_settings('purge', 'all_hosts', TRUE)) {

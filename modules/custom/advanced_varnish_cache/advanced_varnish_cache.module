@@ -6,7 +6,7 @@
 
 use Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheController;
 
-
+const ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG = 'X-TAG';
 
 
 // Load advanced_varnish_cache.varnish.inc from the advanced_varnish_cache module.

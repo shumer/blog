@@ -13,6 +13,7 @@ use Drupal\Core\Extension\ModuleHandler;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use \Symfony\Component\HttpFoundation\Response;
 
@@ -29,13 +30,13 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
    * {@inheritdoc}
    */
   static function getSubscribedEvents() {
-    $events[KernelEvents::REQUEST][] = array('handlePageRequest');
+    $events[KernelEvents::RESPONSE][] = array('handlePageRequest');
     return $events;
   }
 
-  public function handlePageRequest(GetResponseEvent $event) {
+  public function handlePageRequest(FilterResponseEvent $event) {
 
-    $response = new Response();
+    $response = $event->getResponse();
 
     // Skip all if environment is not ready.
     if (!$this->ready()) {
@@ -53,10 +54,11 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     // Set headers.
     $response->headers->set(self::ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->unique_id());
 
+    //kpr($response->getCacheableMetadata()->getCacheTags());//die;
+
     // Validate existing cookies and update them if needed.
     $this->cookie_update();
-
-    $response->send();
+    
   }
 
   /**
