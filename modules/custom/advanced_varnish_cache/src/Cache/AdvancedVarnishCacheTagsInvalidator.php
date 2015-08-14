@@ -8,7 +8,6 @@
 namespace Drupal\advanced_varnish_cache\Cache;
 
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
-use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 
 
