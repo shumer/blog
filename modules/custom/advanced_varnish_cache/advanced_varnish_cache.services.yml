@@ -3,3 +3,7 @@ services:
     class: Drupal\advanced_varnish_cache\EventSubscriber\AdvancedVarnishCacheSubscriber
     tags:
       - {name: event_subscriber}
+  cache_tags.invalidator.advanced_varnish_cache:
+    class: Drupal\advanced_varnish_cache\Cache\AdvancedVarnishCacheTagsInvalidator
+    tags:
+      - { name: cache_tags_invalidator}
