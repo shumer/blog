@@ -13,15 +13,17 @@ use Drupal\Core\Cache\CacheableResponseInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
   // Set header name.
   const ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE = 'X-RNDPAGE';
   const ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG = 'X-CACHE-DEBUG';
-  const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'QTEBIN';
-  const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'QTEINF';
+  const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'AVCEBIN';
+  const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
 
+  public static $needs_reload;
 
   /**
    * {@inheritdoc}
@@ -56,6 +58,17 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
     // Validate existing cookies and update them if needed.
     $this->cookie_update();
+    $needs_update = isset(self::$needs_reload) ? self::$needs_reload : FALSE;
+    if ($needs_update) {
+
+      // Setting cookie will prevent varnish from caching this.
+      setcookie('time', time(), NULL, '/');
+
+      $path = \Drupal::service('path.current')->getPath();
+      $response = new RedirectResponse($path);
+      $response->send();
+      return;
+    }
 
     // If there is no redirect set header with tags.
     if ($response instanceof CacheableResponseInterface) {
@@ -95,8 +108,6 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       return;
     }
 
-    $qtools_varnish_need_reload = &drupal_static('qtools_varnish_need_reload');
-
     $config = \Drupal::config('advanced_varnish_cache.settings');
     $account = $account ?: \Drupal::currentUser();
 
@@ -133,11 +144,11 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       setcookie(self::ADVANCED_VARNISH_CACHE_COOKIE_INF, $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
 
       // Mark this page as required reload as ESI request from this page will be sent with old cookie info.
-      $qtools_varnish_need_reload = TRUE;
+      self::$needs_reload = TRUE;
     }
     elseif (!empty($_GET['reload'])) {
       // Front asks us to do reload.
-      $qtools_varnish_need_reload = TRUE;
+      self::$needs_reload = TRUE;
     }
 
   }
