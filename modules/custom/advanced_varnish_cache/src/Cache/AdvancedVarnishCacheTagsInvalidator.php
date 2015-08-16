@@ -7,11 +7,15 @@
 
 namespace Drupal\advanced_varnish_cache\Cache;
 
+use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
 use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 
 
 class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterface {
+
+  public $varnish_handler;
+
   /**
    * Marks cache items with any of the specified tags as invalid.
    *
@@ -31,7 +35,7 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
    */
   protected function purgeTags($tag) {
     $account = \Drupal::currentUser();
-    $header = ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG;
+    $header = $this->varnish_handler->getHeaderCacheTag();
 
     // Build pattern.
     $pattern = (count($tag) > 1)
@@ -42,16 +46,16 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
     $pattern = strtr($pattern, array('"' => '', "'" => ''));
 
     // Clean all or only current host.
-    if (_advanced_varnish_cache_settings('purge', 'all_hosts', TRUE)) {
+    if ($this->varnish_handler->getSetting('purge', 'all_hosts', TRUE)) {
       $command_line = "ban obj.http.$header ~ \"$pattern\"";
     }
     else {
-      $host = advanced_varnish_cache__varnish_get_host();
+      $host = $this->varnish_handler->varnish_get_host();
       $command_line = "ban req.http.host ~ $host && obj.http.$header ~ \"$pattern\"";
     }
 
     // Log action.
-    if (_advanced_varnish_cache_settings('general', 'logging', FALSE)) {
+    if ($this->varnish_handler->getSetting('general', 'logging', FALSE)) {
       \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', array(
           '@uid' => $account->id(),
           '!command_line' => $command_line,
@@ -60,7 +64,7 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
     }
 
     // Query Varnish.
-    $res = advanced_varnish_cache__varnish_terminal_run(array($command_line));
+    $res = $this->varnish_handler->varnish_terminal_run(array($command_line));
     return $res;
   }
 }
