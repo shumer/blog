@@ -22,6 +22,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   const ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG = 'X-CACHE-DEBUG';
   const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'AVCEBIN';
   const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
+  const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
 
   public static $needs_reload;
 
@@ -34,7 +35,9 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   }
 
   public function handlePageRequest(FilterResponseEvent $event) {
-    if (!$event->isMasterRequest()) {
+    $account = \Drupal::currentUser();
+    $authenticated = $account->isAuthenticated();
+    if (!$event->isMasterRequest() || !empty($_POST) || $authenticated) {
       return;
     }
 
@@ -75,6 +78,17 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       $cacheable = $response->getCacheableMetadata();
       $tags = $cacheable->getCacheTags();
       $response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $tags) . ';');
+
+      // Add TTL header only for FE theme.
+      $admin_theme_name = \Drupal::config('system.theme')->get('admin');
+      $current_theme = \Drupal::theme()->getActiveTheme()->getName();
+      if ($admin_theme_name == $current_theme) {
+        return;
+      }
+
+      // Set headre with cache TTL based on site Perfomance settings.
+      $site_ttl = \Drupal::config('system.performance')->get('cache.page.max_age');
+      $response->headers->set(self::ADVANCED_VARNISH_CACHE_X_TTL, $site_ttl);
     }
   }
 

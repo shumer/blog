@@ -12,7 +12,7 @@
 use Drupal\Core\Logger\RfcLogLevel;
 
 /**
- * Helper function to parse the host from the global $base_url
+ * Helper function to parse the host from the global $base_url.
  */
 function advanced_varnish_cache__varnish_get_host() {
   global $base_url;
@@ -43,7 +43,7 @@ function advanced_varnish_cache__varnish_execute_command($client, $command) {
  * @params
  *   $client an initialized socket client
  *
- *   $retty how many times to retry on "temporarily unavalble" errors
+ *   $retry how many times to retry on "temporarily unavailable" errors.
  */
 function advanced_varnish_cache__varnish_read_socket($client, $retry = 2) {
   // Status and length info is always 13 characters.

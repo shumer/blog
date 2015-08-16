@@ -27,7 +27,7 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
    *
   *
    * @param $tag
-   *   (string) tag to search and purge.
+   *   (string/array) tag to search and purge.
    */
   protected function purgeTags($tag) {
     $account = \Drupal::currentUser();
