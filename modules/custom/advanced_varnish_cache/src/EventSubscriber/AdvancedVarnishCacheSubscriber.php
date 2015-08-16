@@ -14,17 +14,12 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
 
 class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
-  // Set header name.
-  const ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE = 'X-RNDPAGE';
-  const ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG = 'X-CACHE-DEBUG';
-  const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'AVCEBIN';
-  const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
-  const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
-
   public static $needs_reload;
+  public $varnish_handler;
 
   /**
    * {@inheritdoc}
@@ -48,16 +43,15 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       return;
     }
     $config = \Drupal::config('advanced_varnish_cache.settings');
-    $account = \Drupal::currentUser();
 
     $debug_mode = $config->get('general.debug');
 
     if ($debug_mode) {
-      $response->headers->set(self::ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG, '1');
+      $response->headers->set($this->varnish_handler->getHeaderCacheDebug(), '1');
     }
 
     // Set headers.
-    $response->headers->set(self::ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->unique_id());
+    $response->headers->set($this->varnish_handler->getHeaderRndpage(), $this->unique_id());
 
     // Validate existing cookies and update them if needed.
     $this->cookie_update();
@@ -77,7 +71,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     if ($response instanceof CacheableResponseInterface) {
       $cacheable = $response->getCacheableMetadata();
       $tags = $cacheable->getCacheTags();
-      $response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $tags) . ';');
+      $response->headers->set($this->varnish_handler->getHeaderCacheTag(), implode(';', $tags) . ';');
 
       // Add TTL header only for FE theme.
       $admin_theme_name = \Drupal::config('system.theme')->get('admin');
@@ -88,7 +82,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
       // Set headre with cache TTL based on site Perfomance settings.
       $site_ttl = \Drupal::config('system.performance')->get('cache.page.max_age');
-      $response->headers->set(self::ADVANCED_VARNISH_CACHE_X_TTL, $site_ttl);
+      $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
     }
   }
 
@@ -149,13 +143,13 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     $cookie_bin = hash('sha256', $cookie_inf . $noise) . '-' . hash('sha256', $noise);
 
     // Update cookies if did not match.
-    if (empty($_COOKIE[self::ADVANCED_VARNISH_CACHE_COOKIE_BIN]) || ($_COOKIE[self::ADVANCED_VARNISH_CACHE_COOKIE_BIN] != $cookie_bin)) {
+    if (empty($_COOKIE[$this->varnish_handler->getCookieBin()]) || ($_COOKIE[$this->varnish_handler->getCookieBin()] != $cookie_bin)) {
 
       // Update cookies.
       $params = session_get_cookie_params();
       $expire = $params['lifetime'] ? (REQUEST_TIME + $params['lifetime']) : 0;
-      setcookie(self::ADVANCED_VARNISH_CACHE_COOKIE_BIN, $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
-      setcookie(self::ADVANCED_VARNISH_CACHE_COOKIE_INF, $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie($this->varnish_handler->getCookieBin(), $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie($this->varnish_handler->getCookieInf(), $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
 
       // Mark this page as required reload as ESI request from this page will be sent with old cookie info.
       self::$needs_reload = TRUE;
