@@ -88,7 +88,36 @@ sub vcl_hash {
         hash_data(server.ip);
     }
 
-    set req.http.X-BIN = "anonymous";
+    /** Place ajax into separate bin */
+    if (req.http.X-Requested-With) {
+        hash_data(req.http.X-Requested-With);
+    }
+
+    /** Process authenticated users */
+    if (req.http.Cookie ~ "^.*?SESS[^=]*=([^;]{5});*.*$") {
+
+        /** Extraxt full session value */
+        set req.http.X-SESS = regsub(req.http.Cookie, "^.*?SESS([^;]*);*.*$", "\1");
+
+        /** Extract bin headers */
+        if (req.http.Cookie ~ "^.*?AVCEBIN=([^;]*);*.*$") {
+            /* Set default mode to per role */
+            set req.http.X-BIN  = "role:" + regsub(req.http.Cookie, "^.*?AVCEBIN=([^;]*);*.*$", "\1");
+        }
+
+        set req.http.X-URL = req.url;
+
+    }
+    else {
+        /** Extract bin headers */
+        if (req.http.Cookie ~ "^.*?AVCEBIN=([^;]*);*.*$") {
+            /* Set default mode to per role */
+            set req.http.X-BIN  = "role:" + regsub(req.http.Cookie, "^.*?AVCEBIN=([^;]*);*.*$", "\1");
+        }
+        else {
+            set req.http.X-BIN = "anonymous";
+        }
+    }
 
     /** If Bin is set - add it to hash data for this page */
     if (req.http.X-BIN) {
