@@ -7,6 +7,7 @@
 
 namespace Drupal\advanced_varnish_cache\Form;
 
+use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\State\StateInterface;
@@ -26,7 +27,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
    * @var \Drupal\Core\State\StateInterface
    */
   protected $state;
-
+  protected $varnish_handler;
 
   /**
    * Constructs a AdvancedVarnishCacheSettingsForm object.
@@ -36,9 +37,10 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state) {
+  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler) {
     parent::__construct($config_factory);
     $this->state = $state;
+    $this->varnish_handler = $varnish_handler;
   }
 
   /**
@@ -47,7 +49,8 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('config.factory'),
-      $container->get('state')
+      $container->get('state'),
+      $container->get('advanced_varnish_cache_handler')
     );
   }
 
@@ -76,7 +79,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
     ];
 
     // Display module status.
-    $backend_status = advanced_varnish_cache__varnish_get_status();
+    $backend_status = $this->varnish_handler->varnish_get_status();
 
     $_SESSION['messages'] = [];
     if (empty($backend_status)) {
