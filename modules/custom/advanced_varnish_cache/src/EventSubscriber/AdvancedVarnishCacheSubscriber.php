@@ -120,7 +120,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     $account = $account ?: \Drupal::currentUser();
 
     // If user should bypass varnish we must set per user bin.
-    if ($account->hasPermission('bypass varnish')) {
+    if ($account->hasPermission('bypass advanced varnish cache')) {
       $bin = 'u' . $account->id();
     }
     elseif ($account->id() > 0) {

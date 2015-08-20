@@ -6,4 +6,4 @@ advanced_varnish_cache.config_form:
   options:
     _admin_route: TRUE
   requirements:
-    _permission: 'access content'
+    _permission: 'configure advanced varnish cache'
