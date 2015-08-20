@@ -29,19 +29,81 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     return $events;
   }
 
-  public function handlePageRequest(FilterResponseEvent $event) {
+  /**
+   * Define if caching enabled for this page and we can proceed with this request.
+   * @return bool.
+   */
+  private function cachingEnabled() {
+    $enabled = TRUE;
+    $config = \Drupal::config('advanced_varnish_cache.settings');
+
+    // Skip all if environment is not ready.
+    if (!$this->ready()) {
+      $enabled = FALSE;
+    }
+
+    // Check if user is authenticated and we can use cache for such users.
     $account = \Drupal::currentUser();
     $authenticated = $account->isAuthenticated();
-    if (!$event->isMasterRequest() || !empty($_POST) || $authenticated) {
+    $cache_authenticated = $config->get('available.authenticated_users');
+    if ($authenticated && !$cache_authenticated) {
+      $enabled = FALSE;
+    }
+
+    // Check if user has permission to bypass varnish.
+    if ($account->hasPermission('bypass advanced varnish cache')) {
+      $enabled = FALSE;
+    }
+
+    // Check if we in admin theme and if we allow to cache this page.
+    $admin_theme_name = \Drupal::config('system.theme')->get('admin');
+    $current_theme = \Drupal::theme()->getActiveTheme()->getName();
+    $cache_admin_theme = $config->get('available.admin_theme');
+    if ($admin_theme_name == $current_theme && !$cache_admin_theme) {
+      $enabled = FALSE;
+    }
+
+    // Check if we on https and if we can to cache page.
+    $https_cache_enabled = $config->get('available.https');
+    $https = \Drupal::request()->isSecure();
+    if ($https && !$https_cache_enabled) {
+      $enabled = FALSE;
+    }
+
+    // Check if we acn be on disabled domain.
+    $config = explode(PHP_EOL, $config->get('available.exclude'));
+    foreach ($config as $line) {
+      $rule = explode('|', trim($line));
+      if (($rule[0] == '*') || ($_SERVER['SERVER_NAME'] == $rule[0])) {
+        if (($rule[1] == '*') || strpos($_SERVER['REQUEST_URI'], $rule[1]) === 0) {
+          $enabled = FALSE;
+          break;
+        }
+      }
+    }
+
+    return $enabled;
+  }
+
+  /**
+   * @param FilterResponseEvent $event
+   *
+   * Handle page request if we can cache this page than proper headers will be set here.
+   */
+  public function handlePageRequest(FilterResponseEvent $event) {
+
+    // Check if we on MasterRequest, also we never should cache POST requests.
+    if (!$event->isMasterRequest() || !empty($_POST)) {
+      return;
+    }
+
+    // Checking Varnish settings and define if we should work further.
+    if (!$this->cachingEnabled()) {
       return;
     }
 
     $response = $event->getResponse();
 
-    // Skip all if environment is not ready.
-    if (!$this->ready()) {
-      return;
-    }
     $config = \Drupal::config('advanced_varnish_cache.settings');
 
     $debug_mode = $config->get('general.debug');
@@ -73,16 +135,10 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       $tags = $cacheable->getCacheTags();
       $response->headers->set($this->varnish_handler->getHeaderCacheTag(), implode(';', $tags) . ';');
 
-      // Add TTL header only for FE theme.
-      $admin_theme_name = \Drupal::config('system.theme')->get('admin');
-      $current_theme = \Drupal::theme()->getActiveTheme()->getName();
-      if ($admin_theme_name == $current_theme) {
-        return;
-      }
-
-      // Set headre with cache TTL based on site Perfomance settings.
+      // Set header with cache TTL based on site Performance settings.
       $site_ttl = \Drupal::config('system.performance')->get('cache.page.max_age');
       $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
+      $response->setPublic();
     }
   }
 

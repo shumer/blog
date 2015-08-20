@@ -112,9 +112,9 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
 
     $form['advanced_varnish_cache']['general']['debug'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Debug ESI'),
+      '#title' => t('Debug mode'),
       '#default_value' => $config->get('general.debug'),
-      '#description' => t('Check if you want to add debug info to ESI tags.'),
+      '#description' => t('Check if you want to add debug info.'),
     );
 
     $form['advanced_varnish_cache']['general']['noise'] = array(
@@ -164,24 +164,28 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#collapsible' => TRUE,
       '#collapsed' => TRUE,
     );
+
     $form['advanced_varnish_cache']['available']['exclude'] = array(
       '#title' => t('Excluded URLs'),
       '#type' => 'textarea',
       '#description' => t('Specify excluded request urls @format.', array('@format' => '<SERVER_NAME>|<partial REQUEST_URI *>')),
       '#default_value' => $config->get('available.exclude'),
     );
+
     $form['advanced_varnish_cache']['available']['https'] = array(
       '#title' => t('Enable for HTTPS pages'),
       '#type' => 'checkbox',
       '#description' => t('Check if you want enable Varnish support for HTTPS pages.'),
       '#default_value' => $config->get('available.https'),
     );
+
     $form['advanced_varnish_cache']['available']['admin_theme'] = array(
       '#title' => t('Enable for admin theme'),
       '#type' => 'checkbox',
       '#description' => t('Check if you want enable Varnish support for admin theme.'),
       '#default_value' => $config->get('available.admin_theme'),
     );
+
     $form['advanced_varnish_cache']['available']['authenticated_users'] = array(
       '#title' => t('Enable varnish for authenticated users'),
       '#type' => 'checkbox',
