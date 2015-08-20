@@ -170,6 +170,8 @@ sub vcl_deliver {
 
     /** Unset tags header if not in debug */
     if (!resp.http.X-CACHE-DEBUG) {
+	    unset resp.http.X-Drupal-Cache-Contexts;
+	    unset resp.http.X-Drupal-Cache-Tags;
         unset resp.http.X-BIN;
         unset resp.http.X-TAG;
         unset resp.http.X-TTL2;
