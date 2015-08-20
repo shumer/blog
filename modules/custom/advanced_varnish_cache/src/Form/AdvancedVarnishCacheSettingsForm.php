@@ -117,7 +117,6 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#description' => t('Check if you want to add debug info to ESI tags.'),
     );
 
-
     $form['advanced_varnish_cache']['general']['noise'] = array(
         '#type' => 'textfield',
         '#title' => t('Hashing Noise'),
@@ -158,6 +157,39 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#required' => TRUE,
     );
 
+    // Availability settings.
+    $form['advanced_varnish_cache']['available'] = array(
+      '#title' => t('Availability settings'),
+      '#type' => 'details',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['advanced_varnish_cache']['available']['exclude'] = array(
+      '#title' => t('Excluded URLs'),
+      '#type' => 'textarea',
+      '#description' => t('Specify excluded request urls @format.', array('@format' => '<SERVER_NAME>|<partial REQUEST_URI *>')),
+      '#default_value' => $config->get('available.exclude'),
+    );
+    $form['advanced_varnish_cache']['available']['https'] = array(
+      '#title' => t('Enable for HTTPS pages'),
+      '#type' => 'checkbox',
+      '#description' => t('Check if you want enable Varnish support for HTTPS pages.'),
+      '#default_value' => $config->get('available.https'),
+    );
+    $form['advanced_varnish_cache']['available']['admin_theme'] = array(
+      '#title' => t('Enable for admin theme'),
+      '#type' => 'checkbox',
+      '#description' => t('Check if you want enable Varnish support for admin theme.'),
+      '#default_value' => $config->get('available.admin_theme'),
+    );
+    $form['advanced_varnish_cache']['available']['authenticated_users'] = array(
+      '#title' => t('Enable varnish for authenticated users'),
+      '#type' => 'checkbox',
+      '#description' => t('Check if you want enable Varnish support for authenticated users.'),
+      '#default_value' => $config->get('available.authenticated_users'),
+    );
+
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -168,12 +200,9 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
 
     $values = $form_state->getValue('advanced_varnish_cache');
     $this->config('advanced_varnish_cache.settings')
-      ->set('connection.control_terminal', $values['connection']['control_terminal'])
-      ->set('connection.control_key', $values['connection']['control_key'])
-      ->set('connection.socket_timeout', $values['connection']['socket_timeout'])
-      ->set('general.logging', $values['general']['logging'])
-      ->set('general.debug', $values['general']['debug'])
-      ->set('general.noise', $values['general']['noise'])
+      ->set('connection', $values['connection'])
+      ->set('general', $values['general'])
+      ->set('available', $values['available'])
       ->save();
 
     parent::submitForm($form, $form_state);
