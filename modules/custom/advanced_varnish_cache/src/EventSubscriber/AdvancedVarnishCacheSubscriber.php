@@ -222,7 +222,6 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
    * be default resource files should not be redirected.
    */
   public static function redirect_forbidden($path = '') {
-    $forbidden = FALSE;
 
     $settings = \Drupal::config('advanced_varnish_cache.settings');
 
