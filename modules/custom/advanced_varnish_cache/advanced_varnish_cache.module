@@ -24,13 +24,21 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
 
 function advanced_varnish_cache_form_page_manager_display_variant_edit_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
 
-  $co = $form_state->getBuildInfo()['callback_object'];
-  $settings = $block->get('settings');
-  dpm($id, 'id');
-  $block = \Drupal\block\Entity\Block::load($id);
-  dpm($block, 'bl');
+  // Get form storage.
+  $storage = $form_state->getStorage();
+
+  // Get page variant.
+  $page = $form_state->getBuildInfo()['args'][0];
+  $vid = $storage['display_variant_id'];
+  $variant = $page->getVariant($vid);
+
+  // Get current block from page variant.
+  $bid = $storage['block_id'];
+  $block = $variant->getBlock($bid);
+
+  // Get block settings.
   if ($block) {
-    $settings = $block->get('settings');
+    $settings = $block->getConfiguration();
   }
   $form['settings']['cache']['esi'] = array(
     '#type' => 'checkbox',
@@ -38,15 +46,12 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_block_for
     '#default_value' => $settings['cache']['esi'] ?: FALSE,
   );
 
-  dpm($form, 'AAAA');
-  dpm($form_state, 'BBBB');
 }
 
 /**
  * Implements hook_block_view_alter().
  */
 function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
-  dpm($block);
   //$build['#theme'] = 'advanced_varnish_cache_esi_block';
 }
 
