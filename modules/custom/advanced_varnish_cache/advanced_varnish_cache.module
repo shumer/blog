@@ -19,6 +19,9 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
   );*/
 }
 
+/**
+ * Implements hook_block_view_alter().
+ */
 function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
   $build['#theme'] = 'advanced_varnish_cache_esi_block';
 }
@@ -34,13 +37,15 @@ function advanced_varnish_cache_theme() {
   );
 }
 
+/**
+ * Implements template_preprocess_advanced_varnish_cache_esi_block().
+ */
 function template_preprocess_advanced_varnish_cache_esi_block(&$variables) {
-
   $elements = &$variables['elements'];
   $maxwait = 5000;
   $path = '/advanced_varnish_cache/esi/block/' . $elements['#id'];
   $url = Url::fromUserInput($path);
   $tag = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
-  //$tag = '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>';
+
   $variables['content'] = $tag;
 }
