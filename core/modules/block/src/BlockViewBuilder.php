@@ -144,7 +144,7 @@ class BlockViewBuilder extends EntityViewBuilder {
           ->merge(CacheableMetadata::createFromRenderArray($content))
           ->applyTo($build);
       }
-    }kpr(debug_backtrace(TRUE, 1));
+    }
     return $build;
    }
 

@@ -10,20 +10,44 @@ use Drupal\Core\Url;
  * Implements hook_form_FORM_ID_alter().
  */
 function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
-  /*$block = \Drupal\block\Entity\Block::load('banner_5');
-  $settings = $block->get('settings');
+  $id = $form['id']['#default_value'];
+  $block = \Drupal\block\Entity\Block::load($id);
+  if ($block) {
+    $settings = $block->get('settings');
+  }
   $form['settings']['cache']['esi'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('ESI block'),
-      '#default_value' => $settings['cache']['esi'],
-  );*/
+    '#type' => 'checkbox',
+    '#title' => t('ESI block'),
+    '#default_value' => $settings['cache']['esi'] ?: FALSE,
+  );
+}
+
+function advanced_varnish_cache_form_page_manager_display_variant_edit_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+
+  $co = $form_state->getBuildInfo()['callback_object'];
+  $settings = $block->get('settings');
+  dpm($id, 'id');
+  $block = \Drupal\block\Entity\Block::load($id);
+  dpm($block, 'bl');
+  if ($block) {
+    $settings = $block->get('settings');
+  }
+  $form['settings']['cache']['esi'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('ESI block'),
+    '#default_value' => $settings['cache']['esi'] ?: FALSE,
+  );
+
+  dpm($form, 'AAAA');
+  dpm($form_state, 'BBBB');
 }
 
 /**
  * Implements hook_block_view_alter().
  */
 function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
-  $build['#theme'] = 'advanced_varnish_cache_esi_block';
+  dpm($block);
+  //$build['#theme'] = 'advanced_varnish_cache_esi_block';
 }
 
 /**
