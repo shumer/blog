@@ -11,4 +11,3 @@ advanced_varnish_cache.esi_block:
   path: '/advanced_varnish_cache/esi/block/{block_id}'
   requirements:
     _permission: 'access content'
-    
