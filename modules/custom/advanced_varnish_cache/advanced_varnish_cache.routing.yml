@@ -1,0 +1,9 @@
+advanced_varnish_cache.config_form:
+  path: '/admin/config/development/advanced_varnish_cache'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishCacheSettingsForm'
+    _title: 'Advanced Varnish cache'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'
