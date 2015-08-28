@@ -46,5 +46,4 @@ class AdvancedVarnishCacheController {
 
     return self::$_instance;
   }
-
 }
