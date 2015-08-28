@@ -7,3 +7,8 @@ advanced_varnish_cache.config_form:
     _admin_route: TRUE
   requirements:
     _permission: 'configure advanced varnish cache'
+advanced_varnish_cache.esi_block:
+  path: '/advanced_varnish_cache/esi/block/{block_id}'
+  requirements:
+    _permission: 'access content'
+    
