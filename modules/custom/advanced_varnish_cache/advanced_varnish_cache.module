@@ -10,42 +10,23 @@ use Drupal\Core\Url;
  * Implements hook_form_FORM_ID_alter().
  */
 function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+
+  // Alter block configuration form to add cache settings for varnish.
+  // Get block.
   $id = $form['id']['#default_value'];
   $block = \Drupal\block\Entity\Block::load($id);
+
+  // Get block configuration.
   if ($block) {
     $settings = $block->get('settings');
+
+    // Add ESI block support.
+    $form['settings']['cache']['esi'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('ESI block'),
+      '#default_value' => $settings['cache']['esi'] ?: FALSE,
+    );
   }
-  $form['settings']['cache']['esi'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('ESI block'),
-    '#default_value' => $settings['cache']['esi'] ?: FALSE,
-  );
-}
-
-function advanced_varnish_cache_form_page_manager_display_variant_edit_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
-
-  // Get form storage.
-  $storage = $form_state->getStorage();
-
-  // Get page variant.
-  $page = $form_state->getBuildInfo()['args'][0];
-  $vid = $storage['display_variant_id'];
-  $variant = $page->getVariant($vid);
-
-  // Get current block from page variant.
-  $bid = $storage['block_id'];
-  $block = $variant->getBlock($bid);
-
-  // Get block settings.
-  if ($block) {
-    $settings = $block->getConfiguration();
-  }
-  $form['settings']['cache']['esi'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('ESI block'),
-    '#default_value' => $settings['cache']['esi'] ?: FALSE,
-  );
-
 }
 
 /**
@@ -78,3 +59,32 @@ function template_preprocess_advanced_varnish_cache_esi_block(&$variables) {
 
   $variables['content'] = $tag;
 }
+
+/*
+ * Panels support will be added later.
+function advanced_varnish_cache_form_page_manager_display_variant_edit_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+
+  // Get form storage.
+  $storage = $form_state->getStorage();
+
+  // Get page variant.
+  $page = $form_state->getBuildInfo()['args'][0];
+  $vid = $storage['display_variant_id'];
+  $variant = $page->getVariant($vid);
+
+  // Get current block from page variant.
+  $bid = $storage['block_id'];
+  $block = $variant->getBlock($bid);
+
+  // Get block settings.
+  if ($block) {
+    $settings = $block->getConfiguration();
+  }
+  $form['settings']['cache']['esi'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('ESI block'),
+    '#default_value' => $settings['cache']['esi'] ?: FALSE,
+  );
+
+}
+ */
