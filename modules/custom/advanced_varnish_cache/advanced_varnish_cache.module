@@ -33,6 +33,13 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
  * Implements hook_block_view_alter().
  */
 function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
+
+  // Check if ESI for this block enabled and should we replace block content with ESI tag.
+
+  // Get block configuration.
+  $conf = $build['#configuration'];
+  $esi = !empty($conf['cache']['esi']) ? TRUE : FALSE;
+
   //$build['#theme'] = 'advanced_varnish_cache_esi_block';
 }
 
