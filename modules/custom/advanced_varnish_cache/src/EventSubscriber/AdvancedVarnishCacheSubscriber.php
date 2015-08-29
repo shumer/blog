@@ -43,7 +43,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     }
 
     // Checking Varnish settings and define if we should work further.
-    $varnish = new AdvancedVarnishCache();kpr($varnish);
+    $varnish = new AdvancedVarnishCache();
     if (!$varnish->cachingEnabled()) {
       return;
     }

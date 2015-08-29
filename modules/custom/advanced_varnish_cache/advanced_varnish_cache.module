@@ -5,6 +5,7 @@
  */
 
 use Drupal\Core\Url;
+use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 
 /**
  * Implements hook_form_FORM_ID_alter().
@@ -35,23 +36,20 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
 function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Block\BlockPluginInterface $block) {
 
   // Check if ESI for this block enabled and should we replace block content with ESI tag.
+  $varnish = new AdvancedVarnishCache();
+  if (!$varnish->cachingEnabled()) {
+    return;
+  }
 
   // Get block configuration.
   $conf = $build['#configuration'];
   $esi = !empty($conf['cache']['esi']) ? TRUE : FALSE;
+  if (!$esi) {
+    return;
+  }
 
-  //$build['#theme'] = 'advanced_varnish_cache_esi_block';
-}
-
-/**
- * Implements hook_theme().
- */
-function advanced_varnish_cache_theme() {
-  return array(
-    'advanced_varnish_cache_esi_block' => array(
-      'render element' => 'elements',
-    ),
-  );
+  // If we need to replace block with ESI we change pre_render callback to handle this.
+  $build['#pre_render'] = [[$varnish, 'buildBlock']];
 }
 
 /**
