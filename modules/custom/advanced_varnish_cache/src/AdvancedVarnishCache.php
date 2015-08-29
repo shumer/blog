@@ -345,6 +345,11 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
     $build['content'] = $content;
 
+    // Set flag for varnish that we have ESI in the response.
+    $build['#attached']['http_header'] = [
+      ['X-DOESI', '1'],
+    ];
+    
     return $build;
   }
 }
