@@ -4,7 +4,6 @@
  *   Module hooks.
  */
 
-use Drupal\Core\Url;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 
 /**
@@ -49,7 +48,8 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
   }
 
   // If we need to replace block with ESI we change pre_render callback to handle this.
-  $build['#pre_render'] = [[$varnish, 'buildBlock']];
+  $build['#theme'] = 'advanced_varnish_cache_esi_block';
+  $build['#pre_render'] = [[$varnish, 'buildEsiBlock']];
 }
 
 /**
@@ -57,12 +57,18 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
  */
 function template_preprocess_advanced_varnish_cache_esi_block(&$variables) {
   $elements = &$variables['elements'];
-  $maxwait = 5000;
-  $path = '/advanced_varnish_cache/esi/block/' . $elements['#id'];
-  $url = Url::fromUserInput($path);
-  $tag = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
+  $variables['content'] = $elements['content'];
+}
 
-  $variables['content'] = $tag;
+/**
+ * Implements hook_theme().
+ */
+function advanced_varnish_cache_theme() {
+  return array(
+    'advanced_varnish_cache_esi_block' => array(
+      'render element' => 'elements',
+    ),
+  );
 }
 
 /*
