@@ -8,6 +8,11 @@ import std;
 
 sub vcl_fetch {
 
+    /** Enable ESI if requested on this page */
+    if (beresp.http.X-DOESI) {
+      set beresp.do_esi = true;
+    }
+    
     /** Set desired TTL */
     set beresp.ttl = std.duration(beresp.http.X-TTL + "s", 0s);
 
