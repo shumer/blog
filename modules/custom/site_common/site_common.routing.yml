@@ -1,0 +1,7 @@
+site_common.database.export:
+  path: '/admin/structure/database/export'
+  defaults:
+    _controller: 'Drupal\site_common\Controller\SiteCommonDatabaseController::export'
+    _title: 'Default database dump'
+  requirements:
+    _permission: 'administer site'
