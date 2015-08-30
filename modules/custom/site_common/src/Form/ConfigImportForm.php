@@ -93,7 +93,7 @@ class ConfigImportForm extends FormBase {
         foreach ($archiver->listContents() as $file) {
           $files[] = $file['filename'];
         }
-        $archiver->extract($files, config_get_config_directory(CONFIG_STAGING_DIRECTORY));
+        $archiver->extract(config_get_config_directory(CONFIG_STAGING_DIRECTORY));
         drupal_set_message($this->t('Your configuration files were successfully uploaded and are ready for import.'));
         $form_state->setRedirect('config.sync');
       }

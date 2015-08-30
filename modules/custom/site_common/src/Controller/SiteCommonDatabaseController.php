@@ -49,7 +49,9 @@ class SiteCommonDatabaseController extends ControllerBase {
 
     foreach ($source_storage->listAll() as $name) {
       $destination_storage->write($name, $source_storage->read($name));
-      $zip->add($destination_storage->getFilePath($name));
+      $full_filename = $destination_storage->getFilePath($name);
+      $single_name = basename($full_filename);
+      $zip->getArchive()->addFile($full_filename, $single_name);
     }
 
     $response = new BinaryFileResponse($filename);
