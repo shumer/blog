@@ -29,6 +29,10 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
       $tags = $block->getCacheTags();
       $tags = implode(';', $tags);
 
+      // Mark this block as rendered through ESI request.
+      $block->_esi = 1;
+
+      // Render block.
       $build = \Drupal::entityManager()->getViewBuilder('block')
         ->view($block);
       $content = \Drupal::service('renderer')->render($build);
