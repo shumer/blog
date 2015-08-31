@@ -38,7 +38,7 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
 
   // Check if ESI for this block enabled and should we replace block content with ESI tag.
   $varnish = new AdvancedVarnishCache();
-  if (!$varnish->cachingEnabled() || $block->_esi) {
+  if (!$varnish->cachingEnabled() || isset($block->_esi)) {
     return;
   }
 
@@ -62,7 +62,7 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
  */
 function template_preprocess_advanced_varnish_cache_esi_block(&$variables) {
   $elements = &$variables['elements'];
-  $variables['content'] = $elements['content'];
+  $variables['content'] = $elements['#content'];
 }
 
 /**

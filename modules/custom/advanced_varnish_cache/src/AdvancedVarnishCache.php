@@ -343,13 +343,13 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $url = Url::fromUserInput($path);
     $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
 
-    $build['content'] = $content;
+    $build['#content'] = $content;
 
     // Set flag for varnish that we have ESI in the response.
     $build['#attached']['http_header'] = [
       ['X-DOESI', '1'],
     ];
-    
+
     return $build;
   }
 
