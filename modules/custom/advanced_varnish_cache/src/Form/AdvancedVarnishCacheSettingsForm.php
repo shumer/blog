@@ -79,7 +79,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
     ];
 
     // Display module status.
-    $backend_status = $this->varnish_handler->varnish_get_status();
+    $backend_status = $this->varnish_handler->varnishGetStatus();
 
     $_SESSION['messages'] = [];
     if (empty($backend_status)) {

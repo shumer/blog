@@ -20,13 +20,13 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
   const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
 
-  public static $get_status_results;
+  public static $getStatusResults;
 
   /**
    * Parse the host from the global $base_url.
    * @return string
    */
-  public function varnish_get_host() {
+  public function varnishGetHost() {
     global $base_url;
     $parts = parse_url($base_url);
     return $parts['host'];
@@ -41,10 +41,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    *
    * @return mixed
    */
-  public function varnish_execute_command($client, $command) {
+  public function varnishExecuteCommand($client, $command) {
     // Send command and get response.
     $result = socket_write($client, "$command\n");
-    $status = $this->varnish_read_socket($client);
+    $status = $this->varnishReadSocket($client);
     if ($status['code'] != 200) {
       \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Recieved status code @code running %command. Full response text: @error', array(
               '@code' => $status['code'], '%command' => $command, '@error' => $status['msg'],
@@ -68,7 +68,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    *
    * @return array
    */
-  public function varnish_read_socket($client, $retry = 2) {
+  public function varnishReadSocket($client, $retry = 2) {
     // Status and length info is always 13 characters.
     $header = socket_read($client, 13, PHP_BINARY_READ);
     if ($header == FALSE) {
@@ -76,7 +76,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
       // 35 = socket-unavailable, so it might be blocked from our write.
       // This is an acceptable place to retry.
       if ($error == 35 && $retry > 0) {
-        return $this->varnish_read_socket($client, $retry-1);
+        return $this->varnishReadSocket($client, $retry-1);
       }
       else {
         \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Socket error: @error', array('@error' => socket_strerror($error)));
@@ -102,7 +102,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    *
    * @return array
    */
-  public function varnish_terminal_run($commands) {
+  public function varnishTerminalRun($commands) {
     if (!extension_loaded('sockets')) {
       // Prevent fatal errors if people don't have requirements.
       return FALSE;
@@ -139,7 +139,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
         $varnish_version = 2.1;
       }
       if(floatval($varnish_version) > 2.0) {
-        $status = $this->varnish_read_socket($client);
+        $status = $this->varnishReadSocket($client);
         // Do we need to authenticate?
         if ($status['code'] == 107) { // Require authentication
           $secret = $this->getSetting('connection', 'control_key', '');
@@ -147,14 +147,14 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
           $pack = $challenge . "\x0A" . $secret . "\x0A" . $challenge . "\x0A";
           $key = hash('sha256', $pack);
           socket_write($client, "auth $key\n");
-          $status = $this->varnish_read_socket($client);
+          $status = $this->varnishReadSocket($client);
           if ($status['code'] != 200) {
             \Drupal::logger('advanced_varnish_cache')->error('Authentication to server failed!');
           }
         }
       }
       foreach ($commands as $command) {
-        if ($status = $this->varnish_execute_command($client, $command)) {
+        if ($status = $this->varnishExecuteCommand($client, $command)) {
           $ret[$terminal][$command] = $status;
         }
       }
@@ -168,13 +168,13 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * @return array
    *    An array of server statuses, keyed by varnish terminal addresses.
    */
-  public function varnish_get_status() {
+  public function varnishGetStatus() {
     // use a static-cache so this can be called repeatedly without incurring
     // socket-connects for each call.
-    $results = (isset(self::$get_status_results)) ? self::$get_status_results : NULL;
+    $results = (isset(self::$getStatusResults)) ? self::$getStatusResults : NULL;
     if (is_null($results)) {
       $results = array();
-      $status = $this->varnish_terminal_run(array('status'));
+      $status = $this->varnishTerminalRun(array('status'));
       $terminals = explode(' ', $this->getSetting('connection', 'control_terminal', '127.0.0.1:6082'));
       foreach ($terminals as $terminal) {
         $stat = array_shift($status);
@@ -378,7 +378,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
       $command_line = "ban obj.http.$header ~ \"$pattern\"";
     }
     else {
-      $host = $this->varnish_get_host();
+      $host = $this->varnishGetHost();
       $command_line = "ban req.http.host ~ $host && obj.http.$header ~ \"$pattern\"";
     }
 
@@ -392,7 +392,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     }
 
     // Query Varnish.
-    $res = $this->varnish_terminal_run(array($command_line));
+    $res = $this->varnishTerminalRun(array($command_line));
     return $res;
   }
 
@@ -419,7 +419,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
       $command_line = "ban req.url $command \"$pattern\"";
     }
     else {
-      $host = $this->varnish_get_host();
+      $host = $this->varnishGetHost();
       $command_line = "ban req.http.host ~ $host && req.url $command \"$pattern\"";
     }
 
@@ -433,7 +433,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     }
 
     // Query Varnish.
-    $res = $this->varnish_terminal_run(array($command_line));
+    $res = $this->varnishTerminalRun(array($command_line));
     return $res;
   }
 

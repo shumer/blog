@@ -61,13 +61,13 @@ interface AdvancedVarnishCacheInterface
    *
    * @return mixed
    */
-  public function varnish_execute_command($client, $command);
+  public function varnishExecuteCommand($client, $command);
 
   /**
    * Parse the host from the global $base_url.
    * @return string
    */
-  public function varnish_get_host();
+  public function varnishGetHost();
 
   /**
    * Get the status (up/down) of each of the varnish servers.
@@ -75,7 +75,7 @@ interface AdvancedVarnishCacheInterface
    * @return array
    *    An array of server statuses, keyed by varnish terminal addresses.
    */
-  public function varnish_get_status();
+  public function varnishGetStatus();
 
   /**
    * Low-level socket read function.
@@ -87,7 +87,7 @@ interface AdvancedVarnishCacheInterface
    *
    * @return array
    */
-  public function varnish_read_socket($client, $retry);
+  public function varnishReadSocket($client, $retry);
 
   /**
    * Sends commands to Varnish.
@@ -97,7 +97,7 @@ interface AdvancedVarnishCacheInterface
    *
    * @return array
    */
-  public function varnish_terminal_run($commands);
+  public function varnishTerminalRun($commands);
 
 
   /**
