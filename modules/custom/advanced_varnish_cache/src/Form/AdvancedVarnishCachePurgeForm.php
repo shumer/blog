@@ -69,7 +69,7 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
     ];
 
     // Display module status.
-    $backend_status = $this->varnish_handler->varnish_get_status();
+    $backend_status = $this->varnish_handler->varnishGetStatus();
 
     $_SESSION['messages'] = [];
     if (empty($backend_status)) {
@@ -116,6 +116,7 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
         '#type' => 'submit',
         '#value' => t('Run purge'),
     );
+
     return $form;
   }
 
@@ -123,6 +124,8 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+
+    $form_state->disableRedirect();
 
     // Get type.
     $type = $form_state->getValue('type');
