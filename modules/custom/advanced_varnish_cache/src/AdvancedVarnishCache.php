@@ -352,4 +352,89 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     
     return $build;
   }
+
+  /**
+   * Purge varnish cache for specific tag.
+   *   *
+   * @param $tag
+   *   (string/array) tag to search and purge.
+   *
+   * @return array
+   */
+  public function purgeTags($tag) {
+    $account = \Drupal::currentUser();
+    $header = $this->getHeaderCacheTag();
+
+    // Build pattern.
+    $pattern = (count($tag) > 1)
+        ? implode(';|', $tag) . ';'
+        : reset($tag) . ';';
+
+    // Remove quotes from pattern.
+    $pattern = strtr($pattern, array('"' => '', "'" => ''));
+
+    // Clean all or only current host.
+    if ($this->getSetting('purge', 'all_hosts', TRUE)) {
+      $command_line = "ban obj.http.$header ~ \"$pattern\"";
+    }
+    else {
+      $host = $this->varnish_get_host();
+      $command_line = "ban req.http.host ~ $host && obj.http.$header ~ \"$pattern\"";
+    }
+
+    // Log action.
+    if ($this->getSetting('general', 'logging', FALSE)) {
+      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', array(
+          '@uid' => $account->id(),
+          '!command_line' => $command_line,
+        )
+      );
+    }
+
+    // Query Varnish.
+    $res = $this->varnish_terminal_run(array($command_line));
+    return $res;
+  }
+
+  /**
+   * Purge varnish cache for specific request, like '/sites/all/files/1.txt';
+   *
+   * @param $pattern
+   *   (string/array) list of tags to search and purge.
+   * @param $exact
+   *   (bool) specify if pattern regex or exact match string.
+   *
+   * @return array
+   */
+  function purgeRequest($pattern, $exact = FALSE) {
+
+    $account = \Drupal::currentUser();
+
+    // Remove quotes from pattern.
+    $pattern = strtr($pattern, array('"' => '', "'" => ''));
+    $command = !empty($exact) ? '==' : '~';
+
+    // Clean all or only current host.
+    if ($this->getSetting('purge', 'all_hosts', TRUE)) {
+      $command_line = "ban req.url $command \"$pattern\"";
+    }
+    else {
+      $host = $this->varnish_get_host();
+      $command_line = "ban req.http.host ~ $host && req.url $command \"$pattern\"";
+    }
+
+    // Log action.
+    if ($this->getSetting('general', 'logging', FALSE)) {
+      $message = t('u=@uid purge !command_line', [
+        '@uid' => $account->id(),
+        '!command_line' => $command_line,
+      ]);
+      \Drupal::logger('advanced_varnish_cache:purge')->notice($message);
+    }
+
+    // Query Varnish.
+    $res = $this->varnish_terminal_run(array($command_line));
+    return $res;
+  }
+
 }
