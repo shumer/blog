@@ -7,9 +7,11 @@
 namespace Drupal\advanced_varnish_cache;
 
 use Drupal\Core\Logger\RfcLogLevel;
+use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\Url;
 
-class AdvancedVarnishCache implements AdvancedVarnishCacheInterface
-{
+class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
+
   // Set header name.
   const ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG = 'X-TAG';
   const ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE = 'X-RNDPAGE';
@@ -258,4 +260,96 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface
     return self::ADVANCED_VARNISH_CACHE_X_TTL;
   }
 
+  /**
+   * Define if caching enabled for this page and we can proceed with this request.
+   *
+   * @return bool.
+   */
+  public static function cachingEnabled() {
+    $enabled = TRUE;
+    $config = \Drupal::config('advanced_varnish_cache.settings');
+
+    // Skip all if environment is not ready.
+    if (!self::ready()) {
+      $enabled = FALSE;
+    }
+
+    // Check if user is authenticated and we can use cache for such users.
+    $account = \Drupal::currentUser();
+    $authenticated = $account->isAuthenticated();
+    $cache_authenticated = $config->get('available.authenticated_users');
+    if ($authenticated && !$cache_authenticated) {
+      $enabled = FALSE;
+    }
+
+    // Check if user has permission to bypass varnish.
+    if ($account->hasPermission('bypass advanced varnish cache')) {
+      $enabled = FALSE;
+    }
+
+    // Check if we in admin theme and if we allow to cache this page.
+    $admin_theme_name = \Drupal::config('system.theme')->get('admin');
+    $current_theme = \Drupal::theme()->getActiveTheme()->getName();
+    $cache_admin_theme = $config->get('available.admin_theme');
+    if ($admin_theme_name == $current_theme && !$cache_admin_theme) {
+      $enabled = FALSE;
+    }
+
+    // Check if we on https and if we can to cache page.
+    $https_cache_enabled = $config->get('available.https');
+    $https = \Drupal::request()->isSecure();
+    if ($https && !$https_cache_enabled) {
+      $enabled = FALSE;
+    }
+
+    // Check if we acn be on disabled domain.
+    $config = explode(PHP_EOL, $config->get('available.exclude'));
+    foreach ($config as $line) {
+      $rule = explode('|', trim($line));
+      if (($rule[0] == '*') || ($_SERVER['SERVER_NAME'] == $rule[0])) {
+        if (($rule[1] == '*') || strpos($_SERVER['REQUEST_URI'], $rule[1]) === 0) {
+          $enabled = FALSE;
+          break;
+        }
+      }
+    }
+
+    return $enabled;
+  }
+
+  /**
+   * Check if everything is ready for Varnish caching.
+   *
+   * @return bool
+   */
+  public static function ready() {
+    return (basename($_SERVER['PHP_SELF']) == 'index.php' && php_sapi_name() != 'cli');
+  }
+
+  /**
+   * #pre_render callback for building a ESI block.
+   *
+   * Replace block content with ESI tag.
+   */
+  public function buildEsiBlock($build) {
+    $id = $build['#block']->id();
+
+    // Remove the block entity from the render array, to ensure that blocks
+    // can be rendered without the block config entity.
+    unset($build['#block']);
+
+    $maxwait = 5000;
+    $path = '/advanced_varnish_cache/esi/block/' . $id;
+    $url = Url::fromUserInput($path);
+    $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
+
+    $build['content'] = $content;
+
+    // Set flag for varnish that we have ESI in the response.
+    $build['#attached']['http_header'] = [
+      ['X-DOESI', '1'],
+    ];
+    
+    return $build;
+  }
 }

@@ -9,5 +9,7 @@ advanced_varnish_cache.config_form:
     _permission: 'configure advanced varnish cache'
 advanced_varnish_cache.esi_block:
   path: '/advanced_varnish_cache/esi/block/{block_id}'
+  defaults:
+    _controller: '\Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheESIController::content'
   requirements:
     _permission: 'access content'

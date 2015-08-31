@@ -99,4 +99,18 @@ interface AdvancedVarnishCacheInterface
    */
   public function varnish_terminal_run($commands);
 
+
+  /**
+   * Define if caching enabled for this page and we can proceed with this request.
+   *
+   * @return bool.
+   */
+  public static function cachingEnabled();
+
+  /**
+   * Check if everything is ready for Varnish caching.
+   *
+   * @return bool
+   */
+  public static function  ready();
 }

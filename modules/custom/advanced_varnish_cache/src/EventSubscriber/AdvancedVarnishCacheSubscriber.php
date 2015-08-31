@@ -15,6 +15,7 @@ use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
+use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 
 class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
@@ -29,63 +30,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     return $events;
   }
 
-  /**
-   * Define if caching enabled for this page and we can proceed with this request.
-   * @return bool.
-   */
-  private function cachingEnabled() {
-    $enabled = TRUE;
-    $config = \Drupal::config('advanced_varnish_cache.settings');
-
-    // Skip all if environment is not ready.
-    if (!$this->ready()) {
-      $enabled = FALSE;
-    }
-
-    // Check if user is authenticated and we can use cache for such users.
-    $account = \Drupal::currentUser();
-    $authenticated = $account->isAuthenticated();
-    $cache_authenticated = $config->get('available.authenticated_users');
-    if ($authenticated && !$cache_authenticated) {
-      $enabled = FALSE;
-    }
-
-    // Check if user has permission to bypass varnish.
-    if ($account->hasPermission('bypass advanced varnish cache')) {
-      $enabled = FALSE;
-    }
-
-    // Check if we in admin theme and if we allow to cache this page.
-    $admin_theme_name = \Drupal::config('system.theme')->get('admin');
-    $current_theme = \Drupal::theme()->getActiveTheme()->getName();
-    $cache_admin_theme = $config->get('available.admin_theme');
-    if ($admin_theme_name == $current_theme && !$cache_admin_theme) {
-      $enabled = FALSE;
-    }
-
-    // Check if we on https and if we can to cache page.
-    $https_cache_enabled = $config->get('available.https');
-    $https = \Drupal::request()->isSecure();
-    if ($https && !$https_cache_enabled) {
-      $enabled = FALSE;
-    }
-
-    // Check if we acn be on disabled domain.
-    $config = explode(PHP_EOL, $config->get('available.exclude'));
-    foreach ($config as $line) {
-      $rule = explode('|', trim($line));
-      if (($rule[0] == '*') || ($_SERVER['SERVER_NAME'] == $rule[0])) {
-        if (($rule[1] == '*') || strpos($_SERVER['REQUEST_URI'], $rule[1]) === 0) {
-          $enabled = FALSE;
-          break;
-        }
-      }
-    }
-
-    return $enabled;
-  }
-
-  /**
+   /**
    * @param FilterResponseEvent $event
    *
    * Handle page request if we can cache this page than proper headers will be set here.
@@ -98,7 +43,8 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     }
 
     // Checking Varnish settings and define if we should work further.
-    if (!$this->cachingEnabled()) {
+    $varnish = new AdvancedVarnishCache();
+    if (!$varnish->cachingEnabled()) {
       return;
     }
 
@@ -140,15 +86,6 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
       $response->setPublic();
     }
-  }
-
-  /**
-   * Check if everything is ready for Varnish caching.
-   *
-   * @return bool
-   */
-  protected static function ready() {
-    return (basename($_SERVER['PHP_SELF']) == 'index.php' && php_sapi_name() != 'cli');
   }
 
   /**
