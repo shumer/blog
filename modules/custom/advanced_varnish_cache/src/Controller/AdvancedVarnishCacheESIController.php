@@ -10,6 +10,7 @@ namespace Drupal\advanced_varnish_cache\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\HttpFoundation\Response;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
+use Symfony\Component\Validator\Constraints\DateTime;
 
 class AdvancedVarnishCacheESIController extends ControllerBase{
 
@@ -34,16 +35,23 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
 
       // Render block.
       $build = \Drupal::entityManager()->getViewBuilder('block')
-        ->view($block);
+        ->view($block);//var_dump($build);
       $content = \Drupal::service('renderer')->render($build);
-
+      $content .= date('H:i:s', time());
       $response->headers->set(AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_X_TTL, $ttl);
       $response->headers->set(AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, $tags);
+      $exp = new \DateTime();
+      $exp->setTimestamp(time() + $ttl);
+      $response->headers->set('Expires', date('j-M-Y H:i:s T', time() + $ttl));
+      $response->setExpires($exp);
     }
 
     // Set rendered block as response object content.
     $response->setContent($content);
     $this->cookie_update();
+
+    //kpr('$response->getExpires() AvcESIController');
+    //kpr($response->getExpires());
     return $response;
   }
 
