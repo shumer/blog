@@ -15,6 +15,7 @@ use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Render\Element\StatusMessages;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Drupal\Core\Datetime\DateFormatter;
 
 /**
  * Configure varnish settings for this site.
@@ -37,10 +38,11 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler) {
+  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler, DateFormatter $date_formatter) {
     parent::__construct($config_factory);
     $this->state = $state;
     $this->varnish_handler = $varnish_handler;
+    $this->dateFormatter = $date_formatter;
   }
 
   /**
@@ -50,7 +52,8 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       $container->get('state'),
-      $container->get('advanced_varnish_cache_handler')
+      $container->get('advanced_varnish_cache_handler'),
+      $container->get('date.formatter')
     );
   }
 
@@ -122,6 +125,18 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
         '#title' => t('Hashing Noise'),
         '#default_value' => $config->get('general.noise'),
         '#description' => t('This works as private key, you can change it at any time.'),
+    );
+
+    // Cache time for Varnish.
+    $period = array(0, 60, 180, 300, 600, 900, 1800, 2700, 3600, 10800, 21600, 32400, 43200, 86400);
+    $period = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($period, $period));
+    $period[0] = '<' . t('no caching') . '>';
+    $form['advanced_varnish_cache']['general']['page_cache_maximum_age'] = array(
+      '#type' => 'select',
+      '#title' => t('Page cache maximum age'),
+      '#default_value' => $config->get('general.page_cache_maximum_age'),
+      '#options' => $period,
+      '#description' => t('The maximum time a page can be cached by varnish.'),
     );
 
     $form['advanced_varnish_cache']['connection'] = array(
