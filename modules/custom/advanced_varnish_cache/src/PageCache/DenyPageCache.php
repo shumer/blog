@@ -33,7 +33,7 @@ class DenyPageCache implements ResponsePolicyInterface {
    * {@inheritdoc}
    */
   public function check(Response $response, Request $request) {
-      return static::DENY;
+    return static::DENY;
   }
 
 }
