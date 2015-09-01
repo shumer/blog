@@ -13,3 +13,8 @@ services:
       - { name: cache_tags_invalidator}
   advanced_varnish_cache_handler:
     class: Drupal\advanced_varnish_cache\AdvancedVarnishCache
+  advanced_varnish_cache.page_cache_request_policy.deny_page_cache:
+    class: Drupal\advanced_varnish_cache\PageCache\DenyPageCache
+    arguments: ['@current_route_match']
+    tags:
+      - { name: page_cache_response_policy }
