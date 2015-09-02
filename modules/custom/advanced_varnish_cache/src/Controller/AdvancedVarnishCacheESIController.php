@@ -28,20 +28,22 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
       $settings = $block->get('settings');
       $ttl = $settings['cache']['max_age'];
 
-      $tags = $block->getCacheTags();
-      $tags = implode(';', $tags);
+      $response->addCacheableDependency($block);
+      // Check if block has special plugin and add it to dependency.
+      $plugin = $block->getPlugin();
+      if (is_object($plugin)) {
+        $response->addCacheableDependency($plugin);
+      }
 
-      // Mark this block as rendered through ESI request.
+      // Mark this block and response as rendered through ESI request.
       $block->_esi = 1;
+      $response->_esi = 1;
 
       // Render block.
       $build = \Drupal::entityManager()->getViewBuilder('block')
         ->view($block);
       $content = \Drupal::service('renderer')->render($build);
-      $content .= date('H:i:s', time());
       $response->headers->set(AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_X_TTL, $ttl);
-      $response->addCacheableDependency($block);
-      $response->_esi = 1;
     }
 
     // Set rendered block as response object content.

@@ -29,6 +29,19 @@ class ConfigPagesBlock extends BlockBase implements BlockPluginInterface {
   /**
    * {@inheritdoc}
    */
+  public function getCacheTags() {
+    $config = $this->getConfiguration();
+
+    if (!empty($config['config_page_type'])) {
+      $config_page = ConfigPages::config($config['config_page_type']);
+      return $config_page->getCacheTags();
+    }
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function build() {
     $config = $this->getConfiguration();
 
