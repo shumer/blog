@@ -82,8 +82,10 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       $response->headers->set($this->varnish_handler->getHeaderCacheTag(), implode(';', $tags) . ';');
 
       // Set header with cache TTL based on site Performance settings.
-      $site_ttl = $config->get('general.page_cache_maximum_age');
-      $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
+      if (!isset($response->_esi)) {
+        $site_ttl = $config->get('general.page_cache_maximum_age');
+        $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
+      }
       $response->setPublic();
     }
   }

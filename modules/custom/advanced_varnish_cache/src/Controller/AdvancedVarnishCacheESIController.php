@@ -7,6 +7,7 @@
 
 namespace Drupal\advanced_varnish_cache\Controller;
 
+use Drupal\Core\Cache\CacheableResponse;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\HttpFoundation\Response;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
@@ -19,7 +20,7 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
    */
   public function content($block_id){
     $content = '';
-    $response = new Response();
+    $response = new CacheableResponse();
 
     // Block load.
     $block = \Drupal\block\Entity\Block::load($block_id);
@@ -39,7 +40,8 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
       $content = \Drupal::service('renderer')->render($build);
       $content .= date('H:i:s', time());
       $response->headers->set(AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_X_TTL, $ttl);
-      $response->headers->set(AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, $tags);
+      $response->addCacheableDependency($block);
+      $response->_esi = 1;
     }
 
     // Set rendered block as response object content.
