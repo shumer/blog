@@ -8,11 +8,17 @@
 namespace Drupal\Tests\page_manager\Unit;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
+use Drupal\Core\Display\VariantInterface;
 use Drupal\Core\Plugin\Context\Context;
 use Drupal\Core\Plugin\Context\ContextDefinition;
 use Drupal\page_manager\Event\PageManagerContextEvent;
+use Drupal\page_manager\Event\PageManagerEvents;
 use Drupal\page_manager\PageExecutable;
+use Drupal\page_manager\PageInterface;
+use Drupal\page_manager\Plugin\PageAwareVariantInterface;
 use Drupal\Tests\UnitTestCase;
+use Prophecy\Argument;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Tests the PageExecutable.
@@ -40,49 +46,35 @@ class PageExecutableTest extends UnitTestCase {
    */
   protected function setUp() {
     parent::setUp();
-    $this->page = $this->getMock('Drupal\page_manager\PageInterface');
-    $this->exectuable = new PageExecutable($this->page);
+    $this->page = $this->prophesize(PageInterface::class);
+    $this->exectuable = new PageExecutable($this->page->reveal());
   }
 
   /**
    * @covers ::getPage
    */
   public function testGetPage() {
-    $this->assertSame($this->page, $this->exectuable->getPage());
+    $this->assertSame($this->page->reveal(), $this->exectuable->getPage());
   }
 
   /**
    * @covers ::selectDisplayVariant
    */
   public function testSelectDisplayVariant() {
-    $event_dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
-    $container = new ContainerBuilder();
-    $container->set('event_dispatcher', $event_dispatcher);
-    \Drupal::setContainer($container);
+    $display_variant1 = $this->prophesize(VariantInterface::class);
+    $display_variant1->access()->willReturn(FALSE);
 
-    $display_variant1 = $this->getMock('Drupal\Core\Display\VariantInterface');
-    $display_variant1->expects($this->once())
-      ->method('access')
-      ->will($this->returnValue(FALSE));
-    $display_variant1->expects($this->never())
-      ->method('setExecutable');
+    $display_variant2 = $this->prophesize(PageAwareVariantInterface::class);
+    $display_variant2->access()->willReturn(TRUE);
+    $display_variant2->setExecutable($this->exectuable)
+      ->willReturn($display_variant2->reveal());
 
-    $display_variant2 = $this->getMock('Drupal\page_manager\Plugin\PageAwareVariantInterface');
-    $display_variant2->expects($this->once())
-      ->method('access')
-      ->will($this->returnValue(TRUE));
-    $display_variant2->expects($this->once())
-      ->method('setExecutable')
-      ->with($this->exectuable)
-      ->will($this->returnValue($display_variant2));
-    $this->page->expects($this->once())
-      ->method('getVariants')
-      ->will($this->returnValue([
-        'variant1' => $display_variant1,
-        'variant2' => $display_variant2,
-      ]));
+    $this->page->getVariants()->willReturn([
+      'variant1' => $display_variant1->reveal(),
+      'variant2' => $display_variant2->reveal(),
+    ]);
 
-    $this->assertSame($display_variant2, $this->exectuable->selectDisplayVariant());
+    $this->assertSame($display_variant2->reveal(), $this->exectuable->selectDisplayVariant());
   }
 
   /**
@@ -100,15 +92,15 @@ class PageExecutableTest extends UnitTestCase {
    */
   public function testGetContexts() {
     $context = new Context(new ContextDefinition('bar'));
-    $event_dispatcher = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
-    $event_dispatcher->expects($this->once())
-      ->method('dispatch')
-      ->will($this->returnCallback(function ($event_name, PageManagerContextEvent $event) use ($context) {
-        $event->getPageExecutable()->addContext('foo', $context);
-      }));
+
+    $event_dispatcher = $this->prophesize(EventDispatcherInterface::class);
+    $event_dispatcher->dispatch(PageManagerEvents::PAGE_CONTEXT, Argument::type(PageManagerContextEvent::class))
+      ->will(function ($args) use ($context) {
+        $args[1]->getPageExecutable()->addContext('foo', $context);
+      });
 
     $container = new ContainerBuilder();
-    $container->set('event_dispatcher', $event_dispatcher);
+    $container->set('event_dispatcher', $event_dispatcher->reveal());
     \Drupal::setContainer($container);
 
     $contexts = $this->exectuable->getContexts();

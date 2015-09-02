@@ -7,8 +7,11 @@
 
 namespace Drupal\Tests\page_manager\Unit;
 
+use Drupal\Core\Block\BlockManagerInterface;
+use Drupal\Core\Block\BlockPluginInterface;
 use Drupal\page_manager\Plugin\BlockPluginCollection;
 use Drupal\Tests\UnitTestCase;
+use Prophecy\Argument;
 
 /**
  * Tests the block plugin collection.
@@ -52,25 +55,21 @@ class BlockPluginCollectionTest extends UnitTestCase {
         'region' => 'bottom',
       ],
     ];
+    $block_manager = $this->prophesize(BlockManagerInterface::class);
     $plugins = [];
-    $plugin_map = [];
     foreach ($blocks as $block_id => $block) {
-      $plugin = $this->getMock('Drupal\Core\Block\BlockPluginInterface');
-      $plugin->expects($this->any())
-        ->method('label')
-        ->will($this->returnValue($block['label']));
-      $plugin->expects($this->any())
-        ->method('getConfiguration')
-        ->will($this->returnValue($block));
-      $plugins[$block_id] = $plugin;
-      $plugin_map[] = [$block_id, $block, $plugin];
-    }
-    $block_manager = $this->getMock('Drupal\Core\Block\BlockManagerInterface');
-    $block_manager->expects($this->exactly(4))
-      ->method('createInstance')
-      ->will($this->returnValueMap($plugin_map));
+      $plugin = $this->prophesize(BlockPluginInterface::class);
+      $plugin->label()->willReturn($block['label']);
+      $plugin->getConfiguration()->willReturn($block);
+      $plugins[$block_id] = $plugin->reveal();
 
-    $block_plugin_collection = new BlockPluginCollection($block_manager, $blocks);
+      $block_manager->createInstance($block_id, $block)
+        ->willReturn($plugin->reveal())
+        ->shouldBeCalled();
+    }
+
+
+    $block_plugin_collection = new BlockPluginCollection($block_manager->reveal(), $blocks);
     $expected = [
       'bottom' => [
         'bing' => $plugins['bing'],

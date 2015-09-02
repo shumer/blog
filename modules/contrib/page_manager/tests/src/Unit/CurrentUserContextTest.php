@@ -7,10 +7,15 @@
 
 namespace Drupal\Tests\page_manager\Unit;
 
+use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\Plugin\DataType\EntityAdapter;
+use Drupal\Core\Plugin\Context\Context;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\page_manager\EventSubscriber\CurrentUserContext;
 use Drupal\user\UserInterface;
+use Prophecy\Argument;
 
 /**
  * Tests the current user context.
@@ -21,50 +26,39 @@ use Drupal\user\UserInterface;
  */
 class CurrentUserContextTest extends PageContextTestBase {
 
+  /**
+   * @covers ::onPageContext
+   */
   public function testOnPageContext() {
-    $account = $this->getMock('Drupal\Core\Session\AccountInterface');
-    $account->expects($this->once())
-      ->method('id')
-      ->will($this->returnValue(1));
-    $user = $this->getMock('Drupal\Tests\page_manager\Unit\TestUserInterface');
+    $account = $this->prophesize(AccountInterface::class);
+    $account->id()->willReturn(1);
+    $user = $this->prophesize(UserInterface::class);
 
-    $this->typedDataManager->expects($this->any())
-      ->method('create')
-      ->willReturn(EntityAdapter::createFromEntity($user));
-    $this->typedDataManager->expects($this->any())
-      ->method('getDefaultConstraints')
-      ->will($this->returnValue([]));
-    $this->typedDataManager->expects($this->any())
-      ->method('createDataDefinition')
-      ->will($this->returnCallback(function ($type) {
-        return new DataDefinition(['type' => $type]);
-      }));
+    $data_definition = new DataDefinition(['type' => 'entity:user']);
+
+    $this->typedDataManager->create($data_definition, $user)
+      ->willReturn(EntityAdapter::createFromEntity($user->reveal()));
+
+    $this->typedDataManager->getDefaultConstraints($data_definition)
+      ->willReturn([]);
+
+    $this->typedDataManager->createDataDefinition('entity:user')
+      ->will(function () use ($data_definition) {
+        return $data_definition;
+      });
 
     $this->executable->expects($this->once())
       ->method('addContext')
-      ->with('current_user', $this->isInstanceOf('Drupal\Core\Plugin\Context\Context'));
+      ->with('current_user', $this->isInstanceOf(Context::class));
 
-    $entity_manager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
-    $user_storage = $this->getMock('Drupal\Core\Entity\EntityStorageInterface');
-    $user_storage->expects($this->once())
-      ->method('load')
-      ->with(1)
-      ->will($this->returnValue($user));
-    $entity_manager->expects($this->any())
-      ->method('getStorage')
-      ->with('user')
-      ->will($this->returnValue($user_storage));
+    $user_storage = $this->prophesize(EntityStorageInterface::class);
+    $user_storage->load(1)->willReturn($user->reveal());
 
-    $route_param_context = new CurrentUserContext($account, $entity_manager);
+    $entity_manager = $this->prophesize(EntityManagerInterface::class);
+    $entity_manager->getStorage('user')->willReturn($user_storage->reveal());
+
+    $route_param_context = new CurrentUserContext($account->reveal(), $entity_manager->reveal());
     $route_param_context->onPageContext($this->event);
   }
 
-}
-
-/**
- * Provides a testable version of UserInterface.
- *
- * @see https://github.com/sebastianbergmann/phpunit-mock-objects/commit/96a6794
- */
-interface TestUserInterface extends \Iterator, UserInterface {
 }

@@ -7,6 +7,7 @@
 
 namespace Drupal\Tests\page_manager\Unit;
 
+use Drupal\page_manager\Entity\Page;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -24,7 +25,7 @@ class PageTest extends UnitTestCase {
    * @dataProvider providerTestIsFallbackPage
    */
   public function testIsFallbackPage($id, $expected) {
-    $page = $this->getMockBuilder('Drupal\page_manager\Entity\Page')
+    $page = $this->getMockBuilder(Page::class)
       ->setConstructorArgs([['id' => $id], 'page'])
       ->setMethods(['configFactory'])
       ->getMock();

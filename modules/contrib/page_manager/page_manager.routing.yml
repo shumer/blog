@@ -82,6 +82,32 @@ page_manager.access_condition_delete:
   requirements:
     _entity_access: page.update
 
+#### Static Contexts
+
+page_manager.static_context_add:
+  path: '/admin/structure/page_manager/manage/{page}/context/add'
+  defaults:
+    _form: '\Drupal\page_manager\Form\StaticContextAddForm'
+    _title: 'Add new static context'
+  requirements:
+    _entity_access: page.update
+
+page_manager.static_context_edit:
+  path: '/admin/structure/page_manager/manage/{page}/context/edit/{name}'
+  defaults:
+    _form: '\Drupal\page_manager\Form\StaticContextEditForm'
+    _title_callback: '\Drupal\page_manager\Controller\PageManagerController::editStaticContextTitle'
+  requirements:
+    _entity_access: page.update
+
+page_manager.static_context_delete:
+  path: '/admin/structure/page_manager/manage/{page}/context/delete/{name}'
+  defaults:
+    _form: '\Drupal\page_manager\Form\StaticContextDeleteForm'
+    _title: 'Delete static context'
+  requirements:
+    _entity_access: page.update
+
 #### Display variants
 
 page_manager.display_variant_select:
@@ -127,7 +153,7 @@ page_manager.display_variant_select_block:
 page_manager.display_variant_add_block:
   path: '/admin/structure/page_manager/manage/{page}/manage/{display_variant_id}/block/add/{block_id}'
   defaults:
-    _form: 'Drupal\page_manager\Form\DisplayVariantAddBlockForm'
+    _form: '\Drupal\page_manager\Form\DisplayVariantAddBlockForm'
     _title: 'Add block to display variant'
   requirements:
     _entity_access: page.update
@@ -135,7 +161,7 @@ page_manager.display_variant_add_block:
 page_manager.display_variant_edit_block:
   path: '/admin/structure/page_manager/manage/{page}/manage/{display_variant_id}/block/edit/{block_id}'
   defaults:
-    _form: 'Drupal\page_manager\Form\DisplayVariantEditBlockForm'
+    _form: '\Drupal\page_manager\Form\DisplayVariantEditBlockForm'
     _title: 'Edit block in display variant'
   requirements:
     _entity_access: page.update
@@ -143,7 +169,7 @@ page_manager.display_variant_edit_block:
 page_manager.display_variant_delete_block:
   path: '/admin/structure/page_manager/manage/{page}/manage/{display_variant_id}/block/delete/{block_id}'
   defaults:
-    _form: 'Drupal\page_manager\Form\DisplayVariantDeleteBlockForm'
+    _form: '\Drupal\page_manager\Form\DisplayVariantDeleteBlockForm'
     _title: 'Delete block in display variant'
   requirements:
     _entity_access: page.update

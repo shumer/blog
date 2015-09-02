@@ -7,11 +7,14 @@
 
 namespace Drupal\Tests\page_manager\Unit;
 
+use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
+use Drupal\Core\Display\VariantInterface;
 use Drupal\page_manager\Plugin\VariantAwareTrait;
 use Drupal\page_manager\Plugin\VariantCollection;
 use Drupal\Tests\UnitTestCase;
+use Prophecy\Argument;
 
 /**
  * Tests the methods of a variant-aware class.
@@ -33,8 +36,8 @@ class VariantAwareTraitTest extends UnitTestCase {
   protected function setUp() {
     parent::setUp();
     $container = new ContainerBuilder();
-    $this->manager = $this->getMock('Drupal\Component\Plugin\PluginManagerInterface');
-    $container->set('plugin.manager.display_variant', $this->manager);
+    $this->manager = $this->prophesize(PluginManagerInterface::class);
+    $container->set('plugin.manager.display_variant', $this->manager->reveal());
     \Drupal::setContainer($container);
   }
 
@@ -43,11 +46,10 @@ class VariantAwareTraitTest extends UnitTestCase {
    */
   public function testGetVariantsEmpty() {
     $trait_object = new TestVariantAwareTrait();
-    $this->manager->expects($this->never())
-      ->method('createInstance');
+    $this->manager->createInstance()->shouldNotBeCalled();
 
     $variants = $trait_object->getVariants();
-    $this->assertInstanceOf('Drupal\page_manager\Plugin\VariantCollection', $variants);
+    $this->assertInstanceOf(VariantCollection::class, $variants);
     $this->assertSame(0, count($variants));
   }
 
@@ -60,18 +62,14 @@ class VariantAwareTraitTest extends UnitTestCase {
       'foo' => ['id' => 'foo_plugin'],
       'bar' => ['id' => 'bar_plugin'],
     ];
-    $plugin = $this->getMock('Drupal\Core\Display\VariantInterface');
-    $map = [];
     foreach ($config as $value) {
-      $map[] = [$value['id'], $value, $plugin];
+      $plugin = $this->prophesize(VariantInterface::class);
+      $this->manager->createInstance($value['id'], $value)->willReturn($plugin->reveal());
     }
-    $this->manager->expects($this->exactly(2))
-      ->method('createInstance')
-      ->will($this->returnValueMap($map));
     $trait_object->setVariantConfig($config);
 
     $variants = $trait_object->getVariants();
-    $this->assertInstanceOf('Drupal\page_manager\Plugin\VariantCollection', $variants);
+    $this->assertInstanceOf(VariantCollection::class, $variants);
     $this->assertSame(2, count($variants));
     return $variants;
   }
@@ -93,21 +91,23 @@ class VariantAwareTraitTest extends UnitTestCase {
     $uuid = 'test-uuid';
     $expected_config = $config + ['uuid' => $uuid];
 
-    $uuid_generator = $this->getMock('Drupal\Component\Uuid\UuidInterface');
-    $uuid_generator->expects($this->once())
-      ->method('generate')
-      ->will($this->returnValue($uuid));
+    $uuid_generator = $this->prophesize(UuidInterface::class);
+    $uuid_generator->generate()
+      ->willReturn($uuid)
+      ->shouldBeCalledTimes(1);
     $trait_object = new TestVariantAwareTrait();
-    $trait_object->setUuidGenerator($uuid_generator);
+    $trait_object->setUuidGenerator($uuid_generator->reveal());
 
-    $plugin = $this->getMock('Drupal\Core\Display\VariantInterface');
-    $plugin->expects($this->once())
-      ->method('getConfiguration')
-      ->will($this->returnValue($expected_config));
-    $this->manager->expects($this->any())
-      ->method('createInstance')
-      ->with('foo', $expected_config)
-      ->will($this->returnValue($plugin));
+    $plugin_prophecy = $this->prophesize(VariantInterface::class);
+    $plugin_prophecy->getConfiguration()
+      ->willReturn($expected_config)
+      ->shouldBeCalled();
+    $plugin_prophecy->setConfiguration($expected_config)
+      ->willReturn($expected_config)
+      ->shouldBeCalled();
+
+    $this->manager->createInstance('foo', $expected_config)
+      ->willReturn($plugin_prophecy->reveal());
 
     $resulting_uuid = $trait_object->addVariant($config);
     $this->assertSame($uuid, $resulting_uuid);
@@ -115,8 +115,8 @@ class VariantAwareTraitTest extends UnitTestCase {
     $variants = $trait_object->getVariants();
     $this->assertSame([$uuid => $uuid], $variants->getInstanceIds());
     $this->assertSame([$uuid => $expected_config], $variants->getConfiguration());
-    $this->assertSame($plugin, $variants->get($uuid));
-    return [$trait_object, $uuid, $plugin];
+    $this->assertSame($plugin_prophecy->reveal(), $variants->get($uuid));
+    return [$trait_object, $uuid, $plugin_prophecy->reveal()];
   }
 
   /**
@@ -126,8 +126,7 @@ class VariantAwareTraitTest extends UnitTestCase {
    */
   public function testGetVariant($data) {
     list($trait_object, $uuid, $plugin) = $data;
-    $this->manager->expects($this->never())
-      ->method('createInstance');
+    $this->manager->createInstance()->shouldNotBeCalled();
 
     $this->assertSame($plugin, $trait_object->getVariant($uuid));
     return [$trait_object, $uuid];

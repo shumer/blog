@@ -7,8 +7,8 @@ package: Layout
 dependencies:
   - block
 
-# Information added by Drupal.org packaging script on 2015-07-16
-version: '8.x-1.0-alpha12'
+# Information added by Drupal.org packaging script on 2015-08-12
+version: '8.x-1.0-alpha14'
 core: '8.x'
 project: 'page_manager'
-datestamp: 1437064165
+datestamp: 1439390641

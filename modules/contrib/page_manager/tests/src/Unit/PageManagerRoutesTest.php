@@ -7,7 +7,10 @@
 
 namespace Drupal\Tests\page_manager\Unit;
 
+use Drupal\Core\Config\Entity\ConfigEntityStorageInterface;
+use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Routing\RouteBuildEvent;
+use Drupal\page_manager\PageInterface;
 use Drupal\page_manager\Routing\PageManagerRoutes;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\Routing\Route;
@@ -49,13 +52,13 @@ class PageManagerRoutesTest extends UnitTestCase {
    * @covers ::__construct
    */
   protected function setUp() {
-    $this->entityManager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
-    $this->pageStorage = $this->getMock('Drupal\Core\Config\Entity\ConfigEntityStorageInterface');
-    $this->entityManager->expects($this->any())
-      ->method('getStorage')
-      ->with('page')
-      ->will($this->returnValue($this->pageStorage));
-    $this->routeSubscriber = new PageManagerRoutes($this->entityManager);
+    $this->pageStorage = $this->prophesize(ConfigEntityStorageInterface::class);
+
+    $this->entityManager = $this->prophesize(EntityManagerInterface::class);
+    $this->entityManager->getStorage('page')
+      ->willReturn($this->pageStorage);
+
+    $this->routeSubscriber = new PageManagerRoutes($this->entityManager->reveal());
   }
 
   /**
@@ -65,20 +68,19 @@ class PageManagerRoutesTest extends UnitTestCase {
    */
   public function testAlterRoutesWithFallback() {
     // Set up the fallback page.
-    $page = $this->getMock('Drupal\page_manager\PageInterface');
-    $page->expects($this->once())
-      ->method('status')
-      ->will($this->returnValue(TRUE));
-    $page->expects($this->never())
-      ->method('getPath');
-    $page->expects($this->once())
-      ->method('isFallbackPage')
-      ->will($this->returnValue(TRUE));
-    $pages['page1'] = $page;
+    $page = $this->prophesize(PageInterface::class);
+    $page->status()
+      ->willReturn(TRUE)
+      ->shouldBeCalledTimes(1);
+    $page->getPath()->shouldNotBeCalled();
+    $page->isFallbackPage()
+      ->willReturn(TRUE)
+      ->shouldBeCalledTimes(1);
+    $pages['page1'] = $page->reveal();
 
-    $this->pageStorage->expects($this->once())
-      ->method('loadMultiple')
-      ->will($this->returnValue($pages));
+    $this->pageStorage->loadMultiple()
+      ->willReturn($pages)
+      ->shouldBeCalledTimes(1);
 
     $collection = new RouteCollection();
     $route_event = new RouteBuildEvent($collection);
@@ -95,31 +97,33 @@ class PageManagerRoutesTest extends UnitTestCase {
    */
   public function testAlterRoutesWithStatus() {
     // Set up a valid page.
-    $page1 = $this->getMock('Drupal\page_manager\PageInterface');
-    $page1->expects($this->once())
-      ->method('status')
-      ->will($this->returnValue(TRUE));
-    $page1->expects($this->once())
-      ->method('getPath')
-      ->will($this->returnValue('/page1'));
-    $page1->expects($this->once())
-      ->method('label')
-      ->will($this->returnValue('Page label'));
-    $page1->expects($this->once())
-      ->method('usesAdminTheme')
-      ->will($this->returnValue(TRUE));
-    $pages['page1'] = $page1;
+    $page1 = $this->prophesize(PageInterface::class);
+    $page1->status()
+      ->willReturn(TRUE)
+      ->shouldBeCalledTimes(1);
+    $page1->getPath()
+      ->willReturn('/page1')
+      ->shouldBeCalledTimes(1);
+    $page1->isFallbackPage()
+      ->willReturn(FALSE);
+    $page1->label()
+      ->willReturn('Page label')
+      ->shouldBeCalledTimes(1);
+    $page1->usesAdminTheme()
+      ->willReturn(TRUE)
+      ->shouldBeCalledTimes(1);
+    $pages['page1'] = $page1->reveal();
 
     // Set up a disabled page.
-    $page2 = $this->getMock('Drupal\page_manager\PageInterface');
-    $page2->expects($this->once())
-      ->method('status')
-      ->will($this->returnValue(FALSE));
-    $pages['page2'] = $page2;
+    $page2 = $this->prophesize(PageInterface::class);
+    $page2->status()
+      ->willReturn(FALSE)
+      ->shouldBeCalledTimes(1);
+    $pages['page2'] = $page2->reveal();
 
-    $this->pageStorage->expects($this->once())
-      ->method('loadMultiple')
-      ->will($this->returnValue($pages));
+    $this->pageStorage->loadMultiple()
+      ->willReturn($pages)
+      ->shouldBeCalledTimes(1);
 
     $collection = new RouteCollection();
     $route_event = new RouteBuildEvent($collection);
@@ -155,17 +159,20 @@ class PageManagerRoutesTest extends UnitTestCase {
    */
   public function testAlterRoutesOverrideExisting() {
     // Set up a page with the same path as an existing route.
-    $page = $this->getMock('Drupal\page_manager\PageInterface');
-    $page->expects($this->once())
-      ->method('status')
-      ->will($this->returnValue(TRUE));
-    $page->expects($this->once())
-      ->method('getPath')
-      ->will($this->returnValue('/test_route'));
+    $page = $this->prophesize(PageInterface::class);
+    $page->status()
+      ->willReturn(TRUE)
+      ->shouldBeCalledTimes(1);
+    $page->getPath()
+      ->willReturn('/test_route')
+      ->shouldBeCalledTimes(1);
+    $page->isFallbackPage()->willReturn(FALSE);
+    $page->label()->willReturn(NULL);
+    $page->usesAdminTheme()->willReturn(FALSE);
 
-    $this->pageStorage->expects($this->once())
-      ->method('loadMultiple')
-      ->will($this->returnValue(['page1' => $page]));
+    $this->pageStorage->loadMultiple()
+      ->willReturn(['page1' => $page->reveal()])
+      ->shouldBeCalledTimes(1);
 
     $collection = new RouteCollection();
     $collection->add('test_route', new Route('test_route', [], [], ['parameters' => ['foo' => 'bar']]));
@@ -193,7 +200,7 @@ class PageManagerRoutesTest extends UnitTestCase {
         ],
         'foo' => 'bar',
       ],
-      '_admin_route' => NULL,
+      '_admin_route' => FALSE,
     ];
     $this->assertMatchingRoute($route, '/test_route', $expected_defaults, $expected_requirements, $expected_options);
   }
