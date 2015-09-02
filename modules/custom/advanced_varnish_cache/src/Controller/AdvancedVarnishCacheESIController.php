@@ -42,7 +42,7 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
       // Render block.
       $build = \Drupal::entityManager()->getViewBuilder('block')
         ->view($block);
-      $content = \Drupal::service('renderer')->render($build);
+      $content = \Drupal::service('renderer')->renderPlain($build);
       $response->headers->set(AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_X_TTL, $ttl);
     }
 
