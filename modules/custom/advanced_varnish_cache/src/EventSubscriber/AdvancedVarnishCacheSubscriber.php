@@ -87,6 +87,9 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
         $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
       }
       $response->setPublic();
+
+      // Set Etag to allow varnish defalte process.
+      $response->setEtag(time());
     }
   }
 
