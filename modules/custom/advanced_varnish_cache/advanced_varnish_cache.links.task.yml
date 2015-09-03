@@ -11,3 +11,8 @@ advanced_varnish_cache.purge_form:
   route_name: advanced_varnish_cache.purge_form
   parent_id: advanced_varnish_cache.collection
   weight: 1
+advanced_varnish_cache.deflate_form:
+  title: 'Defalte Varnish cache'
+  route_name: advanced_varnish_cache.deflate_form
+  parent_id: advanced_varnish_cache.collection
+  weight: 2

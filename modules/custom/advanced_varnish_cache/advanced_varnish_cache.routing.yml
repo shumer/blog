@@ -22,3 +22,12 @@ advanced_varnish_cache.purge_form:
     _admin_route: TRUE
   requirements:
     _permission: 'configure advanced varnish cache'
+advanced_varnish_cache.deflate_form:
+  path: '/admin/config/development/advanced_varnish_cache/deflate'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishCacheDeflateForm'
+    _title: 'Advanced Varnish cache'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'
