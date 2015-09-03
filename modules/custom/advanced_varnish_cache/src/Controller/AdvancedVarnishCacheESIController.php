@@ -28,7 +28,9 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
       $settings = $block->get('settings');
       $ttl = $settings['cache']['max_age'];
 
+      // Add block to dependency to respect block tags.
       $response->addCacheableDependency($block);
+
       // Check if block has special plugin and add it to dependency.
       $plugin = $block->getPlugin();
       if (is_object($plugin)) {
