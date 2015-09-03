@@ -76,8 +76,9 @@ function advanced_varnish_cache_theme() {
   );
 }
 
-/*
- * Panels support will be added later.
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
 function advanced_varnish_cache_form_page_manager_display_variant_edit_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
 
   // Get form storage.
@@ -103,4 +104,46 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_block_for
   );
 
 }
+
+/**
+ * Implements hook_layout_alter().
  */
+function advanced_varnish_cache_layout_alter(&$vars) {
+  foreach ($vars as &$layout) {
+    $layout['class'] = 'Drupal\advanced_varnish_cache\Plugin\Layout\CacheableLayout';
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  $build = $form_state->getBuildInfo();
+  $varnish = \Drupal::service('advanced_varnish_cache_handler');
+
+  $page = $build['callback_object']->getPage();
+  $display_varaint = $build['callback_object']->getDisplayVariant();
+  $display_varaint_id = $display_varaint->id();
+  $options = ['displayVariant' => $display_varaint_id];
+
+  $cacheKeyGenerator = $varnish->getCacheKeyGenerator($page, $options);
+
+  $default = \Drupal::config('advanced_varnish_cache.settings');
+
+  dpm($default);
+  $form['cache_setting'] = [
+    '#type' => 'details',
+    '#title' => t('Cache settings'),
+    '#tree' => TRUE,
+  ];
+
+  $settings_key = $cacheKeyGenerator->generateSettingsKey();
+
+  $form['cache_setting']['ttl'] = [
+    '#type' => 'textfield',
+    '#title' => t('TTL'),
+    '#default_value' => $default->get($settings_key)['cache_settings']['ttl'],
+  ];
+
+  $form['#submit'][] = [\Drupal::service('advanced_varnish_cache_handler'), 'panelsSettingsSubmit'];
+}

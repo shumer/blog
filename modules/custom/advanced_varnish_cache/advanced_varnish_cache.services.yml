@@ -18,3 +18,6 @@ services:
     arguments: ['@current_route_match']
     tags:
       - { name: page_cache_response_policy }
+  plugin.manager.varnish_cacheable_entity:
+    class: Drupal\advanced_varnish_cache\VarnishCacheableEntityManager
+    arguments: ['@container.namespaces', '@cache.default', '@module_handler']

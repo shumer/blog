@@ -6,9 +6,13 @@
 
 namespace Drupal\advanced_varnish_cache;
 
+use Drupal\Core\Config\Config;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Url;
+use Drupal\page_manager\Entity\Page;
+use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 
 class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
@@ -354,6 +358,35 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   }
 
   /**
+   * #pre_render callback for building a ESI block.
+   *
+   * Replace block content with ESI tag.
+   */
+  public function buildPanelsEsiBlock($build) {
+    $route = \Drupal::request()->get(RouteObjectInterface::ROUTE_OBJECT);
+    $defaults= $route->getDefaults();
+
+    $page = $defaults['page_manager_page'];
+
+    $conf = $build['#configuration'];
+    $block_id = $conf['uuid'];
+
+    $maxwait = 5000;
+    $path = '/advanced_varnish_cache/esi/block/' . $page . '/' . $block_id;
+    $url = Url::fromUserInput($path);
+    $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
+
+    $build['#content'] = $content;
+
+    // Set flag for varnish that we have ESI in the response.
+    $build['#attached']['http_header'] = [
+        ['X-DOESI', '1'],
+    ];
+
+    return $build;
+  }
+
+  /**
    * Purge varnish cache for specific tag.
    *   *
    * @param $tag
@@ -437,4 +470,34 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     return $res;
   }
 
+  public function panelsSettingsSubmit($form, \Drupal\Core\Form\FormStateInterface $form_state) {
+    $build = $form_state->getBuildInfo();
+    $cache_settings = $form_state->getValue('cache_setting');
+
+    $page = $build['callback_object']->getPage();
+    $display_varaint = $build['callback_object']->getDisplayVariant();
+    $page_id = $page->id();
+    $type = $page->getEntityTypeId();
+    $display_varaint_id = $display_varaint->id();
+
+    $configFactory = \Drupal::service('config.factory');
+    $config = $configFactory->getEditable('advanced_varnish_cache.settings');
+    $config->set('entities_settings', [$type => [$page_id => [$display_varaint_id => ['cache_settings' => $cache_settings]]]]);
+    $config->save();
+    dpm($form_state, 'AA');
+  }
+
+  public function getVarnishCacheableEntities() {
+
+    $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
+    $return = [];
+    foreach ($plugins as $plugin) {
+      $return[] = $plugin['entity_type'];
+    }
+    return $return;
+  }
+
+  public function getCacheKeyGenerator(EntityInterface $entity, array $options = []) {
+    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($entity->getEntityTypeId(), ['entity' => $entity, 'displayVariant' => $display_varaint_id]);
+  }
 }

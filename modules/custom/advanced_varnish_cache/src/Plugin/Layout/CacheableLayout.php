@@ -14,8 +14,8 @@ use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 class CacheableLayout extends LayoutBase {
 
   public function build(array $regions) {
+
     $varnish = new AdvancedVarnishCache();
-dpm($regions, 'regions');
 
     foreach (Element::children($regions) as $region_id) {
       $region = &$regions[$region_id];
@@ -25,8 +25,7 @@ dpm($regions, 'regions');
 
           // If we need to replace block with ESI we change pre_render callback to handle this.
           $block['#theme'] = 'advanced_varnish_cache_esi_block';
-          $block['#pre_render'] = [[$varnish, 'buildEsiBlock']];
-          $block['#conf_collection'] = [$block_id = $block['#configuration']];
+          $block['#pre_render'] = [[$varnish, 'buildPanelsEsiBlock']];
         }
       }
     }
