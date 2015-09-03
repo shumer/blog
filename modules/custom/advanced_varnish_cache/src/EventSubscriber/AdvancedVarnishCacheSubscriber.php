@@ -14,12 +14,16 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
-use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 
 class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
   public static $needs_reload;
+
+  /**
+   * @var AdvancedVarnishCacheInterface;
+   */
   public $varnish_handler;
 
   /**
@@ -30,7 +34,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     return $events;
   }
 
-   /**
+  /**
    * @param FilterResponseEvent $event
    *
    * Handle page request if we can cache this page than proper headers will be set here.
@@ -43,14 +47,20 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     }
 
     // Checking Varnish settings and define if we should work further.
-    $varnish = new AdvancedVarnishCache();
-    if (!$varnish->cachingEnabled()) {
+    if (!$this->varnish_handler->cachingEnabled()) {
       return;
     }
 
-    $response = $event->getResponse();
+    $params = \Drupal::routeMatch()->getParameters()->all();
+    $entities = array_filter($params, function($param) {
+      return ($param instanceof EntityInterface);
+    });
 
     $config = \Drupal::config('advanced_varnish_cache.settings');
+
+    $cache_settings = $this->getEntityCacheSettings($entities, $config);
+
+    $response = $event->getResponse();
 
     $debug_mode = $config->get('general.debug');
 
@@ -83,8 +93,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
       // Set header with cache TTL based on site Performance settings.
       if (!isset($response->_esi)) {
-        $site_ttl = $config->get('general.page_cache_maximum_age');
-        $response->headers->set($this->varnish_handler->getXTTL(), $site_ttl);
+        $response->headers->set($this->varnish_handler->getXTTL(), $cache_settings['ttl']);
       }
       $response->setPublic();
 
@@ -203,6 +212,19 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     }
 
     return $forbidden;
+  }
+
+  public function getEntityCacheSettings($entities, $config) {
+    $cache_settings = [
+      'ttl' => '',
+    ];
+    foreach ($entities as $entity) {
+      $cacheKeyGenerator = $this->varnish_handler->getCacheKeyGenerator($entity);
+      $key = $cacheKeyGenerator->generateSettingsKey();
+      $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $config->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
+    }
+    $cache_settings['ttl'] = $cache_settings['ttl'] ?: $config->get('general.page_cache_maximum_age');
+    return $cache_settings;
   }
 
 }

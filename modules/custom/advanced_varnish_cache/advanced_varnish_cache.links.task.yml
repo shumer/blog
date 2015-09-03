@@ -10,9 +10,14 @@ advanced_varnish_cache.purge_form:
   title: 'Manual Varnish cache clear'
   route_name: advanced_varnish_cache.purge_form
   parent_id: advanced_varnish_cache.collection
-  weight: 1
+  weight: 3
 advanced_varnish_cache.deflate_form:
   title: 'Defalte Varnish cache'
   route_name: advanced_varnish_cache.deflate_form
   parent_id: advanced_varnish_cache.collection
-  weight: 2
+  weight: 3
+advanced_varnish_cache.entities_form:
+  title: 'Per entity settings'
+  route_name: advanced_varnish_cache.entities_form
+  parent_id: advanced_varnish_cache.collection
+  weight: 1

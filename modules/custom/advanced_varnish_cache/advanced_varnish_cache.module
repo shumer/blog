@@ -130,7 +130,6 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alte
 
   $default = \Drupal::config('advanced_varnish_cache.settings');
 
-  dpm($default);
   $form['cache_setting'] = [
     '#type' => 'details',
     '#title' => t('Cache settings'),

@@ -482,9 +482,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
     $configFactory = \Drupal::service('config.factory');
     $config = $configFactory->getEditable('advanced_varnish_cache.settings');
-    $config->set('entities_settings', [$type => [$page_id => [$display_varaint_id => ['cache_settings' => $cache_settings]]]]);
+
+    $key = implode('.', ['entities_settings', $type, $page_id, $display_varaint_id]);
+    $config->set($key, ['cache_settings' => $cache_settings]);
     $config->save();
-    dpm($form_state, 'AA');
   }
 
   public function getVarnishCacheableEntities() {
@@ -492,7 +493,9 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
     $return = [];
     foreach ($plugins as $plugin) {
-      $return[] = $plugin['entity_type'];
+      if ($plugin['per_bundle_settings']) {
+        $return[] = $plugin['entity_type'];
+      }
     }
     return $return;
   }

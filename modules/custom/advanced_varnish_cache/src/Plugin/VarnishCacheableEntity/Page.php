@@ -16,6 +16,7 @@ use Drupal\advanced_varnish_cache\VarnishCacheableEntityBase;
  *   id = "page",
  *   label = @Translation("Page"),
  *   entity_type = "page",
+ *   per_bundle_settings = 0
  * )
  */
 class Page extends VarnishCacheableEntityBase {

@@ -16,6 +16,7 @@ use Drupal\advanced_varnish_cache\VarnishCacheableEntityBase;
  *   id = "node",
  *   label = @Translation("Node"),
  *   entity_type = "node",
+ *   per_bundle_settings = 1
  * )
  */
 class Node extends VarnishCacheableEntityBase {

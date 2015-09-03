@@ -37,3 +37,12 @@ advanced_varnish_cache.deflate_form:
     _admin_route: TRUE
   requirements:
     _permission: 'configure advanced varnish cache'
+advanced_varnish_cache.entities_form:
+  path: '/admin/config/development/advanced_varnish_cache/entities'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishEntityCacheSettingsForm'
+    _title: 'Advanced Varnish cache entities'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'

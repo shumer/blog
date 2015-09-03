@@ -35,4 +35,12 @@ class VarnishCacheableEntity extends Plugin {
    */
   public $entityId;
 
+  /**
+   * Has bundles.
+   *
+   * @var boolean
+   */
+  public $perBunleSettings;
+
+
 }
