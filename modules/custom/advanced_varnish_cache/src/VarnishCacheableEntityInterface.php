@@ -11,6 +11,6 @@ use Drupal\Component\Plugin\PluginInspectionInterface;
 
 interface VarnishCacheableEntityInterface extends PluginInspectionInterface {
 
-  //public function generateSettingsKey();
+  public function generateSettingsKey();
 
 }

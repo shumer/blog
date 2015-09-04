@@ -6,12 +6,9 @@
 
 namespace Drupal\advanced_varnish_cache;
 
-use Drupal\Core\Config\Config;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Logger\RfcLogLevel;
-use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Url;
-use Drupal\page_manager\Entity\Page;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 
 class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
@@ -419,10 +416,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
     // Log action.
     if ($this->getSetting('general', 'logging', FALSE)) {
-      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', array(
+      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', [
           '@uid' => $account->id(),
           '!command_line' => $command_line,
-        )
+        ]
       );
     }
 
@@ -472,6 +469,9 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     return $res;
   }
 
+  /**
+   * Submit callback for panels page edit form
+   */
   public function panelsSettingsSubmit($form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $build = $form_state->getBuildInfo();
     $cache_settings = $form_state->getValue('cache_setting');
@@ -490,8 +490,13 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $config->save();
   }
 
+  /**
+   * Get registered entities for wich ttl could be configured.
+   *   per bundle basis.
+   *
+   * @return array
+   */
   public function getVarnishCacheableEntities() {
-
     $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
     $return = [];
     foreach ($plugins as $plugin) {
@@ -502,7 +507,17 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     return $return;
   }
 
+  /**
+   * Purge varnish cache for specific request, like '/sites/all/files/1.txt';
+   *
+   * @param $entity
+   *   EntityInterface
+   * @param $options
+   *   (array) options array
+   *
+   * @return \Drupal\advanced_varnish_cache\VarnishCacheableEntityInterface
+   */
   public function getCacheKeyGenerator(EntityInterface $entity, array $options = []) {
-    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($entity->getEntityTypeId(), ['entity' => $entity, 'displayVariant' => $display_varaint_id]);
+    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($entity->getEntityTypeId(), ['entity' => $entity, 'displayVariant' => $options['displayVariant']]);
   }
 }
