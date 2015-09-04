@@ -30,7 +30,9 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
   /**
    * Parse the host from the global $base_url.
+   *
    * @return string
+   *   Varnish host.
    */
   public function varnishGetHost() {
     global $base_url;
@@ -41,12 +43,13 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   /**
    * Execute varnish command and get response.
    *
-   * @param $client
+   * @param string $client
    *   Terminal settings.
-   * @param $command
+   * @param string $command
    *   Command line to execute.
-   * 
+   *
    * @return mixed
+   *   Result of executed command.
    */
   public function varnishExecuteCommand($client, $command) {
 
@@ -55,7 +58,9 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $status = $this->varnishReadSocket($client);
     if ($status['code'] != 200) {
       \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Received status code @code running %command. Full response text: @error', array(
-          '@code' => $status['code'], '%command' => $command, '@error' => $status['msg'],
+          '@code' => $status['code'],
+          '%command' => $command,
+          '@error' => $status['msg'],
         )
       );
       return FALSE;
