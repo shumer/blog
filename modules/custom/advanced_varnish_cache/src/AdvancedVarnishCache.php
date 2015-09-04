@@ -11,6 +11,9 @@ use Drupal\Core\Logger\RfcLogLevel;
 use Drupal\Core\Url;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 
+/**
+ * Main class provide basic methods to work with Varnish.
+ */
 class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
   // Set header name.
@@ -39,9 +42,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Execute varnish command and get response.
    *
    * @param $client
-   *
+   *   Terminal settings.
    * @param $command
-   *
+   *   Command line to execute.
+   * 
    * @return mixed
    */
   public function varnishExecuteCommand($client, $command) {
