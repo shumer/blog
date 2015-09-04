@@ -25,14 +25,16 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   public static $needsReload;
 
   /**
-   * @var AdvancedVarnishCacheInterface;
+   * {@inheritdoc}
+   *
+   * @var AdvancedVarnishCacheInterface.
    */
   public $varnishHandler;
 
   /**
    * {@inheritdoc}
    */
-  static function getSubscribedEvents() {
+  public static function getSubscribedEvents() {
     $events[KernelEvents::RESPONSE][] = array('handlePageRequest');
     return $events;
   }
@@ -40,7 +42,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   /**
    * {@inheritdoc}
    *
-   * @param FilterResponseEvent $event
+   *   @param FilterResponseEvent $event
    *
    * Handle page request if we can cache this
    * page than proper headers will be set here.
@@ -75,10 +77,10 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     }
 
     // Set headers.
-    $response->headers->set($this->varnishHandler->getHeaderRndpage(), $this->unique_id());
+    $response->headers->set($this->varnishHandler->getHeaderRndpage(), $this->uniqueId());
 
     // Validate existing cookies and update them if needed.
-    $this->cookie_update();
+    $this->cookieUpdate();
     $needs_update = isset(self::$needsReload) ? self::$needsReload : FALSE;
     if ($needs_update) {
 
@@ -112,8 +114,9 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
    * Generated unique id based on time.
    *
    * @return string
+   *   Unique id.
    */
-  protected static function unique_id() {
+  protected static function uniqueId() {
     $id = uniqid(time(), TRUE);
     return substr(md5($id), 5, 10);
   }
@@ -121,7 +124,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   /**
    * Updates cookie if required.
    */
-  protected function cookie_update($account = '') {
+  protected function cookieUpdate($account = '') {
 
     // Cookies may be disabled for resource files,
     // so no need to redirect in such a case.
@@ -175,6 +178,8 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   }
 
   /**
+   * Check if redirect enabled.
+   *
    * Check if this page is allowed to redirect,
    * be default resource files should not be redirected.
    */
@@ -220,6 +225,9 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     return $forbidden;
   }
 
+  /**
+   * Specific entity cache settings getter.
+   */
   public function getEntityCacheSettings($entities, $config) {
     $cache_settings = [
       'ttl' => '',
