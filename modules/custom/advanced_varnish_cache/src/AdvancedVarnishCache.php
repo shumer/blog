@@ -496,7 +496,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   }
 
   /**
-   * Get registered entities for wich ttl could be configured.
+   * Get registered entities for which ttl could be configured.
    *   per bundle basis.
    *
    * @return array

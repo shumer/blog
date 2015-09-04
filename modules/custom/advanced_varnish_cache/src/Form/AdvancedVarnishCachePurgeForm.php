@@ -153,7 +153,7 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
     else {
       foreach ($result as $server => $commands) {
         foreach ($commands as $command => $status) {
-          drupal_set_message(t('Server %server executed command %command successfuly.', array(
+          drupal_set_message(t('Server %server executed command %command successfully.', array(
             '%server' => $server,
             '%command' => $command,
           )));
