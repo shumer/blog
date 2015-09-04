@@ -12,10 +12,8 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\Core\Form\ConfigFormBase;
-use Drupal\Core\Render\Element\StatusMessages;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Drupal\Core\Datetime\DateFormatter;
+
 
 /**
  * Configure varnish settings for this site.
@@ -98,6 +96,53 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
       }
     }
 
+    // Get info for progress bar.
+    $account = \Drupal::currentUser();
+    $deflate_info = $config->get('info');
+    $deflate_ids = $config->get('ids');
+
+    if (!empty($deflate_info)) {
+      $form['deflate_info'] = array(
+        '#title' => t('Deflate cache info'),
+        '#type' => 'details',
+        '#tree' => TRUE,
+        '#open' => TRUE,
+      );
+
+      $form['deflate_info']['deflate_info1'] = array(
+        '#type' => 'item',
+        '#title' => t('Last deflation Info'),
+        '#markup' => t('User = @name (@uid), Date = @date, Step = @step%, Key = @key', array(
+          '@name' => $account->getUsername(),
+          '@uid' => $deflate_info['uid'],
+          '@date' => date('c', $deflate_info['time']),
+          '@step' => $deflate_info['step'],
+          '@key' => $deflate_info['key'],
+        )),
+      );
+      $progress = 100 - count($deflate_ids);
+
+      if ($progress < 100) {
+        $build = array(
+          '#theme' => 'progress_bar',
+          '#percent' => $progress,
+          '#message' => $this->t('Progress is not updated via ajax.'),
+          '#label' =>  $this->t('Deflate progress.'),
+        );
+        $progress_bar = \Drupal::service('renderer')->renderPlain($build);
+      }
+      else {
+        $progress_bar = t('Completed');
+      }
+
+      $form['deflate_info']['deflate_info2'] = array(
+        '#type' => 'item',
+        '#title' => t('Last deflation progress'),
+        '#markup' => $progress_bar,
+        '#suffix' => '<br />',
+      );
+    }
+
     // Step size.
     $options = array(
       '1' => '1%',
@@ -125,7 +170,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
     );
     $form['deflate']['start'] = array(
       '#type' => 'submit',
-      '#value' => $this->t('Start defaltion'),
+      '#value' => $this->t('Start deflation'),
       '#button_type' => 'primary',
     );
 
@@ -139,12 +184,38 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
+    $values = $form_state->getValue('deflate');
 
-    $values = $form_state->getValue('advanced_varnish_cache');
+    // Get current user.
+    $account = \Drupal::currentUser();
+
+    $deflate_info = array(
+      'key' => $this->unique_id(),
+      'time' => time(),
+      'uid' => $account->id(),
+      'step' => $values['step'],
+    );
+
+    $deflate_ids = array();
+    for ($i = 0; $i < 100; $i++) {
+      $deflate_ids[] = str_pad($i, 2, '0', STR_PAD_LEFT);
+    }
+
     $this->config('advanced_varnish_cache.deflate')
-      ->set('connection', $values['connection'])
+      ->set('info', $deflate_info)
+      ->set('ids', $deflate_ids)
       ->save();
 
     parent::submitForm($form, $form_state);
+  }
+
+  /**
+   * Generated unique id based on time.
+   *
+   * @return string
+   */
+  protected static function unique_id() {
+    $id = uniqid(time(), TRUE);
+    return substr(md5($id), 5, 10);
   }
 }
