@@ -28,7 +28,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
    * @var \Drupal\Core\State\StateInterface
    */
   protected $state;
-  protected $varnish_handler;
+  protected $varnishHandler;
 
   /**
    * Constructs a AdvancedVarnishCacheSettingsForm object.
@@ -41,7 +41,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
   public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler, DateFormatter $date_formatter) {
     parent::__construct($config_factory);
     $this->state = $state;
-    $this->varnish_handler = $varnish_handler;
+    $this->varnishHandler = $varnish_handler;
     $this->dateFormatter = $date_formatter;
   }
 
@@ -82,7 +82,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
     ];
 
     // Display module status.
-    $backend_status = $this->varnish_handler->varnishGetStatus();
+    $backend_status = $this->varnishHandler->varnishGetStatus();
 
     $_SESSION['messages'] = [];
     if (empty($backend_status)) {
@@ -121,16 +121,18 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
     );
 
     $form['advanced_varnish_cache']['general']['noise'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Hashing Noise'),
-        '#default_value' => $config->get('general.noise'),
-        '#description' => t('This works as private key, you can change it at any time.'),
+      '#type' => 'textfield',
+      '#title' => t('Hashing Noise'),
+      '#default_value' => $config->get('general.noise'),
+      '#description' => t('This works as private key, you can change it at any time.'),
     );
 
     // Cache time for Varnish.
-    $period = array(0, 60, 180, 300, 600, 900, 1800, 2700, 3600, 10800, 21600, 32400, 43200, 86400);
+    $period = array(0, 60, 180, 300, 600, 900, 1800,
+      2700, 3600, 10800, 21600, 32400, 43200, 86400
+    );
     $period = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($period, $period));
-    $period[0] = '<' . t('no caching') . '>';
+    $period[0] = $this->t('no caching');
     $form['advanced_varnish_cache']['general']['page_cache_maximum_age'] = array(
       '#type' => 'select',
       '#title' => t('Page cache maximum age'),
@@ -207,7 +209,6 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#description' => t('Check if you want enable Varnish support for authenticated users.'),
       '#default_value' => $config->get('available.authenticated_users'),
     );
-
 
     return parent::buildForm($form, $form_state);
   }
