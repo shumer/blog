@@ -45,17 +45,19 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * @return mixed
    */
   public function varnishExecuteCommand($client, $command) {
+
     // Send command and get response.
-    $result = socket_write($client, "$command\n");
+    socket_write($client, "$command\n");
     $status = $this->varnishReadSocket($client);
     if ($status['code'] != 200) {
-      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Recieved status code @code running %command. Full response text: @error', array(
-              '@code' => $status['code'], '%command' => $command, '@error' => $status['msg'],
-          )
+      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Received status code @code running %command. Full response text: @error', array(
+          '@code' => $status['code'], '%command' => $command, '@error' => $status['msg'],
+        )
       );
       return FALSE;
     }
     else {
+
       // Successful connection.
       return $status;
     }

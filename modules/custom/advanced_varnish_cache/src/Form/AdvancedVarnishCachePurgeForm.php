@@ -62,7 +62,6 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $config = $this->config('advanced_varnish_cache.settings');
 
     $form['advanced_varnish_cache'] = [
       '#tree' => TRUE,
@@ -113,8 +112,8 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
     );
 
     $form['submit'] = array(
-        '#type' => 'submit',
-        '#value' => t('Run purge'),
+      '#type' => 'submit',
+      '#value' => t('Run purge'),
     );
 
     return $form;

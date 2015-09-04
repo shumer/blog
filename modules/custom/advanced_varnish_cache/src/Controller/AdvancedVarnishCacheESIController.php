@@ -37,11 +37,9 @@ class AdvancedVarnishCacheESIController extends ControllerBase{
         $response->addCacheableDependency($plugin);
       }
 
-      // Mark this block and response as rendered through ESI request.
-      $block->_esi = 1;
-      $response->_esi = 1;
-
       // Render block.
+      $block->_esi = TRUE;
+      $response->_esi = TRUE;
       $build = \Drupal::entityManager()->getViewBuilder('block')
         ->view($block);
       $content = \Drupal::service('renderer')->renderPlain($build);
