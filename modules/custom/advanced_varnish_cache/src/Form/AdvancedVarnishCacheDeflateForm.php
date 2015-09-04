@@ -26,7 +26,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
    * @var \Drupal\Core\State\StateInterface
    */
   protected $state;
-  protected $varnish_handler;
+  protected $varnishHandler;
 
   /**
    * Constructs a AdvancedVarnishCacheDeflateForm.php object.
@@ -39,7 +39,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
   public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler) {
     parent::__construct($config_factory);
     $this->state = $state;
-    $this->varnish_handler = $varnish_handler;
+    $this->varnishHandler = $varnish_handler;
 
   }
 
@@ -79,7 +79,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
     ];
 
     // Display module status.
-    $backend_status = $this->varnish_handler->varnishGetStatus();
+    $backend_status = $this->varnishHandler->varnishGetStatus();
 
     $_SESSION['messages'] = [];
     if (empty($backend_status)) {
@@ -127,7 +127,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
           '#theme' => 'progress_bar',
           '#percent' => $progress,
           '#message' => $this->t('Progress is not updated via ajax.'),
-          '#label' =>  $this->t('Deflate progress.'),
+          '#label' => $this->t('Deflate progress.'),
         );
         $progress_bar = \Drupal::service('renderer')->renderPlain($build);
       }
@@ -190,7 +190,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
     $account = \Drupal::currentUser();
 
     $deflate_info = array(
-      'key' => $this->unique_id(),
+      'key' => $this->uniqueId(),
       'time' => time(),
       'uid' => $account->id(),
       'step' => $values['step'],
@@ -213,9 +213,11 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
    * Generated unique id based on time.
    *
    * @return string
+   *   Unique id.
    */
-  protected static function unique_id() {
+  protected static function uniqueId() {
     $id = uniqid(time(), TRUE);
     return substr(md5($id), 5, 10);
   }
+  
 }
