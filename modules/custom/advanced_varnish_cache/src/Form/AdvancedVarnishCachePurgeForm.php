@@ -28,18 +28,16 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
    * @var \Drupal\Core\State\StateInterface
    */
   protected $state;
-  protected $varnish_handler;
+  protected $varnishHandler;
 
   /**
    * Constructs a AdvancedVarnishCacheSettingsForm object.
    *
-   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   * @param \Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface $varnish_handler
    *   The factory for configuration objects.
-   * @param \Drupal\Core\State\StateInterface $state
-   *   The state key value store.
    */
   public function __construct(AdvancedVarnishCacheInterface $varnish_handler) {
-    $this->varnish_handler = $varnish_handler;
+    $this->varnishHandler = $varnish_handler;
   }
 
   /**
@@ -68,7 +66,7 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
     ];
 
     // Display module status.
-    $backend_status = $this->varnish_handler->varnishGetStatus();
+    $backend_status = $this->varnishHandler->varnishGetStatus();
 
     $_SESSION['messages'] = [];
     if (empty($backend_status)) {
@@ -135,15 +133,15 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
     // Purge specified request or tag in varnish.
     if ($type == 'tag') {
 
-      // Prepare arguments
+      // Prepare arguments.
       $arguments = explode(',', $arguments);
       $arguments = array_map('trim', $arguments);
 
       // Purge tags.
-      $result = $this->varnish_handler->purgeTags($arguments);
+      $result = $this->varnishHandler->purgeTags($arguments);
     }
     else {
-      $result = $this->varnish_handler->purgeRequest($arguments);
+      $result = $this->varnishHandler->purgeRequest($arguments);
     }
 
     // Display information about results.

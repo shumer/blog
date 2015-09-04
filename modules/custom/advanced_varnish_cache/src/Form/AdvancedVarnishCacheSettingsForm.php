@@ -129,7 +129,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
 
     // Cache time for Varnish.
     $period = array(0, 60, 180, 300, 600, 900, 1800,
-      2700, 3600, 10800, 21600, 32400, 43200, 86400
+      2700, 3600, 10800, 21600, 32400, 43200, 86400,
     );
     $period = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($period, $period));
     $period[0] = $this->t('no caching');
