@@ -23,6 +23,8 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'AVCEBIN';
   const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
   const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
+  const ADVANCED_VARNISH_CACHE_HEADER_ETAG = 'ETag';
+  const ADVANCED_VARNISH_CACHE_HEADER_DEFLATE_KEY = 'X-DEFLATE-KEY';
 
   public static $getStatusResults;
 
