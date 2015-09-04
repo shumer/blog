@@ -204,9 +204,11 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $settings = \Drupal::config('advanced_varnish_cache.settings');
     $setting = $block . '.' . $setting;
 
-    return !empty($settings->get($setting))
-        ? $settings->get($setting)
-        : $default;
+    $result = !empty($settings->get($setting))
+      ? $settings->get($setting)
+      : $default;
+
+    return $result;
   }
 
   /**
