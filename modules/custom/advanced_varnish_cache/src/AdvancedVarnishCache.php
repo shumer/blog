@@ -81,6 +81,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    *   $retry how many times to retry on "temporarily unavailable" errors.
    *
    * @return array
+   *   Response array.
    */
   public function varnishReadSocket($client, $retry = 2) {
     // Status and length info is always 13 characters.
@@ -90,20 +91,20 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
       // 35 = socket-unavailable, so it might be blocked from our write.
       // This is an acceptable place to retry.
       if ($error == 35 && $retry > 0) {
-        return $this->varnishReadSocket($client, $retry-1);
+        return $this->varnishReadSocket($client, $retry - 1);
       }
       else {
         \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Socket error: @error', array('@error' => socket_strerror($error)));
         return array(
-            'code' => $error,
-            'msg' => socket_strerror($error),
+          'code' => $error,
+          'msg' => socket_strerror($error),
         );
       }
     }
-    $msg_len = (int)substr($header, 4, 6) + 1;
+    $msg_len = (int) substr($header, 4, 6) + 1;
     $status = array(
-        'code' => substr($header, 0, 3),
-        'msg' => socket_read($client, $msg_len, PHP_BINARY_READ)
+      'code' => substr($header, 0, 3),
+      'msg' => socket_read($client, $msg_len, PHP_BINARY_READ),
     );
     return $status;
   }
@@ -113,8 +114,9 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Utilizes sockets to talk to varnish terminal.
    *
    * @param mixed $commands
-   *
+   *    Array of commands to execute.
    * @return array
+   *   Result status.
    */
   public function varnishTerminalRun($commands) {
     if (!extension_loaded('sockets')) {
