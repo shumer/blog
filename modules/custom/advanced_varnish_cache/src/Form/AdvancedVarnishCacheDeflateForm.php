@@ -219,5 +219,5 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
     $id = uniqid(time(), TRUE);
     return substr(md5($id), 5, 10);
   }
-  
+
 }

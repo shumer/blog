@@ -3,6 +3,7 @@
  * @file
  * Contains \Drupal\advanced_varnish_cache\PageCache\DenyPageCache.
  */
+
 namespace Drupal\advanced_varnish_cache\PageCache;
 
 use Drupal\Core\PageCache\ResponsePolicyInterface;
@@ -10,6 +11,9 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Deny page caching..
+ */
 class DenyPageCache implements ResponsePolicyInterface {
 
   /**
