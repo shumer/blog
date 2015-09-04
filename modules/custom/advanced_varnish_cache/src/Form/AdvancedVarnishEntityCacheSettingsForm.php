@@ -29,7 +29,7 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
    * @var \Drupal\Core\State\StateInterface
    */
   protected $state;
-  protected $varnish_handler;
+  protected $varnishHandler;
 
   /**
    * Constructs a AdvancedVarnishCacheSettingsForm object.
@@ -42,7 +42,7 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
   public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler, DateFormatter $date_formatter) {
     parent::__construct($config_factory);
     $this->state = $state;
-    $this->varnish_handler = $varnish_handler;
+    $this->varnishHandler = $varnish_handler;
     $this->dateFormatter = $date_formatter;
   }
 
@@ -82,7 +82,7 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
       '#tree' => TRUE,
     ];
 
-    $entity_types = $this->varnish_handler->getVarnishCacheableEntities();
+    $entity_types = $this->varnishHandler->getVarnishCacheableEntities();
 
     foreach ($entity_types as $type) {
 
@@ -98,9 +98,11 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
         foreach ($bundles as $machine_name => $info) {
 
           // Cache time for Varnish.
-          $period = array(0, 60, 180, 300, 600, 900, 1800, 2700, 3600, 10800, 21600, 32400, 43200, 86400);
+          $period = array(0, 60, 180, 300, 600, 900, 1800, 2700,
+            3600, 10800, 21600, 32400, 43200, 86400,
+          );
           $period = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($period, $period));
-          $period[0] = '<' . t('no caching') . '>';
+          $period[0] = t('no caching');
           $form['advanced_varnish_cache']['entities_settings'][$type][$machine_name]['cache_settings']['ttl'] = array(
             '#type' => 'select',
             '#title' => t('@bundle', ['@bundle' => $info['label']]),
