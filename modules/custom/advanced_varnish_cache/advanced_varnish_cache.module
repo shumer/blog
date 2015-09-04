@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- *   Module hooks.
+ * Module hooks.
  */
 
 use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
@@ -37,7 +37,8 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
 
   $block = $build['#block'];
 
-  // Check if ESI for this block enabled and should we replace block content with ESI tag.
+  // Check if ESI for this block enabled and should we
+  // replace block content with ESI tag.
   $varnish = new AdvancedVarnishCache();
   if (!$varnish->cachingEnabled() || isset($block->_esi)) {
     return;
@@ -50,7 +51,8 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
     return;
   }
 
-  // If we need to replace block with ESI we change pre_render callback to handle this.
+  // If we need to replace block with ESI we
+  // change #pre_render callback to handle this.
   $build['#theme'] = 'advanced_varnish_cache_esi_block';
   $build['#pre_render'] = [[$varnish, 'buildEsiBlock']];
 
@@ -127,7 +129,7 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alte
   $display_varaint_id = $display_varaint->id();
   $options = ['displayVariant' => $display_varaint_id];
 
-  $cacheKeyGenerator = $varnish->getCacheKeyGenerator($page, $options);
+  $cache_key_generator = $varnish->getCacheKeyGenerator($page, $options);
 
   $default = \Drupal::config('advanced_varnish_cache.settings');
 
@@ -137,7 +139,7 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alte
     '#tree' => TRUE,
   ];
 
-  $settings_key = $cacheKeyGenerator->generateSettingsKey();
+  $settings_key = $cache_key_generator->generateSettingsKey();
 
   $form['cache_setting']['ttl'] = [
     '#type' => 'textfield',
@@ -201,8 +203,8 @@ function advanced_varnish_cache_cron() {
       }
 
       // Update deflate conf settings.
-      $configFactory = \Drupal::service('config.factory');
-      $config = $configFactory->getEditable('advanced_varnish_cache.deflate');
+      $config_factory = \Drupal::service('config.factory');
+      $config = $config_factory->getEditable('advanced_varnish_cache.deflate');
       $config->set('ids', $deflate_ids)
         ->save();
     }
