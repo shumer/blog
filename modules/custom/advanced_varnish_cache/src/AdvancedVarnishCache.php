@@ -111,10 +111,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
   /**
    * Sends commands to Varnish.
-   * Utilizes sockets to talk to varnish terminal.
    *
    * @param mixed $commands
    *    Array of commands to execute.
+   *
    * @return array
    *   Result status.
    */
@@ -123,7 +123,8 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
       // Prevent fatal errors if people don't have requirements.
       return FALSE;
     }
-    // Convert single commands to an array so we can handle everything in the same way.
+    // Convert single commands to an array so we
+    // can handle everything in the same way.
     if (!is_array($commands)) {
       $commands = array($commands);
     }
@@ -131,8 +132,8 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $terminals = explode(' ', $this->getSetting('connection', 'control_terminal', '127.0.0.1:6082'));
     // The variable varnish_socket_timeout defines the timeout in milliseconds.
     $timeout = $this->getSetting('connection', 'socket_timeout', 100);
-    $seconds = (int)($timeout / 1000);
-    $microseconds = (int)($timeout % 1000 * 1000);
+    $seconds = (int) ($timeout / 1000);
+    $microseconds = (int) ($timeout % 1000 * 1000);
     foreach ($terminals as $terminal) {
       list($server, $port) = explode(':', $terminal);
       $client = socket_create(AF_INET, SOCK_STREAM, getprotobyname('tcp'));
@@ -140,24 +141,27 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
       socket_set_option($client, SOL_SOCKET, SO_RCVTIMEO, array('sec' => $seconds, 'usec' => $microseconds));
       if (@!socket_connect($client, $server, $port)) {
         \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Unable to connect to server socket @server:@port: %error', array(
-                '@server' => $server,
-                '@port' => $port,
-                '%error' => socket_strerror(socket_last_error($client))
-            )
+            '@server' => $server,
+            '@port' => $port,
+            '%error' => socket_strerror(socket_last_error($client)),
+          )
         );
         $ret[$terminal] = FALSE;
+
         // If a varnish server is unavailable, move on to the next in the list.
         continue;
       }
-      // If there is a CLI banner message (varnish >= 2.1.x), try to read it and move on.
+
+      // If there is a CLI banner message (varnish >= 2.1.x),
+      // try to read it and move on.
       $varnish_version = \Drupal::config('advanced_varnish_cache.settings')->get('varnish_version');
       if (!$varnish_version) {
         $varnish_version = 2.1;
       }
-      if(floatval($varnish_version) > 2.0) {
+      if (floatval($varnish_version) > 2.0) {
         $status = $this->varnishReadSocket($client);
         // Do we need to authenticate?
-        if ($status['code'] == 107) { // Require authentication
+        if ($status['code'] == 107) {
           $secret = $this->getSetting('connection', 'control_key', '');
           $challenge = substr($status['msg'], 0, 32);
           $pack = $challenge . "\x0A" . $secret . "\x0A" . $challenge . "\x0A";
@@ -185,7 +189,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    *    An array of server statuses, keyed by varnish terminal addresses.
    */
   public function varnishGetStatus() {
-    // use a static-cache so this can be called repeatedly without incurring
+    // Use a static-cache so this can be called repeatedly without incurring
     // socket-connects for each call.
     $results = (isset(self::$getStatusResults)) ? self::$getStatusResults : NULL;
     if (is_null($results)) {
@@ -204,14 +208,14 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Return module settings.
    *
    * @param string $block
-   *    Setting block
+   *    Setting block.
    * @param string $setting
-   *    Setting key
+   *    Setting key.
    * @param string $default
-   *    Default setting value
+   *    Default setting value.
    *
    * @return mixed
-   *    Setting value by key
+   *    Setting value by key.
    */
   public function getSetting($block, $setting, $default = NULL) {
     $settings = \Drupal::config('advanced_varnish_cache.settings');
@@ -229,6 +233,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Get varnish handler settings.
    *
    * @return mixed
+   *   Cookie bin name.
    */
   public function getCookieBin() {
     return self::ADVANCED_VARNISH_CACHE_COOKIE_BIN;
@@ -238,6 +243,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Get varnish handler settings.
    *
    * @return mixed
+   *   Cookie Inf name.
    */
   public function getCookieInf() {
     return self::ADVANCED_VARNISH_CACHE_COOKIE_INF;
@@ -247,6 +253,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Get varnish handler settings.
    *
    * @return mixed
+   *   Debug header name.
    */
   public function getHeaderCacheDebug() {
     return self::ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG;
@@ -256,6 +263,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Get varnish handler settings.
    *
    * @return mixed
+   *   Cache tag name.
    */
   public function getHeaderCacheTag() {
     return self::ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG;
@@ -265,6 +273,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Get varnish handler settings.
    *
    * @return mixed
+   *   Rnd page tag name.
    */
   public function getHeaderRndpage() {
     return self::ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE;
@@ -274,6 +283,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Get varnish handler settings.
    *
    * @return mixed
+   *   Ttl tag name.
    */
   public function getXTTL() {
     return self::ADVANCED_VARNISH_CACHE_X_TTL;
@@ -283,6 +293,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
    * Define if caching enabled for this page and we can proceed with this request.
    *
    * @return bool.
+   *   Result of varnish enable state.
    */
   public static function cachingEnabled() {
     $enabled = TRUE;
