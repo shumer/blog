@@ -17,14 +17,17 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
 
+/**
+ * Event subscriber class.
+ */
 class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
-  public static $needs_reload;
+  public static $needsReload;
 
   /**
    * @var AdvancedVarnishCacheInterface;
    */
-  public $varnish_handler;
+  public $varnishHandler;
 
   /**
    * {@inheritdoc}
@@ -35,9 +38,12 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   }
 
   /**
+   * {@inheritdoc}
+   *
    * @param FilterResponseEvent $event
    *
-   * Handle page request if we can cache this page than proper headers will be set here.
+   * Handle page request if we can cache this
+   * page than proper headers will be set here.
    */
   public function handlePageRequest(FilterResponseEvent $event) {
 
@@ -47,7 +53,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     }
 
     // Checking Varnish settings and define if we should work further.
-    if (!$this->varnish_handler->cachingEnabled()) {
+    if (!$this->varnishHandler->cachingEnabled()) {
       return;
     }
 
@@ -65,15 +71,15 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     $debug_mode = $config->get('general.debug');
 
     if ($debug_mode) {
-      $response->headers->set($this->varnish_handler->getHeaderCacheDebug(), '1');
+      $response->headers->set($this->varnishHandler->getHeaderCacheDebug(), '1');
     }
 
     // Set headers.
-    $response->headers->set($this->varnish_handler->getHeaderRndpage(), $this->unique_id());
+    $response->headers->set($this->varnishHandler->getHeaderRndpage(), $this->unique_id());
 
     // Validate existing cookies and update them if needed.
     $this->cookie_update();
-    $needs_update = isset(self::$needs_reload) ? self::$needs_reload : FALSE;
+    $needs_update = isset(self::$needsReload) ? self::$needsReload : FALSE;
     if ($needs_update) {
 
       // Setting cookie will prevent varnish from caching this.
@@ -89,15 +95,15 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     if ($response instanceof CacheableResponseInterface) {
       $cacheable = $response->getCacheableMetadata();
       $tags = $cacheable->getCacheTags();
-      $response->headers->set($this->varnish_handler->getHeaderCacheTag(), implode(';', $tags) . ';');
+      $response->headers->set($this->varnishHandler->getHeaderCacheTag(), implode(';', $tags) . ';');
 
       // Set header with cache TTL based on site Performance settings.
       if (!isset($response->_esi)) {
-        $response->headers->set($this->varnish_handler->getXTTL(), $cache_settings['ttl']);
+        $response->headers->set($this->varnishHandler->getXTTL(), $cache_settings['ttl']);
       }
       $response->setPublic();
 
-      // Set Etag to allow varnish defalte process.
+      // Set Etag to allow varnish deflate process.
       $response->setEtag(time());
     }
   }
@@ -119,7 +125,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
     // Cookies may be disabled for resource files,
     // so no need to redirect in such a case.
-    if ($this->redirect_forbidden()) {
+    if ($this->redirectForbidden()) {
       return;
     }
 
@@ -150,20 +156,20 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     $cookie_bin = hash('sha256', $cookie_inf . $noise) . '-' . hash('sha256', $noise);
 
     // Update cookies if did not match.
-    if (empty($_COOKIE[$this->varnish_handler->getCookieBin()]) || ($_COOKIE[$this->varnish_handler->getCookieBin()] != $cookie_bin)) {
+    if (empty($_COOKIE[$this->varnishHandler->getCookieBin()]) || ($_COOKIE[$this->varnishHandler->getCookieBin()] != $cookie_bin)) {
 
       // Update cookies.
       $params = session_get_cookie_params();
       $expire = $params['lifetime'] ? (REQUEST_TIME + $params['lifetime']) : 0;
-      setcookie($this->varnish_handler->getCookieBin(), $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
-      setcookie($this->varnish_handler->getCookieInf(), $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie($this->varnishHandler->getCookieBin(), $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie($this->varnishHandler->getCookieInf(), $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
 
       // Mark this page as required reload as ESI request from this page will be sent with old cookie info.
-      self::$needs_reload = TRUE;
+      self::$needsReload = TRUE;
     }
     elseif (!empty($_GET['reload'])) {
       // Front asks us to do reload.
-      self::$needs_reload = TRUE;
+      self::$needsReload = TRUE;
     }
 
   }
@@ -172,7 +178,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
    * Check if this page is allowed to redirect,
    * be default resource files should not be redirected.
    */
-  public static function redirect_forbidden($path = '') {
+  public static function redirectForbidden($path = '') {
 
     $settings = \Drupal::config('advanced_varnish_cache.settings');
 
@@ -219,7 +225,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       'ttl' => '',
     ];
     foreach ($entities as $entity) {
-      $cacheKeyGenerator = $this->varnish_handler->getCacheKeyGenerator($entity);
+      $cacheKeyGenerator = $this->varnishHandler->getCacheKeyGenerator($entity);
       $key = $cacheKeyGenerator->generateSettingsKey();
       $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $config->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
     }

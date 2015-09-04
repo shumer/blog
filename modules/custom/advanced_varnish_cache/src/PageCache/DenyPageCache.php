@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Deny page caching..
+ * Deny page caching.
  */
 class DenyPageCache implements ResponsePolicyInterface {
 

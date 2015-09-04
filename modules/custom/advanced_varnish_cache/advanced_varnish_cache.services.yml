@@ -2,7 +2,7 @@ services:
   advanced_varnish_cache_event_subscriber:
     class: Drupal\advanced_varnish_cache\EventSubscriber\AdvancedVarnishCacheSubscriber
     properties:
-      varnish_handler: "@advanced_varnish_cache_handler"
+      varnishHandler: "@advanced_varnish_cache_handler"
     tags:
       - {name: event_subscriber}
   cache_tags.invalidator.advanced_varnish_cache:
