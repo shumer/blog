@@ -232,8 +232,8 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       'ttl' => '',
     ];
     foreach ($entities as $entity) {
-      $cacheKeyGenerator = $this->varnishHandler->getCacheKeyGenerator($entity);
-      $key = $cacheKeyGenerator->generateSettingsKey();
+      $cache_key_generator = $this->varnishHandler->getCacheKeyGenerator($entity);
+      $key = $cache_key_generator->generateSettingsKey();
       $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $config->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
     }
     $cache_settings['ttl'] = $cache_settings['ttl'] ?: $config->get('general.page_cache_maximum_age');

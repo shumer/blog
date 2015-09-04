@@ -7,6 +7,9 @@
 
 namespace Drupal\advanced_varnish_cache\Controller;
 
-class AdvancedVarnishCacheController{
+/**
+ * Main Varnish controller.
+ */
+class AdvancedVarnishCacheController {
 
 }

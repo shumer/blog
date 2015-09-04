@@ -23,24 +23,30 @@ class Page extends VarnishCacheableEntityBase {
 
   protected $displayVariant;
 
+  /**
+   * Class constructor.
+   */
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     if ($this->entity instanceof \Drupal\page_manager\Entity\Page) {
       $executable = $this->entity->getExecutable();
       if ($executable) {
-        $displayVariant = $executable->selectDisplayVariant()->id();
+        $display_variant = $executable->selectDisplayVariant()->id();
       }
-      $this->displayVariant = $configuration['displayVariant'] ?: $displayVariant;
+      $this->displayVariant = $configuration['displayVariant'] ?: $display_variant;
     }
   }
 
+  /**
+   * Generate a entity cache key.
+   */
   public function generateSettingsKey() {
-    $displayVariant =  $this->displayVariant ?: '';
+    $display_variant = $this->displayVariant ?: '';
     $page = $this->entity;
     $type = $page->getEntityTypeId();
     $id = $page->id();
 
-    return $displayVariant ? 'entities_settings.' . $type . '.' . $id . '.' . $displayVariant : '';
+    return $display_variant ? 'entities_settings.' . $type . '.' . $id . '.' . $display_variant : '';
   }
 
 }
