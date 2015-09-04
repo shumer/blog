@@ -12,7 +12,7 @@ use Drupal\Component\Annotation\Plugin;
 /**
  * Defines cacheable entity item annotation object.
  *
- * Plugin Namespace: Plugin\advanced_varnish_cache\VarnishCacheableEntity
+ * Plugin Namespace: Plugin\advanced_varnish_cache\VarnishCacheableEntity.
  *
  * @see \Drupal\config_pages\Plugin\IcecreamManager
  * @see plugin_api
@@ -41,6 +41,5 @@ class VarnishCacheableEntity extends Plugin {
    * @var boolean
    */
   public $perBunleSettings;
-
 
 }
