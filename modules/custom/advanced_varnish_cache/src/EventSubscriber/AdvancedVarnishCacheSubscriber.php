@@ -40,12 +40,10 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Handle page request.
    *
-   *   @param FilterResponseEvent $event
-   *
-   * Handle page request if we can cache this
-   * page than proper headers will be set here.
+   * @param FilterResponseEvent $event
+   *   Event object.
    */
   public function handlePageRequest(FilterResponseEvent $event) {
 
@@ -167,7 +165,8 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       setcookie($this->varnishHandler->getCookieBin(), $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
       setcookie($this->varnishHandler->getCookieInf(), $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
 
-      // Mark this page as required reload as ESI request from this page will be sent with old cookie info.
+      // Mark this page as required reload as ESI request
+      // from this page will be sent with old cookie info.
       self::$needsReload = TRUE;
     }
     elseif (!empty($_GET['reload'])) {
