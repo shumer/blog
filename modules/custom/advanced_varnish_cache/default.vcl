@@ -110,6 +110,18 @@ sub vcl_hash {
             set req.http.X-BIN  = "role:" + regsub(req.http.Cookie, "^.*?AVCEBIN=([^;]*);*.*$", "\1");
         }
 
+        /** DRUPAL_CACHE_PER_PAGE */
+        if (req.url ~ "^.*cachemode=1.*$" && req.http.X-BIN) {
+            /** Set bin to constant */
+            set req.http.X-BIN = "page:" + regsub(req.http.X-BIN, "^.*-([^-]*)$", "\1");
+        }
+
+        /** DRUPAL_CACHE_PER_USER */
+        if (req.url ~ "^.*cachemode=3.*$" || !req.http.X-BIN) {
+            /** Set user session as bin */
+            set req.http.X-BIN  = "user:" + req.http.X-SESS;
+        }
+
         set req.http.X-URL = req.url;
 
     }

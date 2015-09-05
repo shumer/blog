@@ -27,6 +27,20 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
       '#title' => t('ESI block'),
       '#default_value' => $settings['cache']['esi'] ?: FALSE,
     );
+
+    $options = array(
+      AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_PAGE => t('Shared'),
+      AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE => t('Per User Roles'),
+      AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_USER => t('Per User ID'),
+    );
+
+    $form['settings']['cache']['cachemode'] = array(
+      '#title' => t('Cache granularity (Cache bin)'),
+      '#description' => t('Choosing those will increase cache relevance, but reduce performance.'),
+      '#type' => 'select',
+      '#options' => $options,
+      '#default_value' =>  $settings['cache']['cachemode'] ?: AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE,
+    );
   }
 }
 

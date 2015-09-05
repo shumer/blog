@@ -25,6 +25,9 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
   const ADVANCED_VARNISH_CACHE_HEADER_ETAG = 'ETag';
   const ADVANCED_VARNISH_CACHE_HEADER_DEFLATE_KEY = 'X-DEFLATE-KEY';
+  const ADVANCED_VARNISH_CACHE_PER_PAGE = 1;
+  const ADVANCED_VARNISH_CACHE_PER_ROLE = 2;
+  const ADVANCED_VARNISH_CACHE_PER_USER = 3;
 
   public static $getStatusResults;
 
@@ -368,9 +371,12 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     // can be rendered without the block config entity.
     unset($build['#block']);
 
+    $cache_conf = $build['#configuration']['cache'];
+    $query['cachemode'] = $cache_conf['cachemode'];
+
     $maxwait = 5000;
     $path = '/advanced_varnish_cache/esi/block/' . $id;
-    $url = Url::fromUserInput($path);
+    $url = Url::fromUserInput($path, ['query' => $query]);
     $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
 
     $build['#content'] = $content;
