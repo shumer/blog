@@ -1,0 +1,26 @@
+{#
+/**
+* @file
+* Theme override to display a node.
+*/
+#}
+{%
+set classes = [
+'node',
+'node--type-' ~ node.bundle|clean_class,
+node.isPromoted() ? 'node--promoted',
+node.isSticky() ? 'node--sticky',
+not node.isPublished() ? 'node--unpublished',
+view_mode ? 'node--view-mode-' ~ view_mode|clean_class,
+]
+%}
+<article{{ attributes.addClass(classes) }}>
+    {{ title_suffix }}
+    <a href="{{ url }}" hreflang="en">
+        <span class="col-lg-3">
+            {{ content.field_category }}
+        </span>
+        <p>{{ label }}</p>
+    </a>
+    <em>{{ date }}</em>
+</article>
