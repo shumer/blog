@@ -34,3 +34,4 @@ sites/simpletest
 .idea
 .idea/*
 modules/contrib/devel/*
+modules/contrib/webprofiler/*

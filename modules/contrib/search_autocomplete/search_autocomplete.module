@@ -1,0 +1,169 @@
+<?php
+
+use Drupal\Core\Entity\Element\EntityAutocomplete;
+use Drupal\views\Views;
+use Drupal\Component\Utility\UrlHelper;
+use Drupal\Core\Url;
+use Drupal\Core\Utility\UnroutedUrlAssembler;
+
+/**
+ * @file
+ * Provides autocompletion in any field from GUI.
+ *
+ * Sponsored by: www.drupal-addict.com
+ * The Search Autocomplete module provides autocompletion configurations
+ * to help autocompleting any fields.
+ */
+
+function search_autocomplete_install() {
+  \Drupal::service('asset.js.collection_optimizer')->deleteAll();
+}
+/**
+ * Implementation of hook_library_info_build().
+ *
+ * Add dynamic library definitions.
+ *
+ * Since we can't add files through css in #attached anymore, this is a trick
+ * defining as many libraries as the number of found CSS in the theme folder.
+ *
+ * @return array[]
+ *   An array of library definitions.
+ */
+function search_autocomplete_library_info_build() {
+  $libraries = [];
+
+  // Find all available themes.
+  $themes = array();
+  $files = file_scan_directory(drupal_get_path('module', 'search_autocomplete') . '/css/themes', '/.*\.css\z/', array('recurse' => FALSE));
+
+  // Create a new library for all themes.
+  foreach ($files as $file) {
+
+    $libraries["theme.$file->filename"] = [
+      'css' => [
+        'base' => [
+          "css/themes/$file->filename" => [],
+        ],
+      ],
+    ];
+
+  }
+  return $libraries;
+}
+
+/**
+ * Implements hook_library_info_alter().
+ *
+ * @param unknown $libraries
+ * @param unknown $module
+ */
+function search_autocomplete_library_info_alter(array &$libraries, $module) {
+  if ($module === 'core' && isset($libraries['drupal.autocomplete'])) {
+    $libraries['drupal.autocomplete']['js'] = array(
+      '/' . drupal_get_path('module', 'search_autocomplete') . '/js/jquery.autocomplete.js' => array(),
+    );
+  }
+}
+
+/**
+ * Implements hook_page_attachments().
+ *
+ * Adds the settings from user defined autocomplete_configurations to the page.
+ * Also loads the necessary JS library if needed.
+ */
+function search_autocomplete_page_attachments(array &$attachments) {
+  // Check user permissions.
+  if (!\Drupal::currentUser()->hasPermission('use search autocomplete')) {
+    return;
+  }
+
+  // Load module settings.
+  $module_settings = \Drupal::config('search_autocomplete.settings');
+
+  // TODO Load only configs where a selector is defined.
+  $autocomplete_configuration_entities = \Drupal::entityManager()->getStorage('autocompletion_configuration')->loadByProperties(array('status' => TRUE));
+
+  // End-up here if no config to set.
+  if (empty($autocomplete_configuration_entities)) {
+    return;
+  }
+
+  // Add the autocompletion library.
+  // @todo define and add properly the library here
+  //$page ['#attached']['library'][] = 'quickedit/quickedit';
+
+  // Add the settings to be pass to JS:
+  $autocomplete_configurations = array();
+  foreach ($autocomplete_configuration_entities as $config_id => $config) {
+
+    $source = $config->getSource();
+    $exposed_filters = array();
+
+    // Build the callback URL.
+    $input_source = explode('::', $source);
+    // If from View, build view URL.
+    if (count($input_source) == 2) {
+      // Load the view.
+      $view = Views::getView($input_source[0]);
+      // Load the required display.
+      if ($view != null && $view->setDisplay($input_source[1])) {
+        // Retrieve the display URL.
+        $display = $view->getDisplay();
+        $source = '/' . $display->getPath();
+      }
+
+      // Build filters
+      $filters = $view->getHandlers('filter');
+      foreach ($filters as $filter) {
+        if (isset($filter['exposed']) && $filter['exposed']) {
+          $exposed_filters[] = $filter['field'];
+        }
+      }
+    }
+
+    // In case of internal URL, convert it to absolute.
+    if (!UrlHelper::isExternal($source)) {
+      $source = Url::fromUri('internal:' . $source, array('absolute' => TRUE))->toString();
+    }
+
+    // Do not add configs when selector is empty.
+    // @see todo upper in the fonction.
+    $selector = $config->getSelector();
+    if (!empty($selector)) {
+      $settings = array(
+        'source'          => $source,
+        'selector'        => $config->getSelector(),
+        'minChars'        => $config->getMinChar(),
+        'maxSuggestions'  => $config->getMaxSuggestions(),
+        'autoSubmit'      => $config->getAutoSubmit(),
+        'autoRedirect'    => $config->getAutoRedirect(),
+        'theme'           => basename($config->getTheme(), '.css'), // theme without extension
+        'filters'         => $exposed_filters,
+        'noResult'       => array(
+          'group' => array(
+            'group_id' => 'no_results',
+           ),
+          'label' => $config->getNoResultLabel(),
+          'value' => $config->getNoResultValue()
+        ),
+        'moreResults'       => array(
+            'group' => array(
+                'group_id' => 'more_results',
+            ),
+            'label' => $config->getMoreResultsLabel(),
+            'value' => $config->getMoreResultsValue()
+        )
+      );
+      $autocomplete_configurations[$config_id] = $settings;
+    }
+    // Add the theme library if available
+    if (\Drupal::service('library.discovery')->getLibraryByName('search_autocomplete', 'theme.' . $config->getTheme())) {
+      $attachments['#attached']['library'][] = 'search_autocomplete/theme.' . $config->getTheme();
+    }
+
+  }
+  //$view = \Drupal::entityManager()->getStorage('view')->load(EntityAutocomplete::extractEntityIdFromAutocompleteInput($config->getSource()));
+
+  $attachments['#attached']['drupalSettings']['search_autocomplete'] = $autocomplete_configurations;
+  $attachments['#attached']['library'][] = 'core/drupal.autocomplete';
+}

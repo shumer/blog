@@ -1,0 +1,16 @@
+
+bsb_core.default_controller_hello:
+  path: '/bsb_core/hello/{name}'
+  defaults:
+    _controller: '\Drupal\bsb_core\Controller\DefaultController::hello'
+    _title: 'bsb_core Title'
+  requirements:
+    _permission: 'access content'
+
+bsb_core.user.modal:
+  path: '/ajax/user/{user}'
+  defaults:
+    _title: Modal
+    _controller: '\Drupal\bsb_core\Controller\AjaxController::userModal'
+  requirements:
+    _permission: 'access content'

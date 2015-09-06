@@ -1,0 +1,9 @@
+name: Bsblog core
+type: module
+description: BSBlog site core module.
+core: 8.x
+package: MKS
+dependencies:
+  - panels
+  - page_manager
+

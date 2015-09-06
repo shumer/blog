@@ -1,0 +1,5 @@
+services:
+  bsb_core.twig.words_extension:
+    class: Drupal\bsb_core\Twig\WordsExtension
+    tags:
+      - { name: twig.extension }

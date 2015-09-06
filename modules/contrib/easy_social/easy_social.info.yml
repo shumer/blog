@@ -1,0 +1,11 @@
+name: Easy Social
+type: module
+description: 'Easily add social sharing widgets to your site.'
+# core: 8.x
+configure: admin/config/services/easy-social
+
+# Information added by Drupal.org packaging script on 2015-07-20
+version: '8.x-3.0-alpha3'
+core: '8.x'
+project: 'easy_social'
+datestamp: 1437430440

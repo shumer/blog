@@ -1,0 +1,19 @@
+dstest_1col:
+  label: Test One column
+  category: Display Suite
+  type: partial
+  theme: dstest_1col
+  regions:
+    ds_content:
+      label: Content
+dstest_2col:
+  label: Test Two column
+  category: Display Suite
+  type: partial
+  theme: dstest_2col
+  library: ds_test/layout.2col
+  regions:
+    left:
+      label: Left
+    right:
+      label: Right

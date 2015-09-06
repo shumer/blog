@@ -1,6 +1,0 @@
-name: Dart core
-type: module
-description: Drupal Art core module
-core: 8.x
-package: DART
-

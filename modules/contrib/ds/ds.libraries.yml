@@ -1,0 +1,71 @@
+admin:
+  version: VERSION
+  js:
+    js/ds.admin.js: {}
+  css:
+    theme:
+      css/ds.admin.css: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupal.form
+
+layout.2col:
+  version: VERSION
+  css:
+    theme:
+      css/ds-2col.css: {}
+
+layout.2col-fluid:
+  version: VERSION
+  css:
+    theme:
+      css/ds-2col-fluid.css: {}
+
+layout.2col-stacked:
+  version: VERSION
+  css:
+    theme:
+      css/ds-2col-stacked.css: {}
+
+layout.2col-stacked-fluid:
+  version: VERSION
+  css:
+    theme:
+      css/ds-2col-stacked-fluid.css: {}
+
+layout.3col:
+  version: VERSION
+  css:
+    theme:
+      css/ds-3col.css: {}
+
+layout.3col-equal-width:
+  version: VERSION
+  css:
+    theme:
+      css/ds-3col-equal-width.css: {}
+
+layout.3col-stacked:
+  version: VERSION
+  css:
+    theme:
+      css/ds-3col-stacked.css: {}
+
+layout.3col-stacked-equal-width:
+  version: VERSION
+  css:
+    theme:
+      css/ds-3col-stacked-equal-width.css: {}
+
+layout.3col-stacked-fluid:
+  version: VERSION
+  css:
+    theme:
+      css/ds-3col-stacked-fluid.css: {}
+
+layout.4col:
+  version: VERSION
+  css:
+    theme:
+      css/ds-4col.css: {}

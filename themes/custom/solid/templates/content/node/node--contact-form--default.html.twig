@@ -1,0 +1,27 @@
+{#
+/**
+* @file
+* Theme override to display a node.
+*/
+#}
+{%
+set classes = [
+'node',
+'node--type-' ~ node.bundle|clean_class,
+node.isPromoted() ? 'node--promoted',
+node.isSticky() ? 'node--sticky',
+not node.isPublished() ? 'node--unpublished',
+view_mode ? 'node--view-mode-' ~ view_mode|clean_class,
+]
+%}
+
+<div{{ attributes.addClass(classes) }}>
+  <div class="col-lg-8">
+    {{ title_suffix }}
+    {{ content.body }}
+    {{ form }}
+  </div>
+  <div class="col-lg-4">
+    {{ content.field_address_info }}
+  </div>
+</div>

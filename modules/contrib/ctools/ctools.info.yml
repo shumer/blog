@@ -5,8 +5,8 @@ package: Chaos tool suite
 # version: 3.x
 # core: 8.x
 
-# Information added by Drupal.org packaging script on 2015-07-09
+# Information added by Drupal.org packaging script on 2015-06-16
 version: '8.x-3.x-dev'
 core: '8.x'
 project: 'ctools'
-datestamp: 1436409852
+datestamp: 1434475106

@@ -1,0 +1,55 @@
+<?php
+
+/**
+ * @file
+ * Contains bsb_core.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function bsb_core_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the bsb_core module.
+    case 'help.page.bsb_core':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('BSBlog site core module.') . '</p>';
+      return $output;
+
+    default:
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function bsb_core_theme() {
+  $theme = [];
+
+  $theme['bsb_core_site_logo'] = [
+    'path' => drupal_get_path('module', 'bsb_core') . '/templates/blocks/site_logo',
+    'theme_hook_suggestions' => ['bsb_core_site_logo'],
+    'variables' => ['name' => '', 'path' => ''],
+  ];
+
+  $theme['bsb_core_youtube_embed'] = [
+    'path' => drupal_get_path('module', 'bsb_core') . '/templates/fields/youtube_embed',
+    'theme_hook_suggestions' => ['bsb_core_youtube_embed'],
+    'variables' => ['item' => '', 'ratio' => ''],
+  ];
+
+  $theme['bsb_core_twitter_block'] = [
+    'path' => drupal_get_path('module', 'bsb_core') . '/templates/blocks/twitter_block',
+    'theme_hook_suggestions' => ['bsb_core_twitter_block'],
+    'variables' => ['channel' => ''],
+  ];
+
+  return $theme;
+}
+
+function template_preprocess_bsb_core_youtube_embed(&$vars) {
+  $vars['ratio_class'] = $vars['ratio'] ? 'embed-responsive-' . $vars['ratio'] : '';
+}

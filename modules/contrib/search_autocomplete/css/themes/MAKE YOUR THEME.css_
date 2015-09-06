@@ -1,0 +1,18 @@
+/*
+ * SEARCH AUTOCOMPLETE
+ * Helper file to build your own theme.
+ *
+ * Sponsored by:
+ * www.axiomcafe.fr
+ */
+
+/**
+ * THEME CUSTOM
+ * 
+ * 1- duplicate this file
+ * 2- rename this "your theme".css
+ */
+
+.js input.form-autocomplete {
+  border: 1px solid #ccc;
+}

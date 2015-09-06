@@ -1,0 +1,7 @@
+services:
+  plugin.manager.social_media_links.platform:
+    class: Drupal\social_media_links\SocialMediaLinksPlatformManager
+    parent: default_plugin_manager
+  plugin.manager.social_media_links.iconset:
+    class: Drupal\social_media_links\SocialMediaLinksIconsetManager
+    parent: default_plugin_manager

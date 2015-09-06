@@ -1,0 +1,47 @@
+<?php
+
+/**
+ * @file
+ * Functions to support theming in the Solid theme.
+ */
+
+use Drupal\Core\Session\AnonymousUserSession;
+use Drupal\Component\Utility\Unicode;
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Core\Url;
+use Drupal\solid\Preprocessors\NodePreprocessor;
+
+function solid_preprocess_block__block_content__sizeable_feature_block(&$variables) {
+
+  $content = &$variables['content'];
+  $block = &$content['#block_content'];
+  $field_size = $block->get('field_size')->value;
+  $variables['block_size'] = $field_size;
+}
+
+
+/**
+ * Implements theme_theme_suggestions_HOOK_alter().
+ */
+function solid_theme_suggestions_taxonomy_term_alter(array &$suggestions, array $variables) {
+  $elements = $variables['elements'];
+  $taxonomy_term = $elements['#taxonomy_term'];
+  if ($taxonomy_term) {
+    $suggestions[] = 'taxonomy_term__' . $taxonomy_term->bundle() . '__' . $elements['#view_mode'];
+  }
+}
+
+/**
+ * Implements theme_preprocess_node().
+ */
+function solid_preprocess_node(&$variables) {
+  $preprocessor = new NodePreprocessor();
+  $preprocessor->preprocess($variables);
+}
+
+/**
+ * Implements theme_preprocess_taxonomy_term().
+ */
+function solid_preprocess_taxonomy_term(&$variables) {
+
+}

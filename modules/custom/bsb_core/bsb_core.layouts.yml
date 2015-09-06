@@ -1,0 +1,45 @@
+bsb_core_1col_front:
+  label: 1 Column Frontpage Layout
+  category: MKS Layouts
+  template: templates/bsb-core-layout-1col-front
+  regions:
+    header:
+      label: Header region
+    status:
+          label: Status region
+    content:
+          label: Content region
+    footer:
+      label: Footer region
+
+bsb_core_2col:
+  label: 2 Column Layout
+  category: MKS Layouts
+  template: templates/bsb-core-layout-2col
+  regions:
+    header:
+      label: Header region
+    breadcrumbs:
+      label: Breadcrumbs region
+    content:
+      label: Content region
+    sidebar:
+      label: Sidebar region
+    footer:
+      label: Footer region
+
+bsb_core_1col:
+  label: 1 Column Layout
+  category: MKS Layouts
+  template: templates/bsb-core-layout-1col
+  regions:
+    header:
+      label: Header region
+    breadcrumbs:
+      label: Breadcrumbs region
+    features:
+      label: Features region
+    content:
+      label: Content region
+    footer:
+      label: Footer region

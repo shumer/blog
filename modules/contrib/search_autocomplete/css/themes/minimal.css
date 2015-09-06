@@ -1,0 +1,20 @@
+/*
+ * SEARCH AUTOCOMPLETE
+ * Minimal theme.
+ *
+ * Sponsored by: www.drupal-addict.com
+ */
+
+/**
+ * THEME MINIMAL
+ */
+ 
+/* Input box */
+.js input.form-autocomplete {
+  border: 1px solid #ccc;
+}
+
+/* Suggestion menu style */
+#ui-theme-basic-blue {
+  min-width: 350px;
+}

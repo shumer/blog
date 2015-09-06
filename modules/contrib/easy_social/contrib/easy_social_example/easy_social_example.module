@@ -1,0 +1,100 @@
+<?php
+/**
+ * @file
+ * Easy Social Example module.
+ */
+
+/**
+ * Implements hook_easy_social_widget().
+ */
+function easy_social_example_easy_social_widget() {
+  $widgets = array();
+
+  // The key is going to be the widget's machine_name.
+  $widgets['example'] = array(
+    'name' => t('Example'),
+    // If we wanted to add some additional css or js for our widet, we can do
+    // so here. Refer to easy_social.api.php for more information on how to
+    // implement hook_easy_social_widget().
+    // 'js' => array(),
+    // 'css' => array(),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function easy_social_example_menu() {
+  $items = array();
+
+  // In general you should create a local task under
+  // 'admin/config/services/easy-social/$WIDGET', where $WIDGET is the widget's
+  // machine_name.
+  $items['admin/config/services/easy-social/example'] = array(
+    'title' => 'Example',
+    'description' => 'Change Example widget settings for Easy Social.',
+    'route_name' => 'easy_social_example_settings',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function easy_social_example_theme() {
+  $return = array();
+
+  // The theme function should be named "easy_social_$WIDGET", where $WIDGET is
+  // the widget's machine_name.
+  $return['easy_social_example'] = array(
+    'variables' => array(),
+  );
+
+  return $return;
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for easy_social_example theme.
+ *
+ * @see easy_social_theme()
+ * @see theme_easy_social_example()
+ */
+function easy_social_example_preprocess_easy_social_example(&$variables) {
+  // You can still pre-process this as usual.
+  // Notice that the config settings have been automatically added.
+}
+
+/**
+ * Implements hook_process_HOOK() for easy_social_example theme.
+ *
+ * @see easy_social_theme()
+ * @see theme_easy_social_example()
+ */
+function easy_social_example_process_easy_social_example(&$variables) {
+  // You can still process this as usual.
+}
+
+/**
+ * Returns HTML for the Easy Social Example widget.
+ *
+ * @ingroup themeable
+ */
+function theme_easy_social_example($variables) {
+  $attributes = array(
+    'class' => array('example-share-button'),
+  );
+
+  // You can do whatever you want to return the expected markup for your widget.
+  // Get creative, this is a stupid example! :)
+  foreach ($variables as $key => $value) {
+    $attributes["data-{$key}"] = $value;
+  }
+
+  return l(t('Share on Example'), 'https://example.com/share', array(
+    'attributes' => $attributes,
+  ));
+}
