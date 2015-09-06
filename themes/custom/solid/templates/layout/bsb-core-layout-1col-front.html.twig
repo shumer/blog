@@ -1,0 +1,35 @@
+{#
+/**
+ * @file
+ * Template for a bsb core frontpage 1 column layout.
+ */
+#}
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+        {{ content.header }}
+    </div>
+</div>
+
+<div id="blue">
+    <div class="container">
+    {{ content.breadcrumbs }}
+    </div>
+</div>
+
+<div class="container mtb">
+    <div class="row">
+        <div class="col-lg-12">
+            {{ content.content }}
+        </div>
+    </div>
+</div>
+
+<header class="hero">
+    <h1></h1>
+    <h2 class="subheader"></h2>
+</header>
+<div id="footerwrap">
+    <div class="container">
+        {{ content.footer }}
+    </div>
+</div>
