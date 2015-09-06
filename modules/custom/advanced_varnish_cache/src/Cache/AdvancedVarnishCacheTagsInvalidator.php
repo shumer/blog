@@ -14,7 +14,7 @@ use Drupal\Core\Logger\RfcLogLevel;
 
 class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterface {
 
-  public $varnish_handler;
+  public $varnishHandler;
 
   /**
    * Marks cache items with any of the specified tags as invalid.
@@ -23,6 +23,6 @@ class AdvancedVarnishCacheTagsInvalidator implements CacheTagsInvalidatorInterfa
    *   The list of tags for which to invalidate cache items.
    */
   public function invalidateTags(array $tags) {
-    $this->varnish_handler->purgeTags($tags);
+    $this->varnishHandler->purgeTags($tags);
   }
 }

@@ -8,7 +8,7 @@ services:
   cache_tags.invalidator.advanced_varnish_cache:
     class: Drupal\advanced_varnish_cache\Cache\AdvancedVarnishCacheTagsInvalidator
     properties:
-      varnish_handler: "@advanced_varnish_cache_handler"
+      varnishHandler: "@advanced_varnish_cache_handler"
     tags:
       - { name: cache_tags_invalidator}
   advanced_varnish_cache_handler:
