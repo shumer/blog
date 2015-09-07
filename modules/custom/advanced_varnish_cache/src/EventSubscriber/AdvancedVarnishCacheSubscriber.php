@@ -95,6 +95,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     if ($response instanceof CacheableResponseInterface) {
       $cacheable = $response->getCacheableMetadata();
       $tags = $cacheable->getCacheTags();
+      $tags = array_merge($tags, $cache_settings['tags']);
       $response->headers->set($this->varnishHandler->getHeaderCacheTag(), implode(';', $tags) . ';');
 
       // Set header with cache TTL based on site Performance settings.
@@ -230,6 +231,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
   public function getEntityCacheSettings($entities, $config) {
     $cache_settings = [
       'ttl' => '',
+      'tags' => [],
     ];
     foreach ($entities as $entity) {
       $cache_key_generator = $this->varnishHandler->getCacheKeyGenerator($entity);
@@ -253,6 +255,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
           $match = $path_matcher->matchPath($current_path, $conf[0]);
           if ($match) {
             $cache_settings['ttl'] = $conf[1];
+            $cache_settings['tags'][] = $conf[2];
           }
         }
       }
