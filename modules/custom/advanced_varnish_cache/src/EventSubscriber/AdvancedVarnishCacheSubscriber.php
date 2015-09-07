@@ -236,7 +236,31 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       $key = $cache_key_generator->generateSettingsKey();
       $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $config->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
     }
+
+    // If no ttl set check for custom rules settings.
+    if (empty($cache_settings['ttl'])) {
+      $config = \Drupal::config('advanced_varnish_cache.settings');
+
+      // Get current path as default.
+      $current_path = \Drupal::service('path.current')->getPath();
+      $rules = explode(PHP_EOL, trim($config->get('custom.rules')));
+      foreach ($rules as $line) {
+        $conf = explode('|', trim($line));
+        if (count($conf) == 3) {
+
+          // Check for match.
+          $path_matcher = \Drupal::service('path.matcher');
+          $match = $path_matcher->matchPath($current_path, $conf[0]);
+          if ($match) {
+            $cache_settings['ttl'] = $conf[1];
+          }
+        }
+      }
+    }
+
+    // Use general TTL as fallback option.
     $cache_settings['ttl'] = $cache_settings['ttl'] ?: $config->get('general.page_cache_maximum_age');
+
     return $cache_settings;
   }
 

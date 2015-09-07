@@ -210,6 +210,19 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('available.authenticated_users'),
     );
 
+    // Custom rules.
+    $form['advanced_varnish_cache']['custom'] = array(
+      '#title' => t('Custom Rules'),
+      '#type' => 'details',
+    );
+
+    $form['advanced_varnish_cache']['custom']['rules'] = array(
+      '#title' => t('Enabled Drupal Path'),
+      '#type' => 'textarea',
+      '#description' => t('Specify custom drupal path rules @format.', array('@format' => '<PATH>|<TTL>|<PAGE TAG>')),
+      '#default_value' =>  $config->get('custom.rules'),
+    );
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -223,6 +236,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       ->set('connection', $values['connection'])
       ->set('general', $values['general'])
       ->set('available', $values['available'])
+      ->set('custom', $values['custom'])
       ->save();
 
     parent::submitForm($form, $form_state);
