@@ -238,6 +238,9 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
       $cache_key_generator = $this->varnishHandler->getCacheKeyGenerator($entity);
       $key = $cache_key_generator->generateSettingsKey();
       $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $config->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
+      if ($config->get($key)['cache_settings']['purge_id']) {
+        $cache_settings['tags'][] = $config->get($key)['cache_settings']['purge_id'];
+      }
     }
 
     // If no ttl set check for custom rules settings.

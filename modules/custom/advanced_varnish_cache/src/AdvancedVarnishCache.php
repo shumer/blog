@@ -403,16 +403,19 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     $conf = $build['#configuration'];
     $block_id = $conf['uuid'];
 
+    $cache_conf = $build['#configuration']['cache'];
+    $query['cachemode'] = $cache_conf['cachemode'];
+
     $maxwait = 5000;
     $path = '/advanced_varnish_cache/esi/block/' . $page . '/' . $block_id;
-    $url = Url::fromUserInput($path);
+    $url = Url::fromUserInput($path, ['query' => $query]);
     $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
 
     $build['#content'] = $content;
 
     // Set flag for varnish that we have ESI in the response.
     $build['#attached']['http_header'] = [
-        ['X-DOESI', '1'],
+      ['X-DOESI', '1'],
     ];
 
     return $build;
@@ -420,7 +423,7 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
 
   /**
    * Purge varnish cache for specific tag.
-   *   *
+   *
    * @param $tag
    *   (string/array) tag to search and purge.
    *
@@ -429,6 +432,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   public function purgeTags($tag) {
     $account = \Drupal::currentUser();
     $header = $this->getHeaderCacheTag();
+
+    if (!is_array($tag)) {
+      $tag = [$tag];
+    }
 
     // Build pattern.
     $pattern = (count($tag) > 1)
@@ -508,6 +515,10 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   public function panelsSettingsSubmit($form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $build = $form_state->getBuildInfo();
     $cache_settings = $form_state->getValue('cache_setting');
+
+    if ($cache_settings['purge_now']) {
+      $this->purgeTags($cache_settings['purge_id']);
+    }
 
     $page = $build['callback_object']->getPage();
     $display_varaint = $build['callback_object']->getDisplayVariant();
