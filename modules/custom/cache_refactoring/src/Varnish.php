@@ -7,6 +7,7 @@
 namespace Drupal\advanced_varnish_cache;
 
 use Drupal\Core\Logger\RfcLogLevel;
+use Drupal\user\UserInterface;
 
 /**
  * Main class provide basic methods to work with Varnish.
@@ -15,9 +16,40 @@ class Varnish implements VarnishInterface {
 
   /**
    * @var $getStatusResults
-   *  Varnish terminal status.
+   *   Varnish terminal status.
    */
   public static $getStatusResults;
+
+  /**
+   * @var $logger
+   *   Instance of LoggerChannelFactoryInterface.
+   */
+  protected $logger;
+
+  /**
+   * @var $account
+   *   Instance of UserInterface.
+   */
+  protected $account;
+
+  /**
+   * @var array
+   *   Configuration settings.
+   */
+  protected $configuration;
+
+  /**
+   * Class constructor.
+   *
+   * @param LoggerChannelFactoryInterface $logger
+   * @param UserInterface $account
+   * @param ImmutableConfig $configuration
+   */
+  public function __construct(LoggerChannelFactoryInterface $logger, UserInterface $account, $configuration) {
+    $this->logger = $logger;
+    $this->account = $account;
+    $this->configuration = $configuration;
+  }
 
   /**
    * Parse the host from the global $base_url.
@@ -48,7 +80,7 @@ class Varnish implements VarnishInterface {
     socket_write($client, "$command\n");
     $status = $this->varnishReadSocket($client);
     if ($status['code'] != 200) {
-      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Received status code @code running %command. Full response text: @error', array(
+      $this->logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Received status code @code running %command. Full response text: @error', array(
           '@code' => $status['code'],
           '%command' => $command,
           '@error' => $status['msg'],
@@ -85,7 +117,7 @@ class Varnish implements VarnishInterface {
         return $this->varnishReadSocket($client, $retry - 1);
       }
       else {
-        \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Socket error: @error', array('@error' => socket_strerror($error)));
+        $this->logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Socket error: @error', array('@error' => socket_strerror($error)));
         return array(
           'code' => $error,
           'msg' => socket_strerror($error),
@@ -131,7 +163,7 @@ class Varnish implements VarnishInterface {
       socket_set_option($client, SOL_SOCKET, SO_SNDTIMEO, array('sec' => $seconds, 'usec' => $microseconds));
       socket_set_option($client, SOL_SOCKET, SO_RCVTIMEO, array('sec' => $seconds, 'usec' => $microseconds));
       if (@!socket_connect($client, $server, $port)) {
-        \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Unable to connect to server socket @server:@port: %error', array(
+        $this->logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Unable to connect to server socket @server:@port: %error', array(
             '@server' => $server,
             '@port' => $port,
             '%error' => socket_strerror(socket_last_error($client)),
@@ -160,7 +192,7 @@ class Varnish implements VarnishInterface {
           socket_write($client, "auth $key\n");
           $status = $this->varnishReadSocket($client);
           if ($status['code'] != 200) {
-            \Drupal::logger('advanced_varnish_cache')->error('Authentication to server failed!');
+            $this->logger('advanced_varnish_cache')->error('Authentication to server failed!');
           }
         }
       }
@@ -209,10 +241,9 @@ class Varnish implements VarnishInterface {
    *    Setting value by key.
    */
   public function getSetting($block, $setting, $default = NULL) {
-    $settings = \Drupal::config('advanced_varnish_cache.settings');
     $setting = $block . '.' . $setting;
 
-    $config = $settings->get($setting);
+    $config = $this->configuration->get($setting);
     $result = !empty($config)
       ? $config
       : $default;
@@ -226,11 +257,11 @@ class Varnish implements VarnishInterface {
    * @param $tag
    *   (string/array) tag to search and purge.
    *
+   * @param $header
+   *   (
    * @return array
    */
-  public function purgeTags($tag) {
-    $account = \Drupal::currentUser();
-    $header = $this->getHeaderCacheTag();
+  public function purgeTags($tag, $header = 'X-TAG') {
 
     // Build pattern.
     $pattern = (count($tag) > 1)
@@ -251,8 +282,8 @@ class Varnish implements VarnishInterface {
 
     // Log action.
     if ($this->getSetting('general', 'logging', FALSE)) {
-      \Drupal::logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', [
-          '@uid' => $account->id(),
+      $this->logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', [
+          '@uid' => $this->account->id(),
           '!command_line' => $command_line,
         ]
       );
@@ -275,8 +306,6 @@ class Varnish implements VarnishInterface {
    */
   function purgeRequest($pattern, $exact = FALSE) {
 
-    $account = \Drupal::currentUser();
-
     // Remove quotes from pattern.
     $pattern = strtr($pattern, array('"' => '', "'" => ''));
     $command = !empty($exact) ? '==' : '~';
@@ -293,10 +322,10 @@ class Varnish implements VarnishInterface {
     // Log action.
     if ($this->getSetting('general', 'logging', FALSE)) {
       $message = t('u=@uid purge !command_line', [
-        '@uid' => $account->id(),
+        '@uid' => $this->account->id(),
         '!command_line' => $command_line,
       ]);
-      \Drupal::logger('advanced_varnish_cache:purge')->notice($message);
+      $this->logger('advanced_varnish_cache:purge')->notice($message);
     }
 
     // Query Varnish.
