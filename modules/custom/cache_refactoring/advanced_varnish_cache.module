@@ -12,6 +12,9 @@ use Drupal\Core\Logger\RfcLogLevel;
  */
 function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
 
+  // Remove forever option from block.
+  unset($form['settings']['cache']['max_age']['#options']['-1']);
+
   // Alter block configuration form to add cache settings for varnish.
   // Get block.
   $id = $form['id']['#default_value'];
@@ -98,6 +101,9 @@ function advanced_varnish_cache_theme() {
  */
 function advanced_varnish_cache_form_page_manager_display_variant_edit_block_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
 
+  // Remove forever option from block.
+  unset($form['settings']['cache']['max_age']['#options']['-1']);
+
   // Get form storage.
   $storage = $form_state->getStorage();
 
@@ -118,6 +124,20 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_block_for
     '#type' => 'checkbox',
     '#title' => t('ESI block'),
     '#default_value' => $settings['cache']['esi'] ?: FALSE,
+  );
+
+  $options = array(
+    AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_PAGE => t('Shared'),
+    AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE => t('Per User Roles'),
+    AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_USER => t('Per User ID'),
+  );
+
+  $form['settings']['cache']['cachemode'] = array(
+    '#title' => t('Cache granularity (Cache bin)'),
+    '#description' => t('Choosing those will increase cache relevance, but reduce performance.'),
+    '#type' => 'select',
+    '#options' => $options,
+    '#default_value' =>  $settings['cache']['cachemode'] ?: AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE,
   );
 
 }
@@ -154,11 +174,30 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alte
   ];
 
   $settings_key = $cache_key_generator->generateSettingsKey();
-
+  $date_formatter = \Drupal::service('date.formatter');
+  // Cache time for Varnish.
+  $period = array(0, 60, 180, 300, 600, 900, 1800, 2700, 3600,
+    10800, 21600, 32400, 43200, 86400);
+  $period = array_map(array($date_formatter, 'formatInterval'), array_combine($period, $period));
+  $period[0] = t('no caching');
   $form['cache_setting']['ttl'] = [
-    '#type' => 'textfield',
-    '#title' => t('TTL'),
+    '#type' => 'select',
+    '#title' => t('Page cache maximum age'),
     '#default_value' => $default->get($settings_key)['cache_settings']['ttl'],
+    '#options' => $period,
+    '#description' => t('The maximum time a page can be cached by varnish.'),
+  ];
+
+  $form['cache_setting']['purge_id'] = [
+    '#type' => 'textfield',
+    '#title' => t('Cache ID for manual purge'),
+    '#disabled' => TRUE,
+    '#default_value' => 'page_' . $page->id() . '_' . $display_varaint_id,
+  ];
+
+  $form['cache_setting']['purge_now'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Purge this page cache now'),
   ];
 
   $form['#submit'][] = [\Drupal::service('advanced_varnish_cache_handler'), 'panelsSettingsSubmit'];
