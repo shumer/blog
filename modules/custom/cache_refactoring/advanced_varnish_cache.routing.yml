@@ -1,0 +1,48 @@
+advanced_varnish_cache.config_form:
+  path: '/admin/config/development/advanced_varnish_cache'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishCacheSettingsForm'
+    _title: 'Advanced Varnish cache'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'
+advanced_varnish_cache.esi_block:
+  path: '/advanced_varnish_cache/esi/block/{block_id}'
+  defaults:
+    _controller: '\Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheESIController::content'
+  requirements:
+    _permission: 'access content'
+advanced_varnish_cache.panels_esi_block:
+  path: '/advanced_varnish_cache/esi/block/{page}/{block_id}'
+  defaults:
+    _controller: '\Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCachePanelsESIController::content'
+  requirements:
+    _permission: 'access content'
+advanced_varnish_cache.purge_form:
+  path: '/admin/config/development/advanced_varnish_cache/purge'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishCachePurgeForm'
+    _title: 'Advanced Varnish cache'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'
+advanced_varnish_cache.deflate_form:
+  path: '/admin/config/development/advanced_varnish_cache/deflate'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishCacheDeflateForm'
+    _title: 'Advanced Varnish cache'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'
+advanced_varnish_cache.entities_form:
+  path: '/admin/config/development/advanced_varnish_cache/entities'
+  defaults:
+    _form: '\Drupal\advanced_varnish_cache\Form\AdvancedVarnishEntityCacheSettingsForm'
+    _title: 'Advanced Varnish cache entities'
+  options:
+    _admin_route: TRUE
+  requirements:
+    _permission: 'configure advanced varnish cache'

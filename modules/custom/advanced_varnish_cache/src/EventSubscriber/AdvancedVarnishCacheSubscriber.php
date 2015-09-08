@@ -94,6 +94,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
     // If there is no redirect set header with tags.
     if ($response instanceof CacheableResponseInterface) {
       $cacheable = $response->getCacheableMetadata();
+      kpr($cacheable);
       $tags = $cacheable->getCacheTags();
       $tags = array_merge($tags, $cache_settings['tags']);
       $response->headers->set($this->varnishHandler->getHeaderCacheTag(), implode(';', $tags) . ';');
