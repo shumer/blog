@@ -47,7 +47,7 @@ class AdvancedVarnishCacheController {
    *   Varnish handler object.
    *
    */
-  public function __construct(AdvancedVarnishCacheInterface $varnishHandler, ConfigFactoryInterface $configFactory) {
+  public function __construct(VarnishInterface $varnishHandler, ConfigFactoryInterface $configFactory) {
     $this->varnishHandler = $varnishHandler;
     $this->configuration = $configFactory->get('advanced_varnish_cache.settings');
     $this->uniqueId = $this->uniqueId();
@@ -105,14 +105,22 @@ class AdvancedVarnishCacheController {
    */
   protected function setResponseHeaders() {
 
-    $this->response->headers->set($this->varnishHandler->getHeaderCacheDebug(), '1');
-    $this->response->headers->set($this->varnishHandler->getHeaderRndpage(), $this->uniqueId());
+    $debug_mode = $this->configuration->get('general.debug');
+
+    if ($debug_mode) {
+      $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG, '1');
+    }
+
+    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->uniqueId());
 
     // $tags = ...
-    $this->response->headers->set($this->varnishHandler->getHeaderCacheTag(), implode(';', $tags) . ';');
+    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $tags) . ';');
 
     // $ttl = ...
-    $this->response->headers->set($this->varnishHandler->getXTTL(), $cache_settings['ttl']);
+    $this->response->headers->set(ADVANCED_VARNISH_CACHE_X_TTL, $cache_settings['ttl']);
+
+    // Set this response to public as it cacheable so no private directive
+    // should be present.
     $this->response->setPublic();
 
     // Set Etag to allow varnish deflate process.
