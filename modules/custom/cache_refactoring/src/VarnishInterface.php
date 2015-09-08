@@ -1,56 +1,13 @@
 <?php
 /**
  * @file
- * Contains \Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface.
+ * Contains \Drupal\advanced_varnish_cache\VarnishInterface.
  */
 
 namespace Drupal\advanced_varnish_cache;
 
 
-interface AdvancedVarnishCacheInterface
-{
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   */
-  public function getCookieBin();
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   */
-  public function getCookieInf();
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   */
-  public function getHeaderCacheDebug();
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   */
-  public function getHeaderCacheTag();
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   */
-  public function getHeaderRndpage();
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   */
-  public function getXTTL();
+interface VarnishInterface {
 
   /**
    * Execute varnish command and get response.
@@ -99,18 +56,4 @@ interface AdvancedVarnishCacheInterface
    */
   public function varnishTerminalRun($commands);
 
-
-  /**
-   * Define if caching enabled for this page and we can proceed with this request.
-   *
-   * @return bool.
-   */
-  public static function cachingEnabled();
-
-  /**
-   * Check if everything is ready for Varnish caching.
-   *
-   * @return bool
-   */
-  public static function  ready();
 }

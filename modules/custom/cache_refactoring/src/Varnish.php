@@ -1,34 +1,22 @@
 <?php
 /**
  * @file
- * Contains \Drupal\advanced_varnish_cache\AdvancedVarnishCache.
+ * Contains \Drupal\advanced_varnish_cache\Varnish.
  */
 
 namespace Drupal\advanced_varnish_cache;
 
-use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Logger\RfcLogLevel;
-use Drupal\Core\Url;
-use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 
 /**
  * Main class provide basic methods to work with Varnish.
  */
-class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
+class Varnish implements VarnishInterface {
 
-  // Set header name.
-  const ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG = 'X-TAG';
-  const ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE = 'X-RNDPAGE';
-  const ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG = 'X-CACHE-DEBUG';
-  const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'AVCEBIN';
-  const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
-  const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
-  const ADVANCED_VARNISH_CACHE_HEADER_ETAG = 'ETag';
-  const ADVANCED_VARNISH_CACHE_HEADER_DEFLATE_KEY = 'X-DEFLATE-KEY';
-  const ADVANCED_VARNISH_CACHE_PER_PAGE = 1;
-  const ADVANCED_VARNISH_CACHE_PER_ROLE = 2;
-  const ADVANCED_VARNISH_CACHE_PER_USER = 3;
-
+  /**
+   * @var $getStatusResults
+   *  Varnish terminal status.
+   */
   public static $getStatusResults;
 
   /**
@@ -233,192 +221,6 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
   }
 
   /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   *   Cookie bin name.
-   */
-  public function getCookieBin() {
-    return self::ADVANCED_VARNISH_CACHE_COOKIE_BIN;
-  }
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   *   Cookie Inf name.
-   */
-  public function getCookieInf() {
-    return self::ADVANCED_VARNISH_CACHE_COOKIE_INF;
-  }
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   *   Debug header name.
-   */
-  public function getHeaderCacheDebug() {
-    return self::ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG;
-  }
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   *   Cache tag name.
-   */
-  public function getHeaderCacheTag() {
-    return self::ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG;
-  }
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   *   Rnd page tag name.
-   */
-  public function getHeaderRndpage() {
-    return self::ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE;
-  }
-
-  /**
-   * Get varnish handler settings.
-   *
-   * @return mixed
-   *   Ttl tag name.
-   */
-  public function getXTTL() {
-    return self::ADVANCED_VARNISH_CACHE_X_TTL;
-  }
-
-  /**
-   * Define if caching enabled for this page and we can proceed with this request.
-   *
-   * @return bool.
-   *   Result of varnish enable state.
-   */
-  public static function cachingEnabled() {
-    $enabled = TRUE;
-    $config = \Drupal::config('advanced_varnish_cache.settings');
-
-    // Skip all if environment is not ready.
-    if (!self::ready()) {
-      $enabled = FALSE;
-    }
-
-    // Check if user is authenticated and we can use cache for such users.
-    $account = \Drupal::currentUser();
-    $authenticated = $account->isAuthenticated();
-    $cache_authenticated = $config->get('available.authenticated_users');
-    if ($authenticated && !$cache_authenticated) {
-      $enabled = FALSE;
-    }
-
-    // Check if user has permission to bypass varnish.
-    if ($account->hasPermission('bypass advanced varnish cache')) {
-      $enabled = FALSE;
-    }
-
-    // Check if we in admin theme and if we allow to cache this page.
-    $admin_theme_name = \Drupal::config('system.theme')->get('admin');
-    $current_theme = \Drupal::theme()->getActiveTheme()->getName();
-    $cache_admin_theme = $config->get('available.admin_theme');
-    if ($admin_theme_name == $current_theme && !$cache_admin_theme) {
-      $enabled = FALSE;
-    }
-
-    // Check if we on https and if we can to cache page.
-    $https_cache_enabled = $config->get('available.https');
-    $https = \Drupal::request()->isSecure();
-    if ($https && !$https_cache_enabled) {
-      $enabled = FALSE;
-    }
-
-    // Check if we acn be on disabled domain.
-    $config = explode(PHP_EOL, $config->get('available.exclude'));
-    foreach ($config as $line) {
-      $rule = explode('|', trim($line));
-      if (($rule[0] == '*') || ($_SERVER['SERVER_NAME'] == $rule[0])) {
-        if (($rule[1] == '*') || strpos($_SERVER['REQUEST_URI'], $rule[1]) === 0) {
-          $enabled = FALSE;
-          break;
-        }
-      }
-    }
-
-    return $enabled;
-  }
-
-  /**
-   * Check if everything is ready for Varnish caching.
-   *
-   * @return bool
-   */
-  public static function ready() {
-    return (basename($_SERVER['PHP_SELF']) == 'index.php' && php_sapi_name() != 'cli');
-  }
-
-  /**
-   * #pre_render callback for building a ESI block.
-   *
-   * Replace block content with ESI tag.
-   */
-  public function buildEsiBlock($build) {
-    $id = $build['#block']->id();
-
-    // Remove the block entity from the render array, to ensure that blocks
-    // can be rendered without the block config entity.
-    unset($build['#block']);
-
-    $cache_conf = $build['#configuration']['cache'];
-    $query['cachemode'] = $cache_conf['cachemode'];
-
-    $maxwait = 5000;
-    $path = '/advanced_varnish_cache/esi/block/' . $id;
-    $url = Url::fromUserInput($path, ['query' => $query]);
-    $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
-
-    $build['#content'] = $content;
-
-    // Set flag for varnish that we have ESI in the response.
-    $build['#attached']['http_header'] = [
-      ['X-DOESI', '1'],
-    ];
-
-    return $build;
-  }
-
-  /**
-   * #pre_render callback for building a ESI block.
-   *
-   * Replace block content with ESI tag.
-   */
-  public function buildPanelsEsiBlock($build) {
-    $route = \Drupal::request()->get(RouteObjectInterface::ROUTE_OBJECT);
-    $defaults= $route->getDefaults();
-
-    $page = $defaults['page_manager_page'];
-
-    $conf = $build['#configuration'];
-    $block_id = $conf['uuid'];
-
-    $maxwait = 5000;
-    $path = '/advanced_varnish_cache/esi/block/' . $page . '/' . $block_id;
-    $url = Url::fromUserInput($path);
-    $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
-
-    $build['#content'] = $content;
-
-    // Set flag for varnish that we have ESI in the response.
-    $build['#attached']['http_header'] = [
-        ['X-DOESI', '1'],
-    ];
-
-    return $build;
-  }
-
-  /**
    * Purge varnish cache for specific tag.
    *   *
    * @param $tag
@@ -502,55 +304,4 @@ class AdvancedVarnishCache implements AdvancedVarnishCacheInterface {
     return $res;
   }
 
-  /**
-   * Submit callback for panels page edit form
-   */
-  public function panelsSettingsSubmit($form, \Drupal\Core\Form\FormStateInterface $form_state) {
-    $build = $form_state->getBuildInfo();
-    $cache_settings = $form_state->getValue('cache_setting');
-
-    $page = $build['callback_object']->getPage();
-    $display_varaint = $build['callback_object']->getDisplayVariant();
-    $page_id = $page->id();
-    $type = $page->getEntityTypeId();
-    $display_varaint_id = $display_varaint->id();
-
-    $configFactory = \Drupal::service('config.factory');
-    $config = $configFactory->getEditable('advanced_varnish_cache.settings');
-
-    $key = implode('.', ['entities_settings', $type, $page_id, $display_varaint_id]);
-    $config->set($key, ['cache_settings' => $cache_settings]);
-    $config->save();
-  }
-
-  /**
-   * Get registered entities for which ttl could be configured.
-   *   per bundle basis.
-   *
-   * @return array
-   */
-  public function getVarnishCacheableEntities() {
-    $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
-    $return = [];
-    foreach ($plugins as $plugin) {
-      if ($plugin['per_bundle_settings']) {
-        $return[] = $plugin['entity_type'];
-      }
-    }
-    return $return;
-  }
-
-  /**
-   * Purge varnish cache for specific request, like '/sites/all/files/1.txt';
-   *
-   * @param $entity
-   *   EntityInterface
-   * @param $options
-   *   (array) options array
-   *
-   * @return \Drupal\advanced_varnish_cache\VarnishCacheableEntityInterface
-   */
-  public function getCacheKeyGenerator(EntityInterface $entity, array $options = []) {
-    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($entity->getEntityTypeId(), ['entity' => $entity, 'displayVariant' => $options['displayVariant']]);
-  }
 }
