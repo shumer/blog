@@ -54,7 +54,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
     // Checking Varnish settings and define if we should work further.
     if (!$this->varnishHandler->cachingEnabled()) {
-      return;
+      //return;
     }
 
     $params = \Drupal::routeMatch()->getParameters()->all();
@@ -93,7 +93,9 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
     // If there is no redirect set header with tags.
     if ($response instanceof CacheableResponseInterface) {
+$response->addCacheableDependency();
       $cacheable = $response->getCacheableMetadata();
+
       kpr($cacheable);
       $tags = $cacheable->getCacheTags();
       $tags = array_merge($tags, $cache_settings['tags']);

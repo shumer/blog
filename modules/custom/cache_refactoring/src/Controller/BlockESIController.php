@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCachePanelsESIController.
+ * Contains \Drupal\advanced_varnish_cache\Controller\BlockESIController.
  */
 
 namespace Drupal\advanced_varnish_cache\Controller;
@@ -13,6 +13,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 use Symfony\Component\Validator\Constraints\DateTime;
 
-class AdvancedVarnishCachePanelsESIController extends ControllerBase{
+class BlockESIController extends ControllerBase {
 
 }
