@@ -217,13 +217,13 @@ class AdvancedVarnishCacheController {
     $cookie_bin = hash('sha256', $cookie_inf . $noise) . '-' . hash('sha256', $noise);
 
     // Update cookies if did not match.
-    if (empty($_COOKIE[$this->varnishHandler->getCookieBin()]) || ($_COOKIE[$this->varnishHandler->getCookieBin()] != $cookie_bin)) {
+    if (empty($_COOKIE[ADVANCED_VARNISH_CACHE_COOKIE_BIN]) || ($_COOKIE[ADVANCED_VARNISH_CACHE_COOKIE_BIN] != $cookie_bin)) {
 
       // Update cookies.
       $params = session_get_cookie_params();
       $expire = $params['lifetime'] ? (REQUEST_TIME + $params['lifetime']) : 0;
-      setcookie($this->varnishHandler->getCookieBin(), $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
-      setcookie($this->varnishHandler->getCookieInf(), $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie(ADVANCED_VARNISH_CACHE_COOKIE_BIN, $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie(ADVANCED_VARNISH_CACHE_COOKIE_BIN, $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
 
       // Mark this page as required reload as ESI request
       // from this page will be sent with old cookie info.
