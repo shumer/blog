@@ -114,6 +114,11 @@ class AdvancedVarnishCacheController {
       $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG, '1');
     }
 
+    $grace = $this->configuration->get('general.grace');
+    if ($grace) {
+      $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_GRACE, $grace);
+    }
+
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->uniqueId());
 
     // $tags = ...

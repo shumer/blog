@@ -12,9 +12,10 @@ sub vcl_fetch {
     if (beresp.http.X-DOESI) {
       set beresp.do_esi = true;
     }
-    
-    /** Set desired TTL */
+
+    /** Set desired TTL and Grace. */
     set beresp.ttl = std.duration(beresp.http.X-TTL + "s", 0s);
+    set beresp.grace = std.duration(beresp.http.X-GRACE + "s", 0s);
 
     /** Response contains Cookie set, so not caching this request **/
     if (beresp.http.Set-Cookie) {
@@ -42,6 +43,9 @@ sub vcl_fetch {
 }
 
 sub vcl_recv {
+
+    /** This is maximum allowed graced, actual grace set in vcl_fetch. */
+    set req.grace = 1h;
 
     /** Make backend aware of varnish. */
     set req.http.X-AVC = "1";

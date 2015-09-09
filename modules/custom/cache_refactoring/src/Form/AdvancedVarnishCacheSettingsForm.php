@@ -127,6 +127,23 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#description' => t('This works as private key, you can change it at any time.'),
     );
 
+    $options = array(10, 30, 60, 120, 300, 600, 900, 1800, 3600);
+    $options = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($options, $options));
+    $options[0] = t('No Grace (bad idea)');
+    $grace_hint = t("Grace in the scope of Varnish means delivering otherwise
+      expired objects when circumstances call for it.
+      This can happen because the backend-director selected is down or a
+      different thread has already made a request to the backend
+      that's not yet finished."
+    );
+    $form['advanced_varnish_cache']['general']['grace'] = array(
+      '#title' => t('Grace'),
+      '#type' => 'select',
+      '#options' => $options,
+      '#description' => $grace_hint,
+      '#default_value' => $config->get('general.grace'),
+    );
+
     // Cache time for Varnish.
     $period = array(0, 60, 180, 300, 600, 900, 1800,
       2700, 3600, 10800, 21600, 32400, 43200, 86400,
