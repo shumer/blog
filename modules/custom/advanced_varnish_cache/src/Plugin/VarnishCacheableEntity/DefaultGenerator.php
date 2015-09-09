@@ -5,7 +5,7 @@
  * Contains \Drupal\advanced_varnish_cache\Plugin\VarnishCacheableEntity\Page.
  */
 
-namespace Drupal\advanced_varnish_cache\Plugin\DefaultGenerator;
+namespace Drupal\advanced_varnish_cache\Plugin\VarnishCacheableEntity;
 
 use Drupal\advanced_varnish_cache\VarnishCacheableEntityBase;
 
