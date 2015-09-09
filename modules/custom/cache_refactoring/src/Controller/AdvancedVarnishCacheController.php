@@ -97,16 +97,16 @@ class AdvancedVarnishCacheController {
     }
 
     // Get affected entities.
+    $params = \Drupal::routeMatch()->getParameters()->all();
+    $entities = array_filter($params, function($param) {
+      return ($param instanceof EntityInterface);
+    });
+    $entities = $this->response->entity;
+
     // Get entity specific settings
-    // $cache_settings = $this->getCacheSettings($entities);
-    //
-    // Get Cacheable metadata
-    // Merge metadata and settings tags
-    // Choose ttl.
+    $cache_settings = $this->getCacheSettings($entities);
 
-    // $this->setResponseHeaders();
-
-
+    $this->setResponseHeaders();
   }
 
   /**
@@ -284,18 +284,20 @@ class AdvancedVarnishCacheController {
   public function getCacheSettings($entities) {
 
     $cacheable = $this->response->getCacheableMetadata();
+    $cache_settings['tags'] = $cacheable->getCacheTags();
 
-    $cache_settings = [
-      'ttl' => '',
-      'tags' => [],
-    ];
+    $cache_settings['ttl'] = '';
     foreach ($entities as $entity) {
-      $cache_key_generator = $this->varnishHandler->getCacheKeyGenerator($entity);
+      $cache_key_generator = $this->getCacheKeyGenerator($entity);
       $key = $cache_key_generator->generateSettingsKey();
       $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $this->configuration->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
       if ($this->configuration->get($key)['cache_settings']['purge_id']) {
         $cache_settings['tags'][] = $this->configuration->get($key)['cache_settings']['purge_id'];
       }
+    }
+
+    if (empty($cache_settings['ttl'])) {
+      $cache_settings['ttl'] = $cacheable->getCacheMaxAge();
     }
 
     // If no ttl set check for custom rules settings.
@@ -323,6 +325,25 @@ class AdvancedVarnishCacheController {
     $cache_settings['ttl'] = $cache_settings['ttl'] ?: $this->configuration->get('general.page_cache_maximum_age');
 
     return $cache_settings;
+  }
+
+  /**
+   * Get varnish cache settings key generator instance.
+   *
+   * @param $entity
+   *   EntityInterface
+   * @param $options
+   *   (array) options array
+   *
+   * @return \Drupal\advanced_varnish_cache\VarnishCacheableEntityInterface
+   */
+  public function getCacheKeyGenerator(EntityInterface $entity, array $options = []) {
+    $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
+    $type = $entity->getEntityTypeId();
+    if (!in_array($type, $plugins)) {
+      $type = 'default';
+    }
+    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($type, ['entity' => $entity, 'displayVariant' => $options['displayVariant']]);
   }
 
 }
