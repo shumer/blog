@@ -98,7 +98,7 @@ class AdvancedVarnishCacheController {
       return;
     }
 
-    $this->cookie_update();
+    $this->cookieUpdate();
 
     // Reload page with updated cookies if needed.
     $needs_update = isset($this->needsReload) ? $this->needsReload : FALSE;
