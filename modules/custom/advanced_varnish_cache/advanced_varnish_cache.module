@@ -4,8 +4,21 @@
  * Module hooks.
  */
 
-use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 use Drupal\Core\Logger\RfcLogLevel;
+
+// Set header name.
+const ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG = 'X-TAG';
+const ADVANCED_VARNISH_CACHE_HEADER_GRACE = 'X-GRACE';
+const ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE = 'X-RNDPAGE';
+const ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG = 'X-CACHE-DEBUG';
+const ADVANCED_VARNISH_CACHE_COOKIE_BIN = 'AVCEBIN';
+const ADVANCED_VARNISH_CACHE_COOKIE_INF = 'AVCEINF';
+const ADVANCED_VARNISH_CACHE_X_TTL = 'X-TTL';
+const ADVANCED_VARNISH_CACHE_HEADER_ETAG = 'ETag';
+const ADVANCED_VARNISH_CACHE_HEADER_DEFLATE_KEY = 'X-DEFLATE-KEY';
+const ADVANCED_VARNISH_CACHE_PER_PAGE = 1;
+const ADVANCED_VARNISH_CACHE_PER_ROLE = 2;
+const ADVANCED_VARNISH_CACHE_PER_USER = 3;
 
 /**
  * Implements hook_form_FORM_ID_alter().
@@ -32,9 +45,9 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
     );
 
     $options = array(
-      AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_PAGE => t('Shared'),
-      AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE => t('Per User Roles'),
-      AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_USER => t('Per User ID'),
+      ADVANCED_VARNISH_CACHE_PER_PAGE => t('Shared'),
+      ADVANCED_VARNISH_CACHE_PER_ROLE => t('Per User Roles'),
+      ADVANCED_VARNISH_CACHE_PER_USER => t('Per User ID'),
     );
 
     $form['settings']['cache']['cachemode'] = array(
@@ -42,7 +55,7 @@ function advanced_varnish_cache_form_block_form_alter(&$form, \Drupal\Core\Form\
       '#description' => t('Choosing those will increase cache relevance, but reduce performance.'),
       '#type' => 'select',
       '#options' => $options,
-      '#default_value' =>  $settings['cache']['cachemode'] ?: AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE,
+      '#default_value' =>  $settings['cache']['cachemode'] ?: ADVANCED_VARNISH_CACHE_PER_ROLE,
     );
   }
 }
@@ -56,8 +69,8 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
 
   // Check if ESI for this block enabled and should we
   // replace block content with ESI tag.
-  $varnish = new AdvancedVarnishCache();
-  if (!$varnish->cachingEnabled() || isset($block->_esi)) {
+  $controller = Drupal::service('advanced_varnish_cache.controller');
+  if (!$controller->cachingEnabled() || isset($block->_esi)) {
     return;
   }
 
@@ -71,7 +84,7 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
   // If we need to replace block with ESI we
   // change #pre_render callback to handle this.
   $build['#theme'] = 'advanced_varnish_cache_esi_block';
-  $build['#pre_render'] = [[$varnish, 'buildEsiBlock']];
+  $build['#pre_render'] = '_advanced_varnish_cache_build_esi_block';
 
   // Prevent Drupal from caching ESI block.
   $build['#cache']['max-age'] = 0;
@@ -127,9 +140,9 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_block_for
   );
 
   $options = array(
-    AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_PAGE => t('Shared'),
-    AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE => t('Per User Roles'),
-    AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_USER => t('Per User ID'),
+    ADVANCED_VARNISH_CACHE_PER_PAGE => t('Shared'),
+    ADVANCED_VARNISH_CACHE_PER_ROLE => t('Per User Roles'),
+    ADVANCED_VARNISH_CACHE_PER_USER => t('Per User ID'),
   );
 
   $form['settings']['cache']['cachemode'] = array(
@@ -137,7 +150,7 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_block_for
     '#description' => t('Choosing those will increase cache relevance, but reduce performance.'),
     '#type' => 'select',
     '#options' => $options,
-    '#default_value' =>  $settings['cache']['cachemode'] ?: AdvancedVarnishCache::ADVANCED_VARNISH_CACHE_PER_ROLE,
+    '#default_value' =>  $settings['cache']['cachemode'] ?: ADVANCED_VARNISH_CACHE_PER_ROLE,
   );
 
 }
@@ -156,7 +169,7 @@ function advanced_varnish_cache_layout_alter(&$vars) {
  */
 function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
   $build = $form_state->getBuildInfo();
-  $varnish = \Drupal::service('advanced_varnish_cache_handler');
+  $varnish = \Drupal::service('advanced_varnish_cache.handler');
 
   $page = $build['callback_object']->getPage();
   $display_varaint = $build['callback_object']->getDisplayVariant();
@@ -200,7 +213,32 @@ function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alte
     '#title' => t('Purge this page cache now'),
   ];
 
-  $form['#submit'][] = [\Drupal::service('advanced_varnish_cache_handler'), 'panelsSettingsSubmit'];
+  $form['#submit'][] = '_advanced_varnish_cache_panels_settings_submit';
+}
+
+/**
+ * Submit callback for panels page edit form
+ */
+function _advanced_varnish_cache_panels_settings_submit($form, \Drupal\Core\Form\FormStateInterface $form_state) {
+  $build = $form_state->getBuildInfo();
+  $cache_settings = $form_state->getValue('cache_setting');
+
+  if ($cache_settings['purge_now']) {
+    $this->purgeTags($cache_settings['purge_id']);
+  }
+
+  $page = $build['callback_object']->getPage();
+  $display_varaint = $build['callback_object']->getDisplayVariant();
+  $page_id = $page->id();
+  $type = $page->getEntityTypeId();
+  $display_varaint_id = $display_varaint->id();
+
+  $configFactory = \Drupal::service('config.factory');
+  $config = $configFactory->getEditable('advanced_varnish_cache.settings');
+
+  $key = implode('.', ['entities_settings', $type, $page_id, $display_varaint_id]);
+  $config->set($key, ['cache_settings' => $cache_settings]);
+  $config->save();
 }
 
 /**
@@ -210,13 +248,13 @@ function advanced_varnish_cache_cron() {
   $account = \Drupal::currentUser();
 
   // Prepare variables.
-  $varnish = new AdvancedVarnishCache();
+  $varnish = Drupal::service('advanced_varnish_cache.handler');
   $deflate_conf = \Drupal::config('advanced_varnish_cache.deflate');
   $deflate_info = $deflate_conf->get('info');
   $deflate_ids = $deflate_conf->get('ids');
   $deflate_key = $deflate_info['key'];
-  $deflate_value_header = $varnish::ADVANCED_VARNISH_CACHE_HEADER_ETAG;
-  $deflate_key_header = $varnish::ADVANCED_VARNISH_CACHE_HEADER_DEFLATE_KEY;
+  $deflate_value_header = ADVANCED_VARNISH_CACHE_HEADER_ETAG;
+  $deflate_key_header = ADVANCED_VARNISH_CACHE_HEADER_DEFLATE_KEY;
 
   // If we have something to deflate.
   if (!empty($deflate_ids) && !empty($deflate_key)) {
@@ -263,4 +301,34 @@ function advanced_varnish_cache_cron() {
     }
 
   }
+}
+
+/**
+ * #pre_render callback for building a ESI block.
+ *
+ * Replace block content with ESI tag.
+ */
+function _advanced_varnish_cache_build_esi_block($build) {
+  $id = $build['#block']->id();
+
+  // Remove the block entity from the render array, to ensure that blocks
+  // can be rendered without the block config entity.
+  unset($build['#block']);
+
+  $cache_conf = $build['#configuration']['cache'];
+  $query['cachemode'] = $cache_conf['cachemode'];
+
+  $maxwait = 5000;
+  $path = '/advanced_varnish_cache/esi/block/' . $id;
+  $url = Url::fromUserInput($path, ['query' => $query]);
+  $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
+
+  $build['#content'] = $content;
+
+  // Set flag for varnish that we have ESI in the response.
+  $build['#attached']['http_header'] = [
+    ['X-DOESI', '1'],
+  ];
+
+  return $build;
 }

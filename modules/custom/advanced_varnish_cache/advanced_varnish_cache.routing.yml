@@ -10,13 +10,13 @@ advanced_varnish_cache.config_form:
 advanced_varnish_cache.esi_block:
   path: '/advanced_varnish_cache/esi/block/{block_id}'
   defaults:
-    _controller: '\Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheESIController::content'
+    _controller: '\Drupal\advanced_varnish_cache\Controller\BlockESIController::content'
   requirements:
     _permission: 'access content'
 advanced_varnish_cache.panels_esi_block:
   path: '/advanced_varnish_cache/esi/block/{page}/{block_id}'
   defaults:
-    _controller: '\Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCachePanelsESIController::content'
+    _controller: '\Drupal\advanced_varnish_cache\Controller\PanelsESIController::content'
   requirements:
     _permission: 'access content'
 advanced_varnish_cache.purge_form:

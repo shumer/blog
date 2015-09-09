@@ -1,23 +1,35 @@
 services:
-  advanced_varnish_cache_event_subscriber:
-    class: Drupal\advanced_varnish_cache\EventSubscriber\AdvancedVarnishCacheSubscriber
-    properties:
-      varnishHandler: "@advanced_varnish_cache_handler"
+  advanced_varnish_cache.event_subscriber:
+    class: Drupal\advanced_varnish_cache\EventSubscriber\CacheableResponseSubscriber
+    arguments: ['@advanced_varnish_cache.controller']
     tags:
       - {name: event_subscriber}
+
   cache_tags.invalidator.advanced_varnish_cache:
     class: Drupal\advanced_varnish_cache\Cache\AdvancedVarnishCacheTagsInvalidator
     properties:
-      varnishHandler: "@advanced_varnish_cache_handler"
+      varnishHandler: "@advanced_varnish_cache.handler"
     tags:
       - { name: cache_tags_invalidator}
-  advanced_varnish_cache_handler:
-    class: Drupal\advanced_varnish_cache\AdvancedVarnishCache
+
+  advanced_varnish_cache.configurator:
+    class: Drupal\advanced_varnish_cache\VarnishConfigurator
+    arguments: ['@config.factory', 'advanced_varnish_cache.settings']
+
+  advanced_varnish_cache.handler:
+    class: Drupal\advanced_varnish_cache\Varnish
+    arguments: ['@logger.channel.default', '@current_user', '@advanced_varnish_cache.configurator']
+
+  advanced_varnish_cache.controller:
+    class: Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheController
+    arguments: ['@advanced_varnish_cache.handler', '@advanced_varnish_cache.configurator', '@request_stack', '@module_handler']
+
   advanced_varnish_cache.page_cache_request_policy.deny_page_cache:
     class: Drupal\advanced_varnish_cache\PageCache\DenyPageCache
     arguments: ['@current_route_match']
     tags:
       - { name: page_cache_response_policy }
+
   plugin.manager.varnish_cacheable_entity:
     class: Drupal\advanced_varnish_cache\VarnishCacheableEntityManager
     arguments: ['@container.namespaces', '@cache.default', '@module_handler']

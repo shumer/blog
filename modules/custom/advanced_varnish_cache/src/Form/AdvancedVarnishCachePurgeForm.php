@@ -8,6 +8,7 @@
 namespace Drupal\advanced_varnish_cache\Form;
 
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
+use Drupal\advanced_varnish_cache\VarnishInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -36,7 +37,7 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
    * @param \Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface $varnish_handler
    *   The factory for configuration objects.
    */
-  public function __construct(AdvancedVarnishCacheInterface $varnish_handler) {
+  public function __construct(VarnishInterface $varnish_handler) {
     $this->varnishHandler = $varnish_handler;
   }
 
@@ -45,7 +46,7 @@ class AdvancedVarnishCachePurgeForm extends FormBase {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('advanced_varnish_cache_handler')
+      $container->get('advanced_varnish_cache.handler')
     );
   }
 

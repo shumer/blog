@@ -8,6 +8,7 @@
 namespace Drupal\advanced_varnish_cache\Form;
 
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
+use Drupal\advanced_varnish_cache\VarnishInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\Entity\ConfigEntityStorage;
 use Drupal\Core\Form\FormStateInterface;
@@ -39,7 +40,7 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler, DateFormatter $date_formatter) {
+  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, VarnishInterface $varnish_handler, DateFormatter $date_formatter) {
     parent::__construct($config_factory);
     $this->state = $state;
     $this->varnishHandler = $varnish_handler;
@@ -53,7 +54,7 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       $container->get('state'),
-      $container->get('advanced_varnish_cache_handler'),
+      $container->get('advanced_varnish_cache.handler'),
       $container->get('date.formatter')
     );
   }
@@ -82,7 +83,7 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
       '#tree' => TRUE,
     ];
 
-    $entity_types = $this->varnishHandler->getVarnishCacheableEntities();
+    $entity_types = $this->getVarnishCacheableEntities();
 
     foreach ($entity_types as $type) {
 
@@ -128,6 +129,23 @@ class AdvancedVarnishEntityCacheSettingsForm extends ConfigFormBase {
       ->save();
 
     parent::submitForm($form, $form_state);
+  }
+
+  /**
+   * Get registered entities for which ttl could be configured.
+   *   per bundle basis.
+   *
+   * @return array
+   */
+  public function getVarnishCacheableEntities() {
+    $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
+    $return = [];
+    foreach ($plugins as $plugin) {
+      if ($plugin['per_bundle_settings']) {
+        $return[] = $plugin['entity_type'];
+      }
+    }
+    return $return;
   }
 
 }

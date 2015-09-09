@@ -8,6 +8,7 @@
 namespace Drupal\advanced_varnish_cache\Form;
 
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
+use Drupal\advanced_varnish_cache\VarnishInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\State\StateInterface;
@@ -36,7 +37,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler) {
+  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, VarnishInterface $varnish_handler) {
     parent::__construct($config_factory);
     $this->state = $state;
     $this->varnishHandler = $varnish_handler;
@@ -50,7 +51,7 @@ class AdvancedVarnishCacheDeflateForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       $container->get('state'),
-      $container->get('advanced_varnish_cache_handler')
+      $container->get('advanced_varnish_cache.handler')
     );
   }
 

@@ -9,7 +9,6 @@ namespace Drupal\advanced_varnish_cache\Plugin\Layout;
 
 use Drupal\layout_plugin\Plugin\Layout\LayoutBase;
 use \Drupal\Core\Render\Element;
-use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
 
 /**
  * Cacheable layout plugin..
@@ -21,7 +20,7 @@ class CacheableLayout extends LayoutBase {
    */
   public function build(array $regions) {
 
-    $varnish = new AdvancedVarnishCache();
+    $varnish = \Drupal::service('advanced_varnish_cache.handler');
 
     foreach (Element::children($regions) as $region_id) {
       $region = &$regions[$region_id];

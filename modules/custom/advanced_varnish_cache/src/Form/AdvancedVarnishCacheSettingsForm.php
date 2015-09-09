@@ -8,6 +8,7 @@
 namespace Drupal\advanced_varnish_cache\Form;
 
 use Drupal\advanced_varnish_cache\AdvancedVarnishCacheInterface;
+use Drupal\advanced_varnish_cache\VarnishInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\State\StateInterface;
@@ -38,7 +39,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
    * @param \Drupal\Core\State\StateInterface $state
    *   The state key value store.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, AdvancedVarnishCacheInterface $varnish_handler, DateFormatter $date_formatter) {
+  public function __construct(ConfigFactoryInterface $config_factory, StateInterface $state, VarnishInterface $varnish_handler, DateFormatter $date_formatter) {
     parent::__construct($config_factory);
     $this->state = $state;
     $this->varnishHandler = $varnish_handler;
@@ -52,7 +53,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       $container->get('state'),
-      $container->get('advanced_varnish_cache_handler'),
+      $container->get('advanced_varnish_cache.handler'),
       $container->get('date.formatter')
     );
   }
@@ -125,6 +126,23 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#title' => t('Hashing Noise'),
       '#default_value' => $config->get('general.noise'),
       '#description' => t('This works as private key, you can change it at any time.'),
+    );
+
+    $options = array(10, 30, 60, 120, 300, 600, 900, 1800, 3600);
+    $options = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($options, $options));
+    $options[0] = t('No Grace (bad idea)');
+    $grace_hint = t("Grace in the scope of Varnish means delivering otherwise
+      expired objects when circumstances call for it.
+      This can happen because the backend-director selected is down or a
+      different thread has already made a request to the backend
+      that's not yet finished."
+    );
+    $form['advanced_varnish_cache']['general']['grace'] = array(
+      '#title' => t('Grace'),
+      '#type' => 'select',
+      '#options' => $options,
+      '#description' => $grace_hint,
+      '#default_value' => $config->get('general.grace'),
     );
 
     // Cache time for Varnish.

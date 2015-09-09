@@ -1,5 +1,0 @@
-advanced_varnish_cache.config_form:
-  title: 'Advanced Varnish cache'
-  route_name: advanced_varnish_cache.config_form
-  parent: system.admin_config_development
-  description: 'Manage Advanced Varnish cache configuration'

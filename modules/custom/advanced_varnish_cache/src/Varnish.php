@@ -7,7 +7,8 @@
 namespace Drupal\advanced_varnish_cache;
 
 use Drupal\Core\Logger\RfcLogLevel;
-use Drupal\user\UserInterface;
+use Drupal\Core\Session\AccountProxyInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Main class provide basic methods to work with Varnish.
@@ -28,7 +29,7 @@ class Varnish implements VarnishInterface {
 
   /**
    * @var $account
-   *   Instance of UserInterface.
+   *   Instance of AccountProxyInterface.
    */
   protected $account;
 
@@ -41,15 +42,14 @@ class Varnish implements VarnishInterface {
   /**
    * Class constructor.
    *
-   * @param LoggerChannelFactoryInterface $logger
-   * @param UserInterface $account
-   * @param ConfigFactoryInterface $configuration
-   * @param string $config_name
+   * @param LoggerInterface $logger
+   * @param AccountProxyInterface $account
+   * @param VarnishConfiguratorInterface $configuration
    */
-  public function __construct(LoggerChannelFactoryInterface $logger, UserInterface $account, ConfigFactoryInterface $config_factory, $config_name) {
+  public function __construct(LoggerInterface $logger, AccountProxyInterface $account, VarnishConfiguratorInterface $configuration) {
     $this->logger = $logger;
     $this->account = $account;
-    $this->configuration = $config_factory->get($config_name);
+    $this->configuration = $configuration;
   }
 
   /**
@@ -81,7 +81,7 @@ class Varnish implements VarnishInterface {
     socket_write($client, "$command\n");
     $status = $this->varnishReadSocket($client);
     if ($status['code'] != 200) {
-      $this->logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Received status code @code running %command. Full response text: @error', array(
+      $this->logger->log(RfcLogLevel::ERROR, 'Received status code @code running %command. Full response text: @error', array(
           '@code' => $status['code'],
           '%command' => $command,
           '@error' => $status['msg'],
@@ -118,7 +118,7 @@ class Varnish implements VarnishInterface {
         return $this->varnishReadSocket($client, $retry - 1);
       }
       else {
-        $this->logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Socket error: @error', array('@error' => socket_strerror($error)));
+        $this->logger->log(RfcLogLevel::ERROR, 'Socket error: @error', array('@error' => socket_strerror($error)));
         return array(
           'code' => $error,
           'msg' => socket_strerror($error),
@@ -164,7 +164,7 @@ class Varnish implements VarnishInterface {
       socket_set_option($client, SOL_SOCKET, SO_SNDTIMEO, array('sec' => $seconds, 'usec' => $microseconds));
       socket_set_option($client, SOL_SOCKET, SO_RCVTIMEO, array('sec' => $seconds, 'usec' => $microseconds));
       if (@!socket_connect($client, $server, $port)) {
-        $this->logger('advanced_varnish_cache')->log(RfcLogLevel::ERROR, 'Unable to connect to server socket @server:@port: %error', array(
+        $this->logger->log(RfcLogLevel::ERROR, 'Unable to connect to server socket @server:@port: %error', array(
             '@server' => $server,
             '@port' => $port,
             '%error' => socket_strerror(socket_last_error($client)),
@@ -193,7 +193,7 @@ class Varnish implements VarnishInterface {
           socket_write($client, "auth $key\n");
           $status = $this->varnishReadSocket($client);
           if ($status['code'] != 200) {
-            $this->logger('advanced_varnish_cache')->error('Authentication to server failed!');
+            $this->logger->error('Authentication to server failed!');
           }
         }
       }
@@ -216,6 +216,7 @@ class Varnish implements VarnishInterface {
     // Use a static-cache so this can be called repeatedly without incurring
     // socket-connects for each call.
     $results = (isset(self::$getStatusResults)) ? self::$getStatusResults : NULL;
+
     if (is_null($results)) {
       $results = array();
       $status = $this->varnishTerminalRun(array('status'));
@@ -225,6 +226,7 @@ class Varnish implements VarnishInterface {
         $results[$terminal] = ($stat['status']['code'] == 200);
       }
     }
+
     return $results;
   }
 
@@ -242,8 +244,8 @@ class Varnish implements VarnishInterface {
    *    Setting value by key.
    */
   public function getSetting($block, $setting, $default = NULL) {
-    $setting = $block . '.' . $setting;
 
+    $setting = $block . '.' . $setting;
     $config = $this->configuration->get($setting);
     $result = !empty($config)
       ? $config
@@ -283,7 +285,8 @@ class Varnish implements VarnishInterface {
 
     // Log action.
     if ($this->getSetting('general', 'logging', FALSE)) {
-      $this->logger('advanced_varnish_cache')->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', [
+
+      $this->logger->log(RfcLogLevel::DEBUG, 'u=@uid purge !command_line', [
           '@uid' => $this->account->id(),
           '!command_line' => $command_line,
         ]
