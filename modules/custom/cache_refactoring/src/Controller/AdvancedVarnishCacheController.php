@@ -6,6 +6,8 @@
  */
 
 namespace Drupal\advanced_varnish_cache\Controller;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Main Varnish controller.
@@ -47,10 +49,11 @@ class AdvancedVarnishCacheController {
    *   Varnish handler object.
    *
    */
-  public function __construct(VarnishInterface $varnishHandler, ConfigFactoryInterface $configFactory) {
+  public function __construct(VarnishInterface $varnishHandler, ConfigFactoryInterface $configFactory, RequestStack $request) {
     $this->varnishHandler = $varnishHandler;
     $this->configuration = $configFactory->get('advanced_varnish_cache.settings');
     $this->uniqueId = $this->uniqueId();
+    $this->request = $request->getCurrentRequest();
   }
 
   /**
@@ -62,8 +65,8 @@ class AdvancedVarnishCacheController {
    */
   public function handleResponseEvent(FilterResponseEvent $event) {
 
-    // $this->request = ...
-    // $this->response = ...
+
+    $this->response = $event->getResponse();
 
     if (!($this->response instanceof CacheableResponseInterface)) {
       return;
@@ -79,7 +82,7 @@ class AdvancedVarnishCacheController {
       return;
     }
 
-    // $this->cookie_update;
+    $this->cookie_update();
 
     // Reload page with updated cookies if needed.
     $needs_update = isset($this->needsReload) ? $this->needsReload : FALSE;
