@@ -43,17 +43,23 @@ class AdvancedVarnishCacheController {
   protected $request;
 
   /**
+   * @var ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
    * Class constructor.
    *
    * @param AdvancedVarnishCacheInterface $varnishHandler
    *   Varnish handler object.
    *
    */
-  public function __construct(VarnishInterface $varnishHandler, ConfigFactoryInterface $configFactory, RequestStack $request) {
+  public function __construct(VarnishInterface $varnishHandler, ConfigFactoryInterface $configFactory, RequestStack $request, ModuleHandlerInterface $module_handler) {
     $this->varnishHandler = $varnishHandler;
     $this->configuration = $configFactory->get('advanced_varnish_cache.settings');
     $this->uniqueId = $this->uniqueId();
     $this->request = $request->getCurrentRequest();
+    $this->moduleHandler = $module_handler;
   }
 
   /**
@@ -115,9 +121,19 @@ class AdvancedVarnishCacheController {
     }
 
     $grace = $this->configuration->get('general.grace');
-    if ($grace) {
-      $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_GRACE, $grace);
-    }
+
+
+    // Allow other modules to alter/react on this page's TTL settings.
+    $info = [
+      'ttl' => $ttl,
+      'grace' => $grace,
+      'cache_tags' => $cache_tags,
+      'category' => $category,
+    ];
+    // Allow other modules to interfere.
+    $this->moduleHandler()->alter('advanced_varnish_cache_page_ttl', $info);
+
+    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_GRACE, $info['grace']);
 
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->uniqueId());
 
