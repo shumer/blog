@@ -21,7 +21,7 @@ class PanelsESIController extends ControllerBase {
    */
   public function content($page, $block_id){
 
-    $response = new ESIResponse();
+    $response = new CacheableResponse();
 
     $conf = \Drupal::config("page_manager.page.$page")->get('display_variants');
 
@@ -37,7 +37,9 @@ class PanelsESIController extends ControllerBase {
 
       // Mark this block and response as rendered through ESI request.
       $block->_esi = 1;
-      $response->setEntity($block);
+      $response->_esi = 1;
+
+      // Add block to dependency to respect block tags and ttl.
       $response->addCacheableDependency($block);
     }
 
