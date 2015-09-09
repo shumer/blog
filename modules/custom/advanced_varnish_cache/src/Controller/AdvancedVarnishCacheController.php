@@ -125,7 +125,7 @@ class AdvancedVarnishCacheController {
     $cache_settings = $this->getCacheSettings($entities);
 
     // Allow other modules to interfere.
-    $this->moduleHandler()->alter('advanced_varnish_cache_page_ttl', $cache_settings);
+    $this->moduleHandler->alter('advanced_varnish_cache_page_ttl', $cache_settings);
 
     $this->setResponseHeaders($cache_settings);
   }
