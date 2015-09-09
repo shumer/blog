@@ -54,7 +54,7 @@ class AdvancedVarnishCacheSubscriber implements EventSubscriberInterface {
 
     // Checking Varnish settings and define if we should work further.
     if (!$this->varnishHandler->cachingEnabled()) {
-      //return;
+      return;
     }
 
     $params = \Drupal::routeMatch()->getParameters()->all();

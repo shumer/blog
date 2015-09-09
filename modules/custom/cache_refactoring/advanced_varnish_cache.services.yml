@@ -13,7 +13,7 @@ services:
       - { name: cache_tags_invalidator}
   advanced_varnish_cache_handler:
     class: Drupal\advanced_varnish_cache\Varnish
-    arguments: ['@logger.factory', '@current_user']
+    arguments: ['@logger.factory', '@current_user', '@config.factory', 'advanced_varnish_cache.settings']
   advanced_varnish_cache.page_cache_request_policy.deny_page_cache:
     class: Drupal\advanced_varnish_cache\PageCache\DenyPageCache
     arguments: ['@current_route_match']

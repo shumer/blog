@@ -43,12 +43,13 @@ class Varnish implements VarnishInterface {
    *
    * @param LoggerChannelFactoryInterface $logger
    * @param UserInterface $account
-   * @param ImmutableConfig $configuration
+   * @param ConfigFactoryInterface $configuration
+   * @param string $config_name
    */
-  public function __construct(LoggerChannelFactoryInterface $logger, UserInterface $account, $configuration) {
+  public function __construct(LoggerChannelFactoryInterface $logger, UserInterface $account, ConfigFactoryInterface $config_factory, $config_name) {
     $this->logger = $logger;
     $this->account = $account;
-    $this->configuration = $configuration;
+    $this->configuration =  $config_factory->get($config_name);
   }
 
   /**
