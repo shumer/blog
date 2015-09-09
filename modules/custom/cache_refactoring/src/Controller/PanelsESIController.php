@@ -37,9 +37,8 @@ class PanelsESIController extends ControllerBase {
 
       // Mark this block and response as rendered through ESI request.
       $block->_esi = 1;
-
       $response->setEntity($block);
-
+      $response->addCacheableDependency($block);
     }
 
     $response->setContent($content);
