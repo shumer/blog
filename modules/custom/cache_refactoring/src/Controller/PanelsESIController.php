@@ -7,11 +7,9 @@
 
 namespace Drupal\advanced_varnish_cache\Controller;
 
-use Drupal\Core\Cache\CacheableResponse;
+use Drupal\advanced_varnish_cache\Response\ESIResponse;
 use Drupal\Core\Controller\ControllerBase;
-use Symfony\Component\HttpFoundation\Response;
-use Drupal\advanced_varnish_cache\AdvancedVarnishCache;
-use Symfony\Component\Validator\Constraints\DateTime;
+
 
 class PanelsESIController extends ControllerBase {
 
@@ -20,7 +18,7 @@ class PanelsESIController extends ControllerBase {
    */
   public function content($page, $block_id){
 
-    $response = new CacheableResponse();
+    $response = new ESIResponse();
 
     $conf = \Drupal::config("page_manager.page.$page")->get('display_variants');
 
@@ -36,7 +34,8 @@ class PanelsESIController extends ControllerBase {
 
       // Mark this block and response as rendered through ESI request.
       $block->_esi = 1;
-      $response->_esi = 1;
+
+      $response->setEntity($block);
 
       // Add block to dependency to respect block tags and ttl.
       $response->addCacheableDependency($block);
