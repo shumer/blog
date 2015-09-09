@@ -7,9 +7,9 @@
 
 namespace Drupal\advanced_varnish_cache\Controller;
 use Drupal\advanced_varnish_cache\Response\ESIResponse;
+use Drupal\advanced_varnish_cache\VarnishConfiguratorInterface;
 use Drupal\advanced_varnish_cache\VarnishInterface;
 use Drupal\Core\Cache\CacheableResponseInterface;
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\StreamWrapper\PrivateStream;
@@ -58,15 +58,20 @@ class AdvancedVarnishCacheController {
   protected $moduleHandler;
 
   /**
+   * @var VarnishConfiguratorInterface
+   */
+  protected $configuration;
+
+  /**
    * Class constructor.
    *
    * @param VarnishInterface $varnishHandler
    *   Varnish handler object.
    *
    */
-  public function __construct(VarnishInterface $varnishHandler, ConfigFactoryInterface $configFactory, RequestStack $request, ModuleHandlerInterface $module_handler) {
+  public function __construct(VarnishInterface $varnishHandler, VarnishConfiguratorInterface $configuration, RequestStack $request, ModuleHandlerInterface $module_handler) {
     $this->varnishHandler = $varnishHandler;
-    $this->configuration = $configFactory->get('advanced_varnish_cache.settings');
+    $this->configuration = $configuration;
     $this->uniqueId = $this->uniqueId();
     $this->request = $request->getCurrentRequest();
     $this->moduleHandler = $module_handler;
