@@ -46,6 +46,6 @@ class PanelsESIController extends ControllerBase {
 
     return $response;
   }
-
+  
 }
 
