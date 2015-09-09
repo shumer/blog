@@ -105,7 +105,7 @@ class AdvancedVarnishCacheController {
     $entities = array_filter($params, function($param) {
       return ($param instanceof EntityInterface);
     });
-    $entities = $this->response->entity;
+    $entities = $this->response->_entity;
 
     // Get entity specific settings
     $cache_settings = $this->getCacheSettings($entities);
@@ -279,9 +279,17 @@ class AdvancedVarnishCacheController {
 
     $cache_settings['ttl'] = '';
     foreach ($entities as $entity) {
+
+      $entity_settings = $entity->get('settings');
+      $cache_settings['ttl'] = (!empty($entity_settings['cache']['max_age']))
+        ? $entity_settings['cache']['max_age']
+        : '';
+
       $cache_key_generator = $this->getCacheKeyGenerator($entity);
       $key = $cache_key_generator->generateSettingsKey();
-      $cache_settings['ttl'] = empty($cache_settings['ttl']) ? $this->configuration->get($key)['cache_settings']['ttl'] : $cache_settings['ttl'];
+      $cache_settings['ttl'] = empty($cache_settings['ttl'])
+        ? $this->configuration->get($key)['cache_settings']['ttl']
+        : $cache_settings['ttl'];
       if ($this->configuration->get($key)['cache_settings']['purge_id']) {
         $cache_settings['tags'][] = $this->configuration->get($key)['cache_settings']['purge_id'];
       }
