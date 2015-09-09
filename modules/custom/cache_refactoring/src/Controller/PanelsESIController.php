@@ -7,7 +7,6 @@
 
 namespace Drupal\advanced_varnish_cache\Controller;
 
-use Drupal\advanced_varnish_cache\Response\ESIResponse;
 use Drupal\Core\Cache\CacheableResponse;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\HttpFoundation\Response;
