@@ -6,6 +6,10 @@
  */
 
 namespace Drupal\advanced_varnish_cache\Controller;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\StreamWrapper\PrivateStream;
+use Drupal\Core\StreamWrapper\PublicStream;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -106,13 +110,16 @@ class AdvancedVarnishCacheController {
     // Get entity specific settings
     $cache_settings = $this->getCacheSettings($entities);
 
-    $this->setResponseHeaders();
+    // Allow other modules to interfere.
+    $this->moduleHandler()->alter('advanced_varnish_cache_page_ttl', $cache_settings);
+
+    $this->setResponseHeaders($cache_settings);
   }
 
   /**
    * Set varnish specific response headers.
    */
-  protected function setResponseHeaders() {
+  protected function setResponseHeaders($cache_settings) {
 
     $debug_mode = $this->configuration->get('general.debug');
 
@@ -120,27 +127,9 @@ class AdvancedVarnishCacheController {
       $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_DEBUG, '1');
     }
 
-    $grace = $this->configuration->get('general.grace');
-
-
-    // Allow other modules to alter/react on this page's TTL settings.
-    $info = [
-      'ttl' => $ttl,
-      'grace' => $grace,
-      'cache_tags' => $cache_tags,
-      'category' => $category,
-    ];
-    // Allow other modules to interfere.
-    $this->moduleHandler()->alter('advanced_varnish_cache_page_ttl', $info);
-
-    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_GRACE, $info['grace']);
-
+    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_GRACE, $cache_settings['grace']);
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->uniqueId());
-
-    // $tags = ...
-    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $tags) . ';');
-
-    // $ttl = ...
+    $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $cache_settings['tags']) . ';');
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_X_TTL, $cache_settings['ttl']);
 
     // Set this response to public as it cacheable so no private directive
@@ -282,6 +271,8 @@ class AdvancedVarnishCacheController {
    * Specific entity cache settings getter.
    */
   public function getCacheSettings($entities) {
+    $grace = $this->configuration->get('general.grace');
+    $cache_settings['grace'] = $grace;
 
     $cacheable = $this->response->getCacheableMetadata();
     $cache_settings['tags'] = $cacheable->getCacheTags();
