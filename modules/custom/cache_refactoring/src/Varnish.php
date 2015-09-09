@@ -49,7 +49,7 @@ class Varnish implements VarnishInterface {
   public function __construct(LoggerChannelFactoryInterface $logger, UserInterface $account, ConfigFactoryInterface $config_factory, $config_name) {
     $this->logger = $logger;
     $this->account = $account;
-    $this->configuration =  $config_factory->get($config_name);
+    $this->configuration = $config_factory->get($config_name);
   }
 
   /**
