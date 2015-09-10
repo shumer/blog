@@ -84,7 +84,7 @@ function advanced_varnish_cache_block_view_alter(array &$build, \Drupal\Core\Blo
   // If we need to replace block with ESI we
   // change #pre_render callback to handle this.
   $build['#theme'] = 'advanced_varnish_cache_esi_block';
-  $build['#pre_render'] = '_advanced_varnish_cache_build_esi_block';
+  $build['#pre_render'] = ['_advanced_varnish_cache_build_esi_block'];
 
   // Prevent Drupal from caching ESI block.
   $build['#cache']['max-age'] = 0;

@@ -29,7 +29,7 @@ class CacheableLayout extends LayoutBase {
           // If we need to replace block with ESI we
           // change #pre_render callback to handle this.
           $block['#theme'] = 'advanced_varnish_cache_esi_block';
-          $block['#pre_render'] = '_advanced_varnish_cache_build_panels_esi_block';
+          $block['#pre_render'] = ['_advanced_varnish_cache_build_panels_esi_block'];
         }
       }
     }
