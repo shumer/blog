@@ -169,7 +169,7 @@ function advanced_varnish_cache_layout_alter(&$vars) {
  */
 function advanced_varnish_cache_form_page_manager_display_variant_edit_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
   $build = $form_state->getBuildInfo();
-  $varnish = \Drupal::service('advanced_varnish_cache.handler');
+  $varnish = \Drupal::service('advanced_varnish_cache.controller');
 
   $page = $build['callback_object']->getPage();
   $display_varaint = $build['callback_object']->getDisplayVariant();

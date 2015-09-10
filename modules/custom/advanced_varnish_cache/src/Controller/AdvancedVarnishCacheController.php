@@ -10,6 +10,7 @@ use Drupal\advanced_varnish_cache\Response\ESIResponse;
 use Drupal\advanced_varnish_cache\VarnishConfiguratorInterface;
 use Drupal\advanced_varnish_cache\VarnishInterface;
 use Drupal\Core\Cache\CacheableResponseInterface;
+use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\StreamWrapper\PrivateStream;
@@ -292,16 +293,19 @@ class AdvancedVarnishCacheController {
     $cache_settings['tags'] = $cacheable->getCacheTags();
 
     $cache_settings['ttl'] = '';
+
     foreach ($entities as $entity) {
 
-      $entity_settings = $entity->get('settings');
-      $cache_settings['ttl'] = (!empty($entity_settings['cache']['max_age']))
-        ? $entity_settings['cache']['max_age']
-        : '';
+      if ($entity instanceof ConfigEntityInterface) {
+        $entity_settings = $entity->get('settings');
+        $cache_settings['ttl'] = (!empty($entity_settings['cache']['max_age']))
+          ? $entity_settings['cache']['max_age']
+          : '';
+      }
 
       $cache_key_generator = $this->getCacheKeyGenerator($entity);
       $key = $cache_key_generator->generateSettingsKey();
-      $cache_settings['ttl'] = empty($cache_settings['ttl'])
+      $cache_settings['ttl'] = !is_numeric($cache_settings['ttl'])
         ? $this->configuration->get($key)['cache_settings']['ttl']
         : $cache_settings['ttl'];
       if ($this->configuration->get($key)['cache_settings']['purge_id']) {
@@ -309,12 +313,12 @@ class AdvancedVarnishCacheController {
       }
     }
 
-    if (empty($cache_settings['ttl'])) {
+    if (!is_numeric($cache_settings['ttl'])) {
       $cache_settings['ttl'] = $cacheable->getCacheMaxAge();
     }
 
     // If no ttl set check for custom rules settings.
-    if (empty($cache_settings['ttl'])) {
+    if (!is_numeric($cache_settings['ttl'])) {
 
       // Get current path as default.
       $current_path = \Drupal::service('path.current')->getPath();
@@ -335,7 +339,9 @@ class AdvancedVarnishCacheController {
     }
 
     // Use general TTL as fallback option.
-    $cache_settings['ttl'] = $cache_settings['ttl'] ?: $this->configuration->get('general.page_cache_maximum_age');
+    $cache_settings['ttl'] = is_numeric($cache_settings['ttl'])
+      ? $cache_settings['ttl']
+      : $this->configuration->get('general.page_cache_maximum_age');
 
     return $cache_settings;
   }
@@ -353,7 +359,7 @@ class AdvancedVarnishCacheController {
   public function getCacheKeyGenerator(EntityInterface $entity, array $options = []) {
     $plugins = \Drupal::service('plugin.manager.varnish_cacheable_entity')->getDefinitions();
     $type = $entity->getEntityTypeId();
-    if (!in_array($type, $plugins)) {
+    if (!in_array($type, array_keys($plugins))) {
       $type = 'default';
     }
     return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($type, ['entity' => $entity, 'displayVariant' => $options['displayVariant']]);
