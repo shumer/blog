@@ -119,7 +119,7 @@ class AdvancedVarnishCacheController {
     });
 
     if ($this->response instanceof ESIResponse) {
-      $entities = $this->response->getEntity();
+      $entities[] = $this->response->getEntity();
     }
 
     // Get entity specific settings
