@@ -32,13 +32,14 @@ class PanelsESIController extends ControllerBase {
     $content = \Drupal::service('renderer')->renderPlain($build);
     if ($block) {
 
+      $ttl = $block_conf['cache']['max_age'];
+
       // Mark this block and response as rendered through ESI request.
       $block->_esi = 1;
 
-      $response->setEntity($block);
-
       // Add block to dependency to respect block tags and ttl.
       $response->addCacheableDependency($block);
+      $response->getCacheableMetadata()->setCacheMaxAge((int) $ttl);
     }
 
     $response->setContent($content);

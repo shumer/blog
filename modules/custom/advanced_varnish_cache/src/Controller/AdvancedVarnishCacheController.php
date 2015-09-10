@@ -87,7 +87,6 @@ class AdvancedVarnishCacheController {
    */
   public function handleResponseEvent(FilterResponseEvent $event) {
 
-
     $this->response = $event->getResponse();
 
     if (!($this->response instanceof CacheableResponseInterface)) {
@@ -107,7 +106,7 @@ class AdvancedVarnishCacheController {
     $this->cookieUpdate();
 
     // Reload page with updated cookies if needed.
-    $needs_update = isset($this->needsReload) ? $this->needsReload : FALSE;
+    $needs_update = $this->needsReload ?: FALSE;
     if ($needs_update) {
       $this->reload();
     }
@@ -119,7 +118,9 @@ class AdvancedVarnishCacheController {
     });
 
     if ($this->response instanceof ESIResponse) {
-      $entities[] = $this->response->getEntity();
+      if ($entity = $this->response->getEntity()) {
+        $entities[] = $entity;
+      }
     }
 
     // Get entity specific settings
@@ -224,7 +225,7 @@ class AdvancedVarnishCacheController {
       $params = session_get_cookie_params();
       $expire = $params['lifetime'] ? (REQUEST_TIME + $params['lifetime']) : 0;
       setcookie(ADVANCED_VARNISH_CACHE_COOKIE_BIN, $cookie_bin, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
-      setcookie(ADVANCED_VARNISH_CACHE_COOKIE_BIN, $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
+      setcookie(ADVANCED_VARNISH_CACHE_COOKIE_INF, $cookie_inf, $expire, $params['path'], $params['domain'], FALSE, $params['httponly']);
 
       // Mark this page as required reload as ESI request
       // from this page will be sent with old cookie info.
