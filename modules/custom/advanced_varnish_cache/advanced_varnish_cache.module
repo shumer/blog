@@ -332,3 +332,35 @@ function _advanced_varnish_cache_build_esi_block($build) {
 
   return $build;
 }
+
+/**
+ * #pre_render callback for building a ESI block.
+ *
+ * Replace block content with ESI tag.
+ */
+function _advanced_varnish_cache_build_panels_esi_block($build) {
+  $route = \Drupal::request()->get(\Symfony\Cmf\Component\Routing\RouteObjectInterface::ROUTE_OBJECT);
+  $defaults= $route->getDefaults();
+
+  $page = $defaults['page_manager_page'];
+
+  $conf = $build['#configuration'];
+  $block_id = $conf['uuid'];
+
+  $cache_conf = $build['#configuration']['cache'];
+  $query['cachemode'] = $cache_conf['cachemode'];
+
+  $maxwait = 5000;
+  $path = '/advanced_varnish_cache/esi/block/' . $page . '/' . $block_id;
+  $url = \Drupal\Core\Url::fromUserInput($path, ['query' => $query]);
+  $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
+
+  $build['#content'] = $content;
+
+  // Set flag for varnish that we have ESI in the response.
+  $build['#attached']['http_header'] = [
+    ['X-DOESI', '1'],
+  ];
+
+  return $build;
+}
