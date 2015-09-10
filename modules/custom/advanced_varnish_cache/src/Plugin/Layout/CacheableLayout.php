@@ -20,8 +20,6 @@ class CacheableLayout extends LayoutBase {
    */
   public function build(array $regions) {
 
-    $varnish = \Drupal::service('advanced_varnish_cache.handler');
-
     foreach (Element::children($regions) as $region_id) {
       $region = &$regions[$region_id];
       foreach (Element::children($region) as $block_id) {
