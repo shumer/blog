@@ -149,7 +149,9 @@ class AdvancedVarnishCacheController {
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_X_TTL, $cache_settings['ttl']);
 
     // Set this response to public as it cacheable so no private directive
-    // should be present.
+    // should be present, also we need set a no-store header to prevent browser
+    // from caching ESI blocks.
+    $this->response->headers->addCacheControlDirective('no-store');
     $this->response->setPublic();
 
     // Set Etag to allow varnish deflate process.
