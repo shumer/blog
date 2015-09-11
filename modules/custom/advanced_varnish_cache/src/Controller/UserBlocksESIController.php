@@ -17,9 +17,13 @@ class UserBlocksESIController extends ControllerBase {
    */
   public function content($block_id){
     $content = '';
+    $js_data = array();
     $response = new ESIResponse();
+    $module_handler = \Drupal::moduleHandler();
 
-
+    // Invoke hook to gather user data.
+    $user_data = $module_handler->invokeAll('advanced_varnish_cache_page_ttl');
+    kpr([$user_data]);die;
     // Set rendered block as response object content.
     $response->setContent($content);
 
