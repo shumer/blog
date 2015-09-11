@@ -95,6 +95,14 @@ class AdvancedVarnishCacheController {
 
     // Check if we on MasterRequest, also we never should cache POST requests.
     if (!$event->isMasterRequest() || !empty($_POST)) {
+      $account = \Drupal::currentUser();
+      $clear_on_post = $this->configuration->get('userblocks.clear_on_post');
+
+      // If page is has a POST we need to flush user_block related cache.
+      if (!empty($_POST) && $account->isAuthenticated() && $clear_on_post) {
+        $this->purgeUserBlocks();
+      }
+
       return;
     }
 
@@ -419,6 +427,17 @@ class AdvancedVarnishCacheController {
     }
 
     return $enabled;
+  }
+
+  /**
+   * Purge user_blocks.
+   */
+  public function purgeUserBlocks($tag_names = array(ADVANCED_VARNISH_CACHE_TAG_USER_BLOCKS), $account = NULL) {
+    if (empty($account)) {
+      $account = \Drupal::currentUser();
+      $tag_names[] = 'user:' . $account->id();
+    }
+    $this->varnishHandler->purgeTags($tag_names);
   }
 
 }
