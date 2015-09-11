@@ -5,6 +5,7 @@
  */
 
 use Drupal\Core\Logger\RfcLogLevel;
+use Drupal\Core\Template\Attribute;
 
 // Set header name.
 const ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG = 'X-TAG';
@@ -20,6 +21,10 @@ const ADVANCED_VARNISH_CACHE_PER_PAGE = 1;
 const ADVANCED_VARNISH_CACHE_PER_ROLE = 2;
 const ADVANCED_VARNISH_CACHE_PER_USER = 3;
 const ADVANCED_VARNISH_CACHE_TAG_USER_BLOCKS = 'user_blocks';
+
+// ESI Types.
+const ADVANCED_VARNISH_CACHE_ESI_TYPE_USERBLOCKS = 'userblocks';
+const ADVANCED_VARNISH_CACHE_ESI_TYPE_BLOCK = 'block';
 
 /**
  * Implements hook_form_FORM_ID_alter().
@@ -303,6 +308,58 @@ function advanced_varnish_cache_cron() {
 
   }
 }
+/**
+ * Generate ESI tag.
+ */
+function advanced_varnish_cache_esi_tag($esi_type, $esi_id, $cachemode = ADVANCED_VARNISH_CACHE_PER_USER, $esi_args = array(), $maxwait = 5000) {
+
+  // Generate ESI path.
+  $path = '/advanced_varnish_cache/esi/' . $esi_type . '/' . $esi_id;
+
+  // Build query.
+  $query['cachemode'] = $cachemode;
+  if (!empty($esi_args)) {
+    $query['a'] = $esi_args;
+  }
+  $url = \Drupal\Core\Url::fromUserInput($path, ['query' => $query]);
+
+  // Build tag.
+  $tag = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
+  $esi_tag = advanced_varnish_cache_wrap($tag);
+  return $esi_tag;
+}
+
+/**
+ * Wrap content with some info.
+ */
+function advanced_varnish_cache_wrap($content, $tag = TRUE, $comment = FALSE) {
+
+  // Wrap ESI content.
+  $attributes = array(
+    'class' => ($tag) ? 'advanced_varnish_cache_wrapper' : 'advanced_varnish_cache_wrapper',
+    'time'  => date('c'),
+    'stamp' => time(),
+  );
+
+  // Add origin if in debug mode.
+  $debug = \Drupal::config('advanced_varnish_cache.settings')->get('general.debug');
+  if ($debug) {
+    $attributes['origin'] = $_SERVER["REQUEST_URI"];
+    if ($tag) {
+      // Remove comments wrappers.
+      $source = strtr($content, array('<!--esi' => '', '-->' => ''));
+      $attributes['source'] = htmlentities($source);
+    }
+  }
+
+  if ($comment) {
+    $result = '<!-- <div ' . new Attribute($attributes) . '> -->' . $content . '<!-- </div> -->';
+  }
+  else {
+    $result = '<div ' . new Attribute($attributes) . '>' . $content . '</div>';
+  }
+  return $result;
+}
 
 /**
  * #pre_render callback for building a ESI block.
@@ -317,13 +374,9 @@ function _advanced_varnish_cache_build_esi_block($build) {
   unset($build['#block']);
 
   $cache_conf = $build['#configuration']['cache'];
-  $query['cachemode'] = $cache_conf['cachemode'];
+  $cache_mode = $cache_conf['cachemode'];
 
-  $maxwait = 5000;
-  $path = '/advanced_varnish_cache/esi/block/' . $id;
-  $url = Url::fromUserInput($path, ['query' => $query]);
-  $content = "<!--esi\n" . '<esi:include src="' . $url->toString()  . '" maxwait="' . $maxwait . '"/>' . "\n-->";
-
+  $content = advanced_varnish_cache_esi_tag(ADVANCED_VARNISH_CACHE_ESI_TYPE_BLOCK, $id, $cache_mode);
   $build['#content'] = $content;
 
   // Set flag for varnish that we have ESI in the response.
