@@ -172,7 +172,9 @@ class AdvancedVarnishCacheController {
     $cache_control_values = explode(',', $cache_control);
 
     foreach ($cache_control_values as $value) {
-      list($key, $val) = explode('=', $value);
+      $value = explode('=', $value);
+      $key = array_shift($value);
+      $val = array_shift($value);
       $val = $val ?: TRUE;
       $this->response->headers->addCacheControlDirective($key, $val);
     }
@@ -394,7 +396,7 @@ class AdvancedVarnishCacheController {
     if (!in_array($type, array_keys($plugins))) {
       $type = 'default';
     }
-    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($type, ['entity' => $entity, 'displayVariant' => $options['displayVariant']]);
+    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($type, ['entity' => $entity, 'options' => $options['displayVariant']]);
   }
 
   /**

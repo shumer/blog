@@ -29,11 +29,14 @@ class Page extends VarnishCacheableEntityBase {
   public function __construct(array $configuration, $plugin_id, $plugin_definition) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     if ($this->entity instanceof \Drupal\page_manager\Entity\Page) {
-      if (empty($display_variant = $configuration['displayVariant'])) {
+      if (empty($configuration['options']['displayVariant'])) {
         $executable = $this->entity->getExecutable();
         if ($executable) {
           $display_variant = $executable->selectDisplayVariant()->id();
         }
+      }
+      else {
+        $display_variant = $configuration['options']['displayVariant'];
       }
       $this->displayVariant = $display_variant;
     }
