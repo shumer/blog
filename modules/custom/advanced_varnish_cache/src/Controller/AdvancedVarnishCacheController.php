@@ -13,6 +13,8 @@ use Drupal\Core\Cache\CacheableResponseInterface;
 use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Session\AccountProxy;
+use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\StreamWrapper\PrivateStream;
 use Drupal\Core\StreamWrapper\PublicStream;
 use Drupal\user\UserInterface;
@@ -76,7 +78,7 @@ class AdvancedVarnishCacheController {
    *   Varnish handler object.
    *
    */
-  public function __construct(VarnishInterface $varnishHandler, VarnishConfiguratorInterface $configuration, RequestStack $request, ModuleHandlerInterface $module_handler, UserInterface $account) {
+  public function __construct(VarnishInterface $varnishHandler, VarnishConfiguratorInterface $configuration, RequestStack $request, ModuleHandlerInterface $module_handler, AccountProxyInterface $account) {
     $this->varnishHandler = $varnishHandler;
     $this->account = $account;
     $this->configuration = $configuration;

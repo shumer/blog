@@ -434,3 +434,18 @@ function advanced_varnish_cache_user_logout($account) {
   setcookie(ADVANCED_VARNISH_CACHE_COOKIE_BIN, '', REQUEST_TIME - 3600, $params['path'], $params['domain']);
   setcookie(ADVANCED_VARNISH_CACHE_COOKIE_INF, '', REQUEST_TIME - 3600, $params['path'], $params['domain']);
 }
+
+function  advanced_varnish_cache_preprocess_page(&$variables) {
+  $account = \Drupal::currentUser();
+  $content = &$variables['page']['content'];
+
+  $authenticated = $account->isAuthenticated();
+
+  // Only adds user blocks if we have an actual user.
+  if ($authenticated) {
+    $esi_tag = advanced_varnish_cache_esi_tag(ADVANCED_VARNISH_CACHE_ESI_TYPE_USERBLOCKS, '1', ADVANCED_VARNISH_CACHE_PER_USER);
+    $content['varnish_userblocks']['#theme'] = 'advanced_varnish_cache_esi_block';
+    $content['varnish_userblocks']['#content'] = $esi_tag;
+  }
+
+}
