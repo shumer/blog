@@ -273,6 +273,27 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('userblocks.cachetags')
     );
 
+    $form['advanced_varnish_cache']['cache_control'] = array(
+      '#title' => t('Cache Control'),
+      '#type' => 'details',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+
+    $form['advanced_varnish_cache']['cache_control']['anonymous'] = array(
+      '#title' => t('Cache control headers for anonymous users.'),
+      '#type' => 'textarea',
+      '#description' => t('Cache control headers for anonymous users.'),
+      '#default_value' => $config->get('cache_control.anonymous')
+    );
+
+    $form['advanced_varnish_cache']['cache_control']['logged'] = array(
+      '#title' => t('Cache control headers for logged in users.'),
+      '#type' => 'textarea',
+      '#description' => t('Cache control headers for logged in users.'),
+      '#default_value' => $config->get('cache_control.logged')
+    );
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -288,6 +309,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       ->set('available', $values['available'])
       ->set('custom', $values['custom'])
       ->set('userblocks', $values['custom'])
+      ->set('cache_control', $values['cache_control'])
       ->save();
 
     parent::submitForm($form, $form_state);

@@ -22,7 +22,7 @@ services:
 
   advanced_varnish_cache.controller:
     class: Drupal\advanced_varnish_cache\Controller\AdvancedVarnishCacheController
-    arguments: ['@advanced_varnish_cache.handler', '@advanced_varnish_cache.configurator', '@request_stack', '@module_handler']
+    arguments: ['@advanced_varnish_cache.handler', '@advanced_varnish_cache.configurator', '@request_stack', '@module_handler', '@current_user']
 
   advanced_varnish_cache.page_cache_request_policy.deny_page_cache:
     class: Drupal\advanced_varnish_cache\PageCache\DenyPageCache

@@ -418,3 +418,19 @@ function _advanced_varnish_cache_build_panels_esi_block($build) {
 
   return $build;
 }
+
+/**
+ * Implements hook_user_logout().
+ *
+ * The user just logged out.
+ *
+ * @param $account
+ *   The user object on which the operation was just performed.
+ */
+function advanced_varnish_cache_user_logout($account) {
+
+  // Destroy user cookies.
+  $params = session_get_cookie_params();
+  setcookie(ADVANCED_VARNISH_CACHE_COOKIE_BIN, '', REQUEST_TIME - 3600, $params['path'], $params['domain']);
+  setcookie(ADVANCED_VARNISH_CACHE_COOKIE_INF, '', REQUEST_TIME - 3600, $params['path'], $params['domain']);
+}

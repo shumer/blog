@@ -15,6 +15,7 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\StreamWrapper\PrivateStream;
 use Drupal\Core\StreamWrapper\PublicStream;
+use Drupal\user\UserInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -64,14 +65,20 @@ class AdvancedVarnishCacheController {
   protected $configuration;
 
   /**
+   * @var UserInterface
+   */
+  protected $account;
+
+  /**
    * Class constructor.
    *
    * @param VarnishInterface $varnishHandler
    *   Varnish handler object.
    *
    */
-  public function __construct(VarnishInterface $varnishHandler, VarnishConfiguratorInterface $configuration, RequestStack $request, ModuleHandlerInterface $module_handler) {
+  public function __construct(VarnishInterface $varnishHandler, VarnishConfiguratorInterface $configuration, RequestStack $request, ModuleHandlerInterface $module_handler, UserInterface $account) {
     $this->varnishHandler = $varnishHandler;
+    $this->account = $account;
     $this->configuration = $configuration;
     $this->uniqueId = $this->uniqueId();
     $this->request = $request->getCurrentRequest();
@@ -136,7 +143,7 @@ class AdvancedVarnishCacheController {
 
     // Allow other modules to interfere.
     $this->moduleHandler->alter('advanced_varnish_cache_page_ttl', $cache_settings);
-
+    $cache_settings['cache_control'] = $this->configuration->get('cache_control');
     $this->setResponseHeaders($cache_settings);
   }
 
@@ -155,6 +162,18 @@ class AdvancedVarnishCacheController {
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_RNDPAGE, $this->uniqueId());
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_HEADER_CACHE_TAG, implode(';', $cache_settings['tags']) . ';');
     $this->response->headers->set(ADVANCED_VARNISH_CACHE_X_TTL, $cache_settings['ttl']);
+
+    $cache_control = $this->account->isAnonymous()
+      ? $cache_settings['cache_control']['anonymous']
+      : $cache_settings['cache_control']['logged'];
+
+    $cache_control_values = explode(',', $cache_control);
+
+    foreach ($cache_control_values as $value) {
+      list($key, $val) = explode('=', $value);
+      $val = $val ?: TRUE;
+      $this->response->headers->addCacheControlDirective($key, $val);
+    }
 
     // Set this response to public as it cacheable so no private directive
     // should be present, also we need set a no-store header to prevent browser
