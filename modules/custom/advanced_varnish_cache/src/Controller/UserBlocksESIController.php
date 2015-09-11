@@ -40,15 +40,17 @@ class UserBlocksESIController extends ControllerBase {
       Array.prototype.forEach.call(elements, function(el, i){
         var selector = el.getAttribute("data-target");
         var dst_el = document.querySelector(selector);
-        if (dst_el.length > 0) {
+        if (dst_el !== null) {
           dst_el.outerHTML = el.innerHTML;
         }
-      });'
+      });
+
+      setTimeout(\'jQuery.extend(true, drupalSettings, ' . Json::encode(NestedArray::mergeDeepArray($js_data)) . ');\', 100);'
       . '</script>';
 
     $content = implode(PHP_EOL, $content);
     $content = '<div id="advanced_varnish_cache_userblocks" style="display:none;" time="' . time() . '">' . $content . '</div>';
-    
+
     // Set rendered block as response object content.
     $response->setContent($content);
 

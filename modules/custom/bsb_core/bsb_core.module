@@ -7,6 +7,15 @@
 
 use Drupal\Core\Routing\RouteMatchInterface;
 
+function bsb_core_advanced_varnish_cache_userblocks() {
+  $userblocks = [];
+  $userblocks['.contact-message-feedback-form'] = 'asd';
+  $userblocks['js_settings'] = [
+    'flags' => [1, 2, 3],
+  ];
+  return $userblocks;
+}
+
 /**
  * Implements hook_help().
  */

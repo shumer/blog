@@ -452,6 +452,6 @@ function  advanced_varnish_cache_preprocess_page(&$variables) {
     $esi_tag = advanced_varnish_cache_esi_tag(ADVANCED_VARNISH_CACHE_ESI_TYPE_USERBLOCKS, '1', ADVANCED_VARNISH_CACHE_PER_USER);
     $content['varnish_userblocks']['#theme'] = 'advanced_varnish_cache_esi_block';
     $content['varnish_userblocks']['#content'] = $esi_tag;
+    $content['varnish_userblocks']['#weight'] = 99999;
   }
-
 }
