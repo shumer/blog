@@ -329,7 +329,7 @@ class Varnish implements VarnishInterface {
         '@uid' => $this->account->id(),
         '!command_line' => $command_line,
       ]);
-      $this->logger('advanced_varnish_cache:purge')->notice($message);
+      $this->logger->notice($message);
     }
 
     // Query Varnish.
