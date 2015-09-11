@@ -251,7 +251,7 @@ class AdvancedVarnishCacheController {
     elseif ($this->configuration->get('redirect_forbidden')) {
       return TRUE;
     }
-    elseif (!$this->configuration->get('redirect_forbidden_no_cookie') && empty($_COOKIE)) {
+    elseif ($this->configuration->get('redirect_forbidden_no_cookie') && empty($_COOKIE)) {
       // This one is important as search engines don't have cookie support
       // and we don't want them to enter infinite loop.
       // Also images may have their cookies be stripped at Varnish level.
