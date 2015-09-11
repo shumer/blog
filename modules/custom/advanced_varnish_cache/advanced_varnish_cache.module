@@ -436,6 +436,12 @@ function advanced_varnish_cache_user_logout($account) {
 }
 
 function  advanced_varnish_cache_preprocess_page(&$variables) {
+  $varnish_controller = Drupal::service('advanced_varnish_cache.controller');
+
+  if (!$varnish_controller->cachingEnabled()) {
+    return;
+  }
+
   $account = \Drupal::currentUser();
   $content = &$variables['page']['content'];
 
