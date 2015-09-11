@@ -329,7 +329,7 @@ class AdvancedVarnishCacheController {
     }
 
     // If no ttl set check for custom rules settings.
-    if (!is_numeric($cache_settings['ttl'])) {
+    if (empty($cache_settings['ttl'])) {
 
       // Get current path as default.
       $current_path = \Drupal::service('path.current')->getPath();
