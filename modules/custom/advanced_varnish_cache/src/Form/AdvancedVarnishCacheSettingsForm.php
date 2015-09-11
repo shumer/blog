@@ -241,6 +241,38 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       '#default_value' =>  $config->get('custom.rules'),
     );
 
+    // User blocks settings.
+    $form['advanced_varnish_cache']['userblocks'] = array(
+      '#title' => t('User Blocks'),
+      '#type' => 'details',
+    );
+    $form['advanced_varnish_cache']['userblocks']['clear_on_post'] = array(
+      '#title' => t('Clear on every POST'),
+      '#type' => 'checkbox',
+      '#description' => t('It is common that each form submit made by user will affect it personnal data.'),
+      '#default_value' => $config->get('userblocks.clear_on_post')
+    );
+    $period = array(3, 5, 10, 15, 30, 60, 120, 180, 240, 300, 600, 900, 1200,
+      1800, 3600, 7200, 14400, 28800, 43200, 86400,
+      172800, 259200, 345600, 604800
+    );
+    $period = array_map(array($this->dateFormatter, 'formatInterval'), array_combine($period, $period));
+    $period[-1] = t('Pass through');
+    ksort($period);
+    $form['advanced_varnish_cache']['userblocks']['ttl'] = array(
+      '#title' => t('Lifetime'),
+      '#description' => t('For how long user blocks should be keept alive.'),
+      '#type' => 'select',
+      '#options' => $period,
+      '#default_value' => !empty($config->get('userblocks.ttl')) ? $config->get('userblocks.ttl') : -1,
+    );
+    $form['advanced_varnish_cache']['userblocks']['cachetags'] = array(
+      '#title' => t('Custom tags'),
+      '#type' => 'textarea',
+      '#description' => t('Custom cache tags, comma (,) separated, those should be backed by your code.'),
+      '#default_value' => $config->get('userblocks.cachetags')
+    );
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -255,6 +287,7 @@ class AdvancedVarnishCacheSettingsForm extends ConfigFormBase {
       ->set('general', $values['general'])
       ->set('available', $values['available'])
       ->set('custom', $values['custom'])
+      ->set('userblocks', $values['custom'])
       ->save();
 
     parent::submitForm($form, $form_state);

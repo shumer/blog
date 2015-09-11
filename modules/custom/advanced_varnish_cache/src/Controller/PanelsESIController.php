@@ -42,10 +42,10 @@ class PanelsESIController extends ControllerBase {
       $response->getCacheableMetadata()->setCacheMaxAge((int) $ttl);
     }
 
-    $response->setContent($content . date('H:i:s'));
+    $response->setContent($content);
 
     return $response;
   }
-  
+
 }
 
