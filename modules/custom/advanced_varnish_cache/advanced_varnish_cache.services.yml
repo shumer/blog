@@ -37,6 +37,10 @@ services:
     class: Drupal\advanced_varnish_cache\VarnishCacheableEntityManager
     arguments: ['@container.namespaces', '@cache.default', '@module_handler']
 
+  plugin.manager.user_block:
+    class: Drupal\advanced_varnish_cache\UserBlockManager
+    arguments: ['@container.namespaces', '@cache.default', '@module_handler']
+
   advanced_varnish_cache.logger:
     class: Drupal\Core\Logger\LoggerChannel
     factory_service: logger.factory
