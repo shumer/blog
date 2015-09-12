@@ -26,6 +26,12 @@ class UserBlocksESIController extends ControllerBase {
     // Invoke hook to gather user data.
     $user_data = $module_handler->invokeAll('advanced_varnish_cache_userblocks');
 
+    // PLUGIN Alternative
+    $plugins = \Drupal::service('plugin.manager.user_block')->getDefinitions();
+    foreach ($plugins as $plugin_id => $plugin) {
+      $data = call_user_func([$plugin['class'], 'content']);
+    }
+
     // Parse returned data.
     foreach ($user_data as $target => $data) {
       if (is_array($data)) {
