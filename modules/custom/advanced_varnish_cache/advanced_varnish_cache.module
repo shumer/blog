@@ -455,6 +455,7 @@ function  advanced_varnish_cache_preprocess_page(&$variables) {
 
   $account = \Drupal::currentUser();
   $content = &$variables['page']['content'];
+  $attached = &$variables['#attached'];
 
   $authenticated = $account->isAuthenticated();
 
@@ -464,5 +465,6 @@ function  advanced_varnish_cache_preprocess_page(&$variables) {
     $content['varnish_userblocks']['#theme'] = 'advanced_varnish_cache_esi_block';
     $content['varnish_userblocks']['#content'] = $esi_tag;
     $content['varnish_userblocks']['#weight'] = 99999;
+    $attached['library'][] = 'advanced_varnish_cache/advanced_varnish_cache';
   }
 }

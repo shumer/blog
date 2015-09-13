@@ -4,34 +4,20 @@
 var elements = document.querySelectorAll("#advanced_varnish_cache_userblocks .advanced_varnish_cache_userblock-item");
 Array.prototype.forEach.call(elements, function(el, i){
   var selector = el.getAttribute("data-target");
-  var dst_el = document.querySelector(selector);
-  if (dst_el !== null) {
-    dst_el.outerHTML = el.innerHTML;
-  }
-});;
-
-
-var deepExtend = function(out) {
-  out = out || {};
-
-  for (var i = 1; i < arguments.length; i++) {
-    var obj = arguments[i];
-
-    if (!obj)
-      continue;
-
-    for (var key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        if (typeof obj[key] === 'object')
-          deepExtend(out[key], obj[key]);
-        else
-          out[key] = obj[key];
-      }
+  if (selector !== null) {console.log(selector);
+    var dst_el = document.querySelector(selector);
+    if (dst_el !== null) {
+      dst_el.outerHTML = el.innerHTML;
     }
   }
+});
 
-  return out;
-};
 
-deepExtend({}, drupalSettings, avcUserBlocksSettings);
-
+function extend(){
+  for(var i=1; i<arguments.length; i++)
+    for(var key in arguments[i])
+      if(arguments[i].hasOwnProperty(key))
+        arguments[0][key] = arguments[i][key];
+  return arguments[0];
+}
+extend(drupalSettings, avcUserBlocksSettings);
