@@ -29,7 +29,7 @@ class UserBlocksESIController extends ControllerBase {
     // PLUGIN Alternative
     $plugins = \Drupal::service('plugin.manager.user_block')->getDefinitions();
     foreach ($plugins as $plugin_id => $plugin) {
-      $data = call_user_func([$plugin['class'], 'content']);
+      $user_data[] = call_user_func([$plugin['class'], 'content']);
     }
 
     // Parse returned data.
@@ -41,6 +41,21 @@ class UserBlocksESIController extends ControllerBase {
         $content[] = '<div class="advanced_varnish_cache_userblock-item" data-target="' . $target . '">' . $data . '</div>';
       }
     }
+
+    $embed_prefix = "\n<!--//--><![CDATA[//><!--\n";
+    $embed_suffix = "\n//--><!]]>\n";
+
+    // Defaults for each SCRIPT element.
+    $element_defaults = array(
+      '#type' => 'html_tag',
+      '#tag' => 'script',
+      '#value' => '',
+    );
+    $element = $element_defaults;
+    $element['#value_prefix'] = $embed_prefix;
+    $element['#value'] = 'var avcUserBlocksSettings = ' . Json::encode(NestedArray::mergeDeepArray($js_data)) . ";";
+    $element['#value_suffix'] = $embed_suffix;
+
     $content[] = '<script type="text/javascript">
       var elements = document.querySelectorAll("#advanced_varnish_cache_userblocks .advanced_varnish_cache_userblock-item");
       Array.prototype.forEach.call(elements, function(el, i){
