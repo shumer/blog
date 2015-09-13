@@ -1,0 +1,21 @@
+{#
+/**
+* @file
+* Theme override to display a node.
+*/
+#}
+{%
+set classes = [
+    'node',
+    'node--type-' ~ node.bundle|clean_class,
+    node.isPromoted() ? 'node--promoted',
+    node.isSticky() ? 'node--sticky',
+    not node.isPublished() ? 'node--unpublished',
+    view_mode ? 'node--view-mode-' ~ view_mode|clean_class,
+]
+%}
+<div>
+    <a href="{{ url }}" hreflang="en" target="_blank">
+      <i class="glyphicon glyphicon-list-alt"></i>{{ label }}
+    </a>
+</div>
