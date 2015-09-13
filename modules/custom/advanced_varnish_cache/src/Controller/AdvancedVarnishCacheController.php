@@ -396,7 +396,7 @@ class AdvancedVarnishCacheController {
     if (!in_array($type, array_keys($plugins))) {
       $type = 'default';
     }
-    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($type, ['entity' => $entity, 'options' => $options['displayVariant']]);
+    return \Drupal::service('plugin.manager.varnish_cacheable_entity')->createInstance($type, ['entity' => $entity, 'options' => $options]);
   }
 
   /**
