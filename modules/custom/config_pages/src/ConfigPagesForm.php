@@ -8,16 +8,14 @@
 namespace Drupal\config_pages;
 
 use Drupal\Component\Utility\Html;
-use Drupal\config_pages\Entity\ConfigPages;
 use Drupal\config_pages\Entity\ConfigPagesType;
 use Drupal\Core\Entity\ContentEntityForm;
+use Drupal\Core\Entity\EntityConstraintViolationList;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Drupal\field\Entity\FieldConfig;
-use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Field\FieldConfigInterface;
 use Drupal\Core\Url;
 
@@ -273,7 +271,6 @@ class ConfigPagesForm extends ContentEntityForm {
     $actions['submit'] = [
       '#type' => 'submit',
       '#value' => $this->t('Save'),
-      '#validate' => array('::validate'),
       '#submit' => array('::submitForm', '::save'),
     ];
 
@@ -287,4 +284,5 @@ class ConfigPagesForm extends ContentEntityForm {
 
     return $actions;
   }
+
 }
