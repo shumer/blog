@@ -20,7 +20,9 @@ use Drupal\advanced_varnish_cache\UserBlockBase;
 class Date extends UserBlockBase {
 
   public static function content() {
-    return (new \DateTime())->format('Y-m-d H:i:s');
+    $user_data = (new \DateTime())->format('Y-m-d H:i:s');
+    $selector = '.custom-div';
+    return [$selector => $user_data];
   }
 
 }

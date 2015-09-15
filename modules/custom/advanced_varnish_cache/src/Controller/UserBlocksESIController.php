@@ -19,17 +19,17 @@ class UserBlocksESIController extends ControllerBase {
    */
   public function content($block_id){
     $content = '';
-    $js_data = array();
+    $js_data = [];
+    $user_data = [];
     $response = new ESIResponse();
-    $module_handler = \Drupal::moduleHandler();
 
-    // Invoke hook to gather user data.
-    $user_data = $module_handler->invokeAll('advanced_varnish_cache_userblocks');
-
-    // PLUGIN Alternative
+    // Call for plugins to retrieve user blocks data.
     $plugins = \Drupal::service('plugin.manager.user_block')->getDefinitions();
     foreach ($plugins as $plugin_id => $plugin) {
-      //$user_data[] = call_user_func([$plugin['class'], 'content']);
+      $plugin_result = call_user_func([$plugin['class'], 'content']);
+      if (is_array($plugin_result)) {
+        $user_data = array_merge($user_data, $plugin_result);
+      }
     }
 
     // Defaults for each SCRIPT element.
@@ -66,16 +66,16 @@ class UserBlocksESIController extends ControllerBase {
       '#tag' => 'script',
       '#value' => '',
     );
-    $element = $element_defaults;
-    $element['#value_prefix'] = $embed_prefix;
-    $element['#value'] = 'var avcUserBlocksSettings = ' . Json::encode(NestedArray::mergeDeepArray($js_data)) . ";";
-    $element['#value_suffix'] = $embed_suffix;
+    $avc_script = $element_defaults;
+    $avc_script['#value_prefix'] = $embed_prefix;
+    $avc_script['#value'] = 'var avcUserBlocksSettings = ' . Json::encode(NestedArray::mergeDeepArray($js_data)) . ";";
+    $avc_script['#value_suffix'] = $embed_suffix;
 
     // Render user block data.
-    $script = \Drupal::service('renderer')->renderPlain($element);
+    $script = \Drupal::service('renderer')->renderPlain($avc_script);
     $html = \Drupal::service('renderer')->renderPlain($user_blocks);
-    $content[] = $script;
     $content[] = $html;
+    $content[] = $script;
 
     $content = implode(PHP_EOL, $content);
     $content = '<div id="avc-user-blocks" style="display:none;" time="' . time() . '">' . $content . '</div>';

@@ -20,7 +20,7 @@ use Drupal\advanced_varnish_cache\UserBlockBase;
 class Example extends UserBlockBase {
 
   public static function content() {
-    return 'Example';
+    return ['#div_id' => 'Example'];
   }
 
 }
