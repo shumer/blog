@@ -71,7 +71,7 @@ class ConfigPagesListBuilder extends EntityListBuilder {
         'title' => t('Edit'),
         'weight' => 10,
         'query' => [],
-        'url' => Url::fromUserInput('/' . $path),
+        'url' => Url::fromUserInput($path),
       ];
     }
     else {

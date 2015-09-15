@@ -104,11 +104,15 @@ class ConfigPagesTypeForm extends EntityForm {
   /**
    * {@inheritdoc}
    */
-  public function validate(array $form, FormStateInterface $form_state) {
-    $form_state->setValidateHandlers([]);
-    \Drupal::service('form_validator')->executeValidateHandlers($form, $form_state);
+  public function validateForm(array &$form, FormStateInterface $form_state) {
 
     $new_menu_path = $form_state->getValue('menu')['path'];
+
+    if (!in_array($new_menu_path[0], ['/'], TRUE)) {
+      $form_state->setErrorByName('menu', $this->t('Manually entered paths should start with /'));
+      return;
+    }
+
     $old_menu_path = NULL;
 
     // Load unchanged entity.
@@ -126,6 +130,7 @@ class ConfigPagesTypeForm extends EntityForm {
       }
       $this->routesRebuildRequired = TRUE;
     }
+
   }
 
   /**
