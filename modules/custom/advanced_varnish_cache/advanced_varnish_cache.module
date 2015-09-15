@@ -105,22 +105,11 @@ function template_preprocess_advanced_varnish_cache_esi_block(&$variables) {
 }
 
 /**
- * Implements template_preprocess_advanced_varnish_cache_esi_block().
- */
-function template_preprocess_advanced_varnish_cache_user_block(&$variables) {
-  $elements = &$variables['elements'];
-  $variables['content'] = $elements['#content'];
-}
-
-/**
  * Implements hook_theme().
  */
 function advanced_varnish_cache_theme() {
   return array(
     'advanced_varnish_cache_esi_block' => array(
-      'render element' => 'elements',
-    ),
-    'advanced_varnish_cache_user_block' => array(
       'render element' => 'elements',
     ),
   );

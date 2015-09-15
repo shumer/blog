@@ -32,16 +32,31 @@ class UserBlocksESIController extends ControllerBase {
       //$user_data[] = call_user_func([$plugin['class'], 'content']);
     }
 
+    // Defaults for each SCRIPT element.
+    $element_defaults = array(
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#value' => '',
+    );
+    $user_blocks = [];
+
     // Parse returned data.
     foreach ($user_data as $target => $data) {
       if (is_array($data)) {
         $js_data[$target] = $data;
       }
       elseif (is_string($data)) {
-        $content[] = '<div class="advanced_varnish_cache_userblock-item" data-target="' . $target . '">' . $data . '</div>';
+        $user_block = $element_defaults;
+        $user_block['#value'] = $data;
+        $user_block['#attributes'] = [
+          'class' => ['avc-user-block'],
+          'data-target' => $target,
+        ];
+        $user_blocks[] = $user_block;
       }
     }
 
+    // Prepare user settings which will be merged with drupalSettings on page load.
     $embed_prefix = "\n<!--//--><![CDATA[//><!--\n";
     $embed_suffix = "\n//--><!]]>\n";
 
@@ -56,11 +71,14 @@ class UserBlocksESIController extends ControllerBase {
     $element['#value'] = 'var avcUserBlocksSettings = ' . Json::encode(NestedArray::mergeDeepArray($js_data)) . ";";
     $element['#value_suffix'] = $embed_suffix;
 
+    // Render user block data.
     $script = \Drupal::service('renderer')->renderPlain($element);
+    $html = \Drupal::service('renderer')->renderPlain($user_blocks);
     $content[] = $script;
+    $content[] = $html;
 
     $content = implode(PHP_EOL, $content);
-    $content = '<div id="advanced_varnish_cache_userblocks" style="display:none;" time="' . time() . '">' . $content . '</div>';
+    $content = '<div id="avc-user-blocks" style="display:none;" time="' . time() . '">' . $content . '</div>';
 
     // Set rendered block as response object content.
     $response->setContent($content);
