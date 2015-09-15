@@ -108,7 +108,7 @@ class ConfigPagesTypeForm extends EntityForm {
 
     $new_menu_path = $form_state->getValue('menu')['path'];
 
-    if (!in_array($new_menu_path[0], ['/'], TRUE)) {
+    if (!empty($new_menu_path) && !in_array($new_menu_path[0], ['/'], TRUE)) {
       $form_state->setErrorByName('menu', $this->t('Manually entered paths should start with /'));
       return;
     }

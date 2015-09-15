@@ -119,8 +119,8 @@ class ConfigPagesForm extends ContentEntityForm {
       ->loadByProperties($conditions);
 
     // Show context message.
-    if (!empty($config_pages->context) && empty($_POST)) {
-      $label = $config_pages_type->getContextLabel();
+    $label = $config_pages_type->getContextLabel();
+    if (!empty($label)) {
       drupal_set_message($this->t('Please note that this Page is context sensitive, current context is %label', array(
         '%label' => $label,
       )), 'warning');
