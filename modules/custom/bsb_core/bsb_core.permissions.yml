@@ -1,0 +1,15 @@
+add background set entities:
+  title: 'Create new Background set entities'
+
+administer background set entities:
+  title: 'Administer Background set entities'
+  description: 'Allow to access the administration form to configure Background set entities.'
+
+delete background set entities:
+  title: 'Delete Background set entities'
+
+edit background set entities:
+  title: 'Edit Background set entities'
+
+view background set entities:
+  title: 'View Background set entities'

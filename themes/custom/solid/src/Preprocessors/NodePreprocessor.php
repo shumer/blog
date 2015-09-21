@@ -2,6 +2,7 @@
 namespace Drupal\solid\Preprocessors;
 
 use Drupal\Core\Datetime\Entity\DateFormat;
+use Drupal\Core\Url;
 use Drupal\datetime\Plugin\Field\FieldFormatter\DateTimeDefaultFormatter;
 use Drupal\datetime\Plugin\Field\FieldFormatter\DateTimeTimeAgoFormatter;
 use Drupal\field\Tests\String;
@@ -28,6 +29,18 @@ class NodePreprocessor extends EntityPreprocessor
     $time_interval = $formatter->formatInterval(time() - $created, 1);
     $this->variables['date'] = t('Posted @time ago', ['@time' => $time_interval]);
 
+  }
+
+  public function preprocess_node__bookmark__listing() {
+    $node = $this->entity;
+
+    $url_value = $node->get('field_url')->value;
+    $uri_parts = parse_url($url_value);
+    if (empty($uri_parts ['scheme'])) {
+      $url_value = 'http://' . $url_value;
+    }
+    $url = Url::fromUri($url_value, ['absolute' => TRUE]);
+    $this->variables['bookmark_url'] = $url;
   }
 
   public function preprocess_node__contact_form__default() {

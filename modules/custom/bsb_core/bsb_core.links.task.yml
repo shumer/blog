@@ -1,0 +1,22 @@
+# Background set routing definition
+background_set.settings_tab:
+  route_name: background_set.settings
+  title: 'Settings'
+  base_route: background_set.settings
+
+entity.background_set.canonical:
+  route_name: entity.background_set.canonical
+  base_route: entity.background_set.canonical
+  title: 'View'
+
+entity.background_set.edit_form:
+  route_name: entity.background_set.edit_form
+  base_route: entity.background_set.canonical
+  title: Edit
+
+entity.background_set.delete_form:
+  route_name:  entity.background_set.delete_form
+  base_route:  entity.background_set.canonical
+  title: Delete
+  weight: 10
+

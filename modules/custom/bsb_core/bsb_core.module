@@ -56,7 +56,41 @@ function bsb_core_theme() {
     'variables' => ['channel' => ''],
   ];
 
+  $theme['bsb_core_bg_changer'] = [
+    'path' => drupal_get_path('module', 'bsb_core') . '/templates/bg_changer',
+    'theme_hook_suggestions' => ['bsb_core_bg_changer'],
+    'variables' => ['images' => '', 'options' => ''],
+  ];
+
   return $theme;
+}
+
+function template_preprocess_bsb_core_bg_changer(&$vars) {
+
+  $urls = [];
+
+  $id = $vars['images'];
+  $node_storage = \Drupal::entityManager()->getStorage('background_set');
+  $set = $node_storage->load($id);
+
+  $files = $set->get('images')->getValue();
+
+  foreach ($files as $file) {
+    $urls[] = \Drupal\file\Entity\File::load($file['target_id'])->url();
+  }
+
+  foreach ($urls as $url) {
+    $url = \Drupal\Core\Url::fromUri($url);
+    $links[] = Drupal::l('', $url);
+  }
+
+  $vars['links'] = [
+    '#type' => 'markup',
+    '#markup' => implode('', $links),
+  ];
+
+  $vars['#attached']['library'][] = 'bsb_core/bg_changer';
+  $vars['#attached']['drupalSettings']['bsb_core']['bg_changer'] = $vars['options'];
 }
 
 function template_preprocess_bsb_core_youtube_embed(&$vars) {
