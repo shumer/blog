@@ -184,7 +184,7 @@ class BackgroundSet extends ContentEntityBase implements BackgroundSetInterface 
       ->setDisplayConfigurable('form', TRUE)
       ->setDisplayConfigurable('view', TRUE)
       ->setDisplayOptions('form', array(
-        'weight' => -5,
+        'weight' => -3,
       ));
 
     return $fields;
