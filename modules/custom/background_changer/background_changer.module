@@ -31,6 +31,13 @@ function template_preprocess_background_changer_block(&$vars) {
   $node_storage = \Drupal::entityManager()->getStorage('background_set');
   $set = $node_storage->load($id);
 
+  $options = $vars['options'];
+
+  $options['element_id'] = isset($options['id'])
+    ? $options['id']
+    : 'thumbs';
+  $vars['element_id'] = $options['element_id'];
+
   $files = $set->get('images')->getValue();
 
   foreach ($files as $file) {
@@ -48,9 +55,5 @@ function template_preprocess_background_changer_block(&$vars) {
   ];
 
   $vars['#attached']['library'][] = 'background_changer/background_changer';
-  $vars['#attached']['drupalSettings']['background_changer']['options'] = $vars['options'];
-}
-
-function template_preprocess_background_changer_youtube_embed(&$vars) {
-  $vars['ratio_class'] = $vars['ratio'] ? 'embed-responsive-' . $vars['ratio'] : '';
+  $vars['#attached']['drupalSettings']['background_changer']['options'] = $options;
 }

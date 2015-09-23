@@ -47,8 +47,7 @@ use Drupal\user\UserInterface;
  *     "canonical" = "/admin/background_set/{background_set}",
  *     "edit-form" = "/admin/background_set/{background_set}/edit",
  *     "delete-form" = "/admin/background_set/{background_set}/delete"
- *   },
- *   field_ui_base_route = "background_set.settings"
+ *   }
  * )
  */
 class BackgroundSet extends ContentEntityBase implements BackgroundSetInterface {
@@ -183,7 +182,10 @@ class BackgroundSet extends ContentEntityBase implements BackgroundSetInterface 
       ->setDescription(t('Background images.'))
       ->setCardinality(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED)
       ->setDisplayConfigurable('form', TRUE)
-      ->setDisplayConfigurable('view', TRUE);
+      ->setDisplayConfigurable('view', TRUE)
+      ->setDisplayOptions('form', array(
+        'weight' => -5,
+      ));
 
     return $fields;
   }

@@ -1,9 +1,4 @@
 # Background set routing definition
-background_set.settings_tab:
-  route_name: background_set.settings
-  title: 'Settings'
-  base_route: background_set.settings
-
 entity.background_set.canonical:
   route_name: entity.background_set.canonical
   base_route: entity.background_set.canonical

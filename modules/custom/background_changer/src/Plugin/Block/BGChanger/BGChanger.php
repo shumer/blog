@@ -65,6 +65,12 @@ class BGChanger extends BlockBase {
       '#default_value' => $config['options']['slide_interval'] ?: '8000',
       '#title' => t('Slide interval'),
     ];
+    $form['options']['element_id'] = [
+      '#type' => 'textfield',
+      '#default_value' => $config['options']['element_id'] ?: 'thumbs',
+      '#title' => t('Element id'),
+    ];
+
     $form['bg_set'] = [
       '#type' => 'select',
       '#default_value' => $config['bg_set'] ?: '',

@@ -38,11 +38,3 @@ entity.background_set.delete_form:
     _title: 'Delete Background set'
   requirements:
     _permission: 'delete background set entities'
-
-background_set.settings:
-  path: 'admin/structure/background_set'
-  defaults:
-   _form: '\Drupal\background_changer\Entity\Form\BackgroundSetSettingsForm'
-   _title: 'Background set settings'
-  requirements:
-    _permission: 'administer background set entities'
