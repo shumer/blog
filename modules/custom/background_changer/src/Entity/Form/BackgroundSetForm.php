@@ -2,10 +2,10 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\Entity\Form\BackgroundSetForm.
+ * Contains Drupal\background_changer\Entity\Form\BackgroundSetForm.
  */
 
-namespace Drupal\bsb_core\Entity\Form;
+namespace Drupal\background_changer\Entity\Form;
 
 use Drupal\Core\Entity\ContentEntityForm;
 use Drupal\Core\Form\FormStateInterface;
@@ -14,14 +14,14 @@ use Drupal\Core\Language\Language;
 /**
  * Form controller for Background set edit forms.
  *
- * @ingroup bsb_core
+ * @ingroup background_changer
  */
 class BackgroundSetForm extends ContentEntityForm {
   /**
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    /* @var $entity \Drupal\bsb_core\Entity\BackgroundSet */
+    /* @var $entity \Drupal\background_changer\Entity\BackgroundSet */
     $form = parent::buildForm($form, $form_state);
     $entity = $this->entity;
 

@@ -2,10 +2,10 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\BackgroundSetListBuilder.
+ * Contains Drupal\background_changer\BackgroundSetListBuilder.
  */
 
-namespace Drupal\bsb_core;
+namespace Drupal\background_changer;
 
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityListBuilder;
@@ -14,7 +14,7 @@ use Drupal\Core\Url;
 /**
  * Defines a class to build a listing of Background set entities.
  *
- * @ingroup bsb_core
+ * @ingroup background_changer
  */
 class BackgroundSetListBuilder extends EntityListBuilder {
   /**
@@ -30,7 +30,7 @@ class BackgroundSetListBuilder extends EntityListBuilder {
    * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
-    /* @var $entity \Drupal\bsb_core\Entity\BackgroundSet */
+    /* @var $entity \Drupal\background_changer\Entity\BackgroundSet */
     $row['id'] = $entity->id();
     $row['name'] = \Drupal::l(
       $this->getLabel($entity),

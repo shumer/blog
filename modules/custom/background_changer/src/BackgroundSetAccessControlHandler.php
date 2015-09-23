@@ -2,10 +2,10 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\BackgroundSetAccessControlHandler.
+ * Contains Drupal\background_changer\BackgroundSetAccessControlHandler.
  */
 
-namespace Drupal\bsb_core;
+namespace Drupal\background_changer;
 
 use Drupal\Core\Entity\EntityAccessControlHandler;
 use Drupal\Core\Entity\EntityInterface;
@@ -15,7 +15,7 @@ use Drupal\Core\Access\AccessResult;
 /**
  * Access controller for the Background set entity.
  *
- * @see \Drupal\bsb_core\Entity\BackgroundSet.
+ * @see \Drupal\background_changer\Entity\BackgroundSet.
  */
 class BackgroundSetAccessControlHandler extends EntityAccessControlHandler {
   /**

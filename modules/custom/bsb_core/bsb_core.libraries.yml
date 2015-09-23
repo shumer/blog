@@ -1,7 +1,0 @@
-bg_changer:
-  version: VERSION
-  js:
-    js/bg_changer/jquery.superbgimage.min.js: {}
-    js/bg_changer/bsb_core.bg_changer.js: {}
-  dependencies:
-    - core/jquery

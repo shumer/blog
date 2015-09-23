@@ -1,0 +1,56 @@
+<?php
+
+/**
+ * @file
+ * Contains background_changer.module.
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function background_changer_theme() {
+  $theme = [];
+
+  $theme['background_changer_block'] = [
+    'path' => drupal_get_path('module', 'background_changer') . '/templates',
+    'theme_hook_suggestions' => ['background_changer_block'],
+    'variables' => ['images' => '', 'options' => ''],
+  ];
+
+  return $theme;
+}
+
+/**
+ * Template preprocess for background_changer_block.
+ */
+function template_preprocess_background_changer_block(&$vars) {
+
+  $urls = [];
+
+  $id = $vars['images'];
+  $node_storage = \Drupal::entityManager()->getStorage('background_set');
+  $set = $node_storage->load($id);
+
+  $files = $set->get('images')->getValue();
+
+  foreach ($files as $file) {
+    $urls[] = \Drupal\file\Entity\File::load($file['target_id'])->url();
+  }
+
+  foreach ($urls as $url) {
+    $url = \Drupal\Core\Url::fromUri($url);
+    $links[] = Drupal::l('', $url);
+  }
+
+  $vars['links'] = [
+    '#type' => 'markup',
+    '#markup' => implode('', $links),
+  ];
+
+  $vars['#attached']['library'][] = 'background_changer/background_changer';
+  $vars['#attached']['drupalSettings']['background_changer']['options'] = $vars['options'];
+}
+
+function template_preprocess_background_changer_youtube_embed(&$vars) {
+  $vars['ratio_class'] = $vars['ratio'] ? 'embed-responsive-' . $vars['ratio'] : '';
+}

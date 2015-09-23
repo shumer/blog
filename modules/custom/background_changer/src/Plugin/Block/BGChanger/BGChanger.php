@@ -1,9 +1,9 @@
 <?php
 /**
  * @file
- * Contains  Drupal\bsb_core\Plugin\Block\BGChanger\BGChanger
+ * Contains  Drupal\background_changer\Plugin\Block\BGChanger\BGChanger
  */
-namespace Drupal\bsb_core\Plugin\Block\BGChanger;
+namespace Drupal\background_changer\Plugin\Block\BGChanger;
 
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -24,14 +24,14 @@ class BGChanger extends BlockBase {
    */
   public function build() {
     $config = $this->getConfiguration();
-kpr($config);
+
     $options = $config['options'];
     $bg_set = $config['bg_set'];
 
     return array(
       '#options' => $options,
       '#images' => $bg_set,
-      '#theme' => 'bsb_core_bg_changer',
+      '#theme' => 'background_changer_block',
     );
   }
 

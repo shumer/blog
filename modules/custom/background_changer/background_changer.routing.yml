@@ -1,0 +1,48 @@
+# BackgroundSet routing definition
+entity.background_set.canonical:
+  path: '/admin/background_set/{background_set}'
+  defaults:
+    _entity_view: 'background_set'
+    _title: 'Background set'
+  requirements:
+    _entity_access: 'background_set.view'
+
+entity.background_set.collection:
+  path: '/admin/content/background_set'
+  defaults:
+    _entity_list: 'background_set'
+    _title: 'Background set list'
+  requirements:
+    _permission: 'view background set entities'
+
+entity.background_set.add_form:
+  path: '/admin/background_set/add'
+  defaults:
+    _entity_form: background_set.add
+    _title: 'Add Background set'
+  requirements:
+    _permission: 'add background set entities'
+
+entity.background_set.edit_form:
+  path: '/admin/background_set/{background_set}/edit'
+  defaults:
+    _entity_form: background_set.edit
+    _title: 'Edit Background set'
+  requirements:
+    _permission: 'edit background set entities'
+
+entity.background_set.delete_form:
+  path: '/admin/background_set/{background_set}/delete'
+  defaults:
+    _entity_form: background_set.delete
+    _title: 'Delete Background set'
+  requirements:
+    _permission: 'delete background set entities'
+
+background_set.settings:
+  path: 'admin/structure/background_set'
+  defaults:
+   _form: '\Drupal\background_changer\Entity\Form\BackgroundSetSettingsForm'
+   _title: 'Background set settings'
+  requirements:
+    _permission: 'administer background set entities'

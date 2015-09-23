@@ -2,10 +2,10 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\Entity\Form\BackgroundSetSettingsForm.
+ * Contains Drupal\background_changer\Entity\Form\BackgroundSetSettingsForm.
  */
 
-namespace Drupal\bsb_core\Entity\Form;
+namespace Drupal\background_changer\Entity\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -13,9 +13,9 @@ use Drupal\Core\Form\FormStateInterface;
 /**
  * Class BackgroundSetSettingsForm.
  *
- * @package Drupal\bsb_core\Form
+ * @package Drupal\background_changer\Form
  *
- * @ingroup bsb_core
+ * @ingroup background_changer
  */
 class BackgroundSetSettingsForm extends FormBase {
   /**

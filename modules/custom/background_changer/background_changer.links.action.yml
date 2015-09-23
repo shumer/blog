@@ -4,4 +4,3 @@ entity.background_set.add_form:
   appears_on:
     - entity.background_set.collection
     - entity.background_set.canonical
-

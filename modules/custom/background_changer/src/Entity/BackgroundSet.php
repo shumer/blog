@@ -2,39 +2,39 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\Entity\BackgroundSet.
+ * Contains Drupal\background_changer\Entity\BackgroundSet.
  */
 
-namespace Drupal\bsb_core\Entity;
+namespace Drupal\background_changer\Entity;
 
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityTypeInterface;
-use Drupal\bsb_core\BackgroundSetInterface;
+use Drupal\background_changer\BackgroundSetInterface;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\user\UserInterface;
 
 /**
  * Defines the Background set entity.
  *
- * @ingroup bsb_core
+ * @ingroup background_changer
  *
  * @ContentEntityType(
  *   id = "background_set",
  *   label = @Translation("Background set"),
  *   handlers = {
  *     "view_builder" = "Drupal\Core\Entity\EntityViewBuilder",
- *     "list_builder" = "Drupal\bsb_core\BackgroundSetListBuilder",
- *     "views_data" = "Drupal\bsb_core\Entity\BackgroundSetViewsData",
+ *     "list_builder" = "Drupal\background_changer\BackgroundSetListBuilder",
+ *     "views_data" = "Drupal\background_changer\Entity\BackgroundSetViewsData",
  *
  *     "form" = {
- *       "default" = "Drupal\bsb_core\Entity\Form\BackgroundSetForm",
- *       "add" = "Drupal\bsb_core\Entity\Form\BackgroundSetForm",
- *       "edit" = "Drupal\bsb_core\Entity\Form\BackgroundSetForm",
- *       "delete" = "Drupal\bsb_core\Entity\Form\BackgroundSetDeleteForm",
+ *       "default" = "Drupal\background_changer\Entity\Form\BackgroundSetForm",
+ *       "add" = "Drupal\background_changer\Entity\Form\BackgroundSetForm",
+ *       "edit" = "Drupal\background_changer\Entity\Form\BackgroundSetForm",
+ *       "delete" = "Drupal\background_changer\Entity\Form\BackgroundSetDeleteForm",
  *     },
- *     "access" = "Drupal\bsb_core\BackgroundSetAccessControlHandler",
+ *     "access" = "Drupal\background_changer\BackgroundSetAccessControlHandler",
  *   },
  *   base_table = "background_set",
  *   admin_permission = "administer BackgroundSet entity",

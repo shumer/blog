@@ -2,10 +2,10 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\Entity\Form\BackgroundSetDeleteForm.
+ * Contains Drupal\background_changer\Entity\Form\BackgroundSetDeleteForm.
  */
 
-namespace Drupal\bsb_core\Entity\Form;
+namespace Drupal\background_changer\Entity\Form;
 
 use Drupal\Core\Entity\ContentEntityConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -14,7 +14,7 @@ use Drupal\Core\Url;
 /**
  * Provides a form for deleting Background set entities.
  *
- * @ingroup bsb_core
+ * @ingroup background_changer
  */
 class BackgroundSetDeleteForm extends ContentEntityConfirmFormBase {
   /**

@@ -1,0 +1,5 @@
+name: Background changer
+type: module
+description: Provide backgrounds rotator.
+core: 8.x
+package: Dart

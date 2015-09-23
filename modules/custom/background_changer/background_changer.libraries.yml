@@ -1,0 +1,7 @@
+background_changer:
+  version: VERSION
+  js:
+    js/background_changer/jquery.superbgimage.min.js: {}
+    js/background_changer/background_changer.init.js: {}
+  dependencies:
+    - core/jquery

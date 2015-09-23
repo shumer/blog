@@ -2,10 +2,10 @@
 
 /**
  * @file
- * Contains Drupal\bsb_core\Entity\BackgroundSet.
+ * Contains Drupal\background_changer\Entity\BackgroundSet.
  */
 
-namespace Drupal\bsb_core\Entity;
+namespace Drupal\background_changer\Entity;
 
 use Drupal\views\EntityViewsData;
 use Drupal\views\EntityViewsDataInterface;
