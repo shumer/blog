@@ -40,6 +40,9 @@ class ConfigPagesRoutes {
         ],
         [
           '_permission'  => 'edit config_pages entity',
+        ],
+        [
+          '_admin_route' => TRUE,
         ]
       );
     }
