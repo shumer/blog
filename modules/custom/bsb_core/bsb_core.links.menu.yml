@@ -1,0 +1,12 @@
+# Background set menu items definition
+entity.background_set.collection:
+  title: 'Background set list'
+  route_name: entity.background_set.collection
+  description: 'List Background set entities'
+
+background_set.admin.structure.settings:
+  title: Background set settings
+  description: 'Configure Background set entities'
+  route_name: background_set.settings
+  parent: system.admin_structure
+
