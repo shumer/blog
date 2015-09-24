@@ -25,12 +25,33 @@ class BGChanger extends BlockBase {
   public function build() {
     $config = $this->getConfiguration();
 
+    $id = $config['bg_set'];
+    $cid = 'background_changer:' . $id;
+
+    // Check if we have this set in cache.
+    if ($cache = \Drupal::cache()->get($cid)) {
+      $links = $cache->data;
+    }
+    else {
+      $node_storage = \Drupal::entityManager()->getStorage('background_set');
+      $set = $node_storage->load($id);
+      $files = $set->get('images');
+
+      foreach ($files as $file) {
+        $urls[] = $file->entity->url();
+      }
+      foreach ($urls as $url) {
+        $url = \Drupal\Core\Url::fromUri($url);
+        $links[] = \Drupal::l('', $url);
+      }
+      \Drupal::cache()->set($cid, $links);
+    }
+
     $options = $config['options'];
-    $bg_set = $config['bg_set'];
 
     return array(
       '#options' => $options,
-      '#images' => $bg_set,
+      '#images' => $links,
       '#theme' => 'background_changer_block',
     );
   }

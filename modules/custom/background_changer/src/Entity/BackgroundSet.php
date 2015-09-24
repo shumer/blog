@@ -190,4 +190,14 @@ class BackgroundSet extends ContentEntityBase implements BackgroundSetInterface 
     return $fields;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function preSave(EntityStorageInterface $storage) {
+    parent::preSave($storage);
+
+    // Clear cache for this set.
+    $cid = 'background_changer:' . $this->id();
+    \Drupal::cache()->delete($cid);
+  }
 }
