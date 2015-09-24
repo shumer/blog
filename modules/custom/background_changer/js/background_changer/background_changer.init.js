@@ -29,7 +29,7 @@ $=jQuery;
           slideshow: 1, // 0-none, 1-autostart slideshow
           slide_interval: settings.slide_interval || 8000, // interval for the slideshow
           randomimage: 1, // 0-none, 1-random image
-          speed: 'slow', // animation speed
+          speed: 'slow' // animation speed
         };
 
         // initialize SuperBGImage

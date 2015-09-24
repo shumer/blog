@@ -181,8 +181,12 @@ class BackgroundSet extends ContentEntityBase implements BackgroundSetInterface 
       ->setLabel(t('Images'))
       ->setDescription(t('Background images.'))
       ->setCardinality(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED)
+      ->setSetting('alt_field_required', FALSE)
       ->setDisplayConfigurable('form', TRUE)
       ->setDisplayConfigurable('view', TRUE)
+      ->setDisplayOptions('view', array(
+        'weight' => -3,
+      ))
       ->setDisplayOptions('form', array(
         'weight' => -3,
       ));
