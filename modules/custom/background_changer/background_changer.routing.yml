@@ -8,7 +8,7 @@ entity.background_set.canonical:
     _entity_access: 'background_set.view'
 
 entity.background_set.collection:
-  path: '/admin/structure/background_set'
+  path: '/admin/content/background_set'
   defaults:
     _entity_list: 'background_set'
     _title: 'Background set list'

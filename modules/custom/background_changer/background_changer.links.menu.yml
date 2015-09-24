@@ -3,4 +3,4 @@ entity.background_set.collection:
   title: 'Background set list'
   route_name: entity.background_set.collection
   description: 'List Background set entities'
-  parent: system.admin_structure
+  parent: system.admin_content
