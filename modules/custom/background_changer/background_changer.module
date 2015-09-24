@@ -38,10 +38,10 @@ function template_preprocess_background_changer_block(&$vars) {
     : 'thumbs';
   $vars['element_id'] = $options['element_id'];
 
-  $files = $set->get('images')->getValue();
+  $files = $set->get('images');
 
   foreach ($files as $file) {
-    $urls[] = \Drupal\file\Entity\File::load($file['target_id'])->url();
+    $urls[] = $file->entity->url();
   }
 
   foreach ($urls as $url) {
