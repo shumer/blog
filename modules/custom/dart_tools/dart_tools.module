@@ -22,12 +22,21 @@ function dart_tools_help($route_name, RouteMatchInterface $route_match) {
     default:
   }
 }
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function dart_tools_form_image_style_add_form_alter(&$form, $form_state, $key) {
+  // Allow to have long image style names.
+  $form['name']['#maxlength']  = 255;
+  $form['label']['#maxlength'] = 255;
+}
 
 /**
- * Implements hook_theme().
+ * Implements hook_form_FORM_ID_alter().
  */
-function dart_tools_theme() {
-  $theme = [];
-
-  return $theme;
+function dart_tools_form_image_style_edit_form_alter(&$form, $form_state, $key) {
+  // Allow to have long image style names.
+  $form['name']['#maxlength'] = 255;
+  $form['label']['#maxlength'] = 255;
 }
+
