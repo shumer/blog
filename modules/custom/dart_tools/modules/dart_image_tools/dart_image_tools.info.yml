@@ -1,8 +1,0 @@
-name: Dart image tools
-type: module
-description: D8 image field tools. Provide custom field formatter with lazy load option.
-core: 8.x
-package: Dart
-dependencies:
-  - dart_tools
-
