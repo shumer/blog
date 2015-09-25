@@ -1,0 +1,33 @@
+<?php
+
+/**
+ * @file
+ * Contains dart_image_tools.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function dart_image_tools_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the dart_image_tools module.
+    case 'help.page.dart_image_tools':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('D8 image field tools. Provide custom field formatter with lazy load option.') . '</p>';
+      return $output;
+
+    default:
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function dart_image_tools_theme() {
+  $theme = [];
+
+  return $theme;
+}

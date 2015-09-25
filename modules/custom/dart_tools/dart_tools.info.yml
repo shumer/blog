@@ -1,0 +1,6 @@
+name: Dart tools
+type: module
+description: Drupal 8 usefull snippets and utils
+core: 8.x
+package: Dart
+

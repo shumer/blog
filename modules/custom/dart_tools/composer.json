@@ -1,0 +1,14 @@
+{
+  "name": "drupal/dart_tools",
+  "type": "drupal-module",
+  "description": "Drupal 8 usefull snippets and utils",
+  "keywords": ["Drupal"],
+  "license": "GPL-2.0+",
+  "homepage": "http://drupal.org/project/dart_tools",
+  "minimum-stability": "dev",
+  "support": {
+    "issues": "http://drupal.org/project/issues/dart_tools",
+    "source": "http://cgit.drupalcode.org/dart_tools"
+  },
+  "require": { }
+}
