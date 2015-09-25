@@ -7,6 +7,8 @@
 
 use Drupal\Core\Routing\RouteMatchInterface;
 
+module_load_include('inc', 'dart_tools');
+
 /**
  * Implements hook_help().
  */
