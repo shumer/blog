@@ -20,8 +20,6 @@ use Drupal\Core\Render\Element;
  *   - attributes: HTML attributes for the containing element.
  */
 function template_preprocess_background_set(array &$variables) {
-  // Fetch BackgroundSet Entity Object.
-  $background_set = $variables['elements']['#background_set'];
 
   // Helpful $content variable for templates.
   foreach (Element::children($variables['elements']) as $key) {

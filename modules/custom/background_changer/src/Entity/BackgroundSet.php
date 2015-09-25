@@ -205,4 +205,5 @@ class BackgroundSet extends ContentEntityBase implements BackgroundSetInterface 
     $cid = 'background_changer:' . $this->id();
     \Drupal::cache()->delete($cid);
   }
+
 }

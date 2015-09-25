@@ -1,21 +1,21 @@
 <?php
 /**
  * @file
- * Contains  Drupal\background_changer\Plugin\Block\BGChanger\BGChanger
+ * Contains Drupal\background_changer\Plugin\Block\BGChanger\BGChanger
  */
+
 namespace Drupal\background_changer\Plugin\Block\BGChanger;
 
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
- * Provides a comments Block
+ * Provides a comments Block.
  *
  * @Block(
  *   id = "bg_changer",
  *   admin_label = @Translation("Background changer"),
  * )
- *
  */
 class BGChanger extends BlockBase {
 
@@ -110,4 +110,5 @@ class BGChanger extends BlockBase {
     $this->setConfigurationValue('options', $form_state->getValue('options'));
     $this->setConfigurationValue('bg_set', $form_state->getValue('bg_set'));
   }
+
 }

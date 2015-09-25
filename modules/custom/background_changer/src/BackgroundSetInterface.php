@@ -17,6 +17,5 @@ use Drupal\user\EntityOwnerInterface;
  * @ingroup background_changer
  */
 interface BackgroundSetInterface extends ContentEntityInterface, EntityOwnerInterface {
-  // Add get/set methods for your configuration properties here.
 
 }
