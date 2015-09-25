@@ -1,0 +1,5 @@
+services:
+  draft_moderation.route_subscriber:
+    class: Drupal\draft_moderation\Routing\RouteSubscriber
+    tags:
+      - { name: event_subscriber }
