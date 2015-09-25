@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Contains Drupal\background_changer\Plugin\Block\BGChanger\BGChanger
+ * Contains Drupal\background_changer\Plugin\Block\BGChanger\BGChanger.
  */
 
 namespace Drupal\background_changer\Plugin\Block\BGChanger;
@@ -70,7 +70,7 @@ class BGChanger extends BlockBase {
     $ids = $query->execute();
     $node_storage = \Drupal::entityManager()->getStorage('background_set');
 
-    // Load a single node
+    // Load a single node.
     foreach ($ids as $id) {
       $set = $node_storage->load($id);
       $options[$id] = $set->get('name')->value;
