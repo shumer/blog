@@ -2,7 +2,7 @@
  * @file
  * Defines Javascript behaviors for the background_changer module.
  */
-$=jQuery;
+
 (function ($, drupalSettings) {
 
   /**
@@ -22,7 +22,7 @@ $=jQuery;
 
       $context.find('#' + element_id).once('bg-thumbs-scanned').each(function() {
 
-        // Options for SuperBGImage
+        // Options for SuperBGImage.
         $.fn.superbgimage.options = {
           randomtransition: 2,
           z_index: -1,
@@ -32,7 +32,7 @@ $=jQuery;
           speed: 'slow'
         };
 
-        // initialize SuperBGImage
+        // Initialize SuperBGImage.
         $('#' + element_id).superbgimage().hide();
 
       });
