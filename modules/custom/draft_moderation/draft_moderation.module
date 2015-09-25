@@ -22,3 +22,43 @@ function draft_moderation_help($route_name, RouteMatchInterface $route_match) {
     default:
   }
 }
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function draft_moderation_form_node_type_edit_form_alter(&$form, $form_state) {
+
+  $type = $form_state->getBuildInfo()['callback_object']->getEntity()->get('type');
+
+  $config = \Drupal::service('config.factory')->get("draft_moderation.$type");
+
+  $form['draft_moderation'] = array(
+    '#type' => 'details',
+    '#title' => t('Draft moderation'),
+    '#group' => 'additional_settings',
+    '#tree' => TRUE,
+  );
+  $form['draft_moderation']['status'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable draft moderation'),
+    '#default_value' => $config->get('status') ?: FALSE,
+    '#description' => t('Enable draft moderation for current content type.'),
+  );
+
+  $form['actions']['submit']['#submit'][] = 'draft_moderation_form_node_type_edit_form_submit';
+}
+
+/**
+ * Custom submit callback for node_type_edit_form.
+ */
+function draft_moderation_form_node_type_edit_form_submit(&$form, $form_state) {
+
+  $values = $form_state->getValues();
+  $type = $values['type'];
+
+  $config = \Drupal::service('config.factory')->getEditable("draft_moderation.$type");
+
+  $config->set('status', $values['draft_moderation']['status']);
+  $config->save();
+
+}
