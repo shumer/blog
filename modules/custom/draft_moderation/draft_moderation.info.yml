@@ -1,0 +1,6 @@
+name: Draft moderation
+type: module
+description: Draft moderation
+core: 8.x
+package: Other
+
